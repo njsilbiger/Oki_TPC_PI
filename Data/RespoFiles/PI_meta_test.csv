@@ -1,7 +1,7 @@
-﻿date ,start_time,stop_time,colony_number,site,sample_ID,SGD_dil,FileID_csv,light_dark,run_block,blank ,chamber_channel,Light_level
-6/10/2023,8:12,8:22,5,Cabral ,Cabral_Col5_Dil1_Light,1,Cabral_Day3_Col5_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,0,1,1
-6/10/2023,8:23,8:33,5,Cabral ,Cabral_Col5_Dil1_Light,1,Cabral_Day3_Col5_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,0,1,2
-6/10/2023,8:34,8:44,5,Cabral ,Cabral_Col5_Dil1_Light,1,Cabral_Day3_Col5_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,0,1,3
-6/10/2023,8:12,8:22,BLANK,Cabral ,Cabral_BlankD3_Dil1_Light,1,Cabral_Day3_Blank_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,1,1,1
-6/10/2023,8:23,8:33,BLANK,Cabral ,Cabral_BlankD3_Dil1_Light,1,Cabral_Day3_Blank_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,1,1,2
-6/10/2023,8:34,8:44,BLANK,Cabral ,Cabral_BlankD3_Dil1_Light,1,Cabral_Day3_Blank_Dil1_Light_06102023_O2.csv,LIGHT,RUN7,1,1,3
+﻿date ,start_time,stop_time,frag_ID,species,sample_ID,FileID_csv,light_dark,run_block,blank ,chamber_channel,Light_level,Light_value
+6/10/2023,8:12,8:22,A01,P. rus,A01_PI,A01_PI.csv,LIGHT,RUN7,0,1,1,0
+6/10/2023,8:23,8:33,A01,P. rus,A01_PI,A01_PI.csv,LIGHT,RUN7,0,1,2,150
+6/10/2023,8:34,8:44,A01,P. rus,A01_PI,A01_PI.csv,LIGHT,RUN7,0,1,3,250
+6/10/2023,8:12,8:22,BLANK,BLANK,Blank_Run1_PI,Blank_Run1_PI.csv,LIGHT,RUN7,1,1,1,0
+6/10/2023,8:23,8:33,BLANK,BLANK,Blank_Run1_PI,Blank_Run1_PI.csv,LIGHT,RUN7,1,1,2,150
+6/10/2023,8:34,8:44,BLANK,BLANK,Blank_Run1_PI,Blank_Run1_PI.csv,LIGHT,RUN7,1,1,3,250
