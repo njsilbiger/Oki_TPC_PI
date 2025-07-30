@@ -1,0 +1,3 @@
+﻿sample_ID,species,weight_g,volume_mL,SA_cm2,frag_ID
+A01_PI,P. rus,26.1804,15,91.21875,A01
+Blank_Run1_PI,BLANK,NA,0,0,BLANK
