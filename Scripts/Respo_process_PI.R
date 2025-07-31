@@ -101,7 +101,7 @@ RespoR <- tibble(.rows =length(filenames_final)*n_light_levels,
 ######### Create a for loop! ###############
 ############################################
 
-###forloop##### 
+###forloop#####
 for(i in 1:length(filenames_final)) {
   FRow <- as.numeric(which(Sample_Info$FileID_csv==filenames_final[i])) # stringsplit this renames our file
  
@@ -223,7 +223,7 @@ RespoR <- read_csv(here("Data","RespoFiles","Respo_R.csv"))
 RespoR2 <- RespoR %>%
   #drop_na(FileID_csv) %>% # drop NAs
   left_join(Sample_Info) %>% # Join the raw respo calculations with the metadata
-  mutate(Ch.Volume.mL = ch.vol-volume_mL) %>% # 
+  mutate(Ch.Volume.mL = volume_mL) %>% # 
   mutate(Ch.Volume.L = Ch.Volume.mL * 0.001) %>% # mL to L conversion
   mutate(umol.sec = umol.L.sec*Ch.Volume.L) %>% #Account for chamber volume to convert from umol L-1 s-1 to umol s-1. This standardizes across water volumes (different because of coral size) and removes per Liter
   mutate_if(sapply(., is.character), as.factor)  #convert character columns to factors
@@ -235,7 +235,7 @@ RespoR2 <- RespoR %>%
 ####### normalize the respo rates to the blanks ##### 
 
 RespoR_Normalized <- RespoR2 %>% 
-  filter(frag_ID == "BLANK") %>% # grab the blanks
+  filter(blank == 1) %>% # grab the blanks
   group_by(Light_level, run_block,light_dark) %>%
   #dplyr::select(blank.rate = umol.sec) %>% ## rename the blank column 
   summarise(blank.rate = mean(umol.sec, na.rm = TRUE)) %>% # if you have multiple blanks per run take the average
@@ -245,7 +245,7 @@ RespoR_Normalized <- RespoR2 %>%
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates   
          mmol.cm2.hr = 0.001*(umol.sec.corr*3600)/SA_cm2, # convert to mmol cm-2 hr-1
          mmol.cm2.hr_uncorr = 0.001*(umol.sec*3600)/SA_cm2) %>% 
-  filter(frag_ID!="BLANK") %>% # remove the Blank data
+  filter(blank!=1) %>% # remove the Blank data
   #ungroup() %>%
   dplyr::select(date, species, sample_ID, frag_ID, light_dark, run_block, SA_cm2, run_block, mmol.cm2.hr, chamber_channel, 
                 Temp.C, mmol.cm2.hr_uncorr, Light_level, Light_value, light_dark) #keep only what we need
@@ -254,7 +254,7 @@ RespoR_Normalized <- RespoR2 %>%
 #######################
 ### making a df for just blank data for future use in plots ### 
 Blank_only <- RespoR2 %>% 
-  filter(frag_ID == "BLANK") %>% # grab the blanks
+  filter(blank == 1) %>% # grab the blanks
   group_by(Light_level, Light_value, run_block,light_dark) %>%
   #dplyr::select(blank.rate = umol.sec) %>% ## rename the blank column 
   summarise(blank.rate = mean(umol.sec, na.rm = TRUE))
@@ -269,8 +269,11 @@ Blank_only %>%
   geom_point()
 
 #  basic plot of rates versus light before you make the real PI curve 
-RespoR_Normalized %>%
-  ggplot(aes(x = Light_value, y = mmol.cm2.hr, color = species))+
-  geom_point()
+basic_PI_plot <- RespoR_Normalized %>%
+  ggplot(aes(x = Light_value, y = mmol.cm2.hr, color = species, group = frag_ID))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~species, scales = "free")
+ggsave(here("Output","basic_PI_plot.pdf"), basic_PI_plot)
 
 ### run an nls model for PI curve and extract Ik for each species ###
