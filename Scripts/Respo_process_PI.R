@@ -44,7 +44,8 @@ library(furrr)
 
 #set the path to all of the raw oxygen datasheets
 ## these are saved onto the computer in whatever file path/naming scheme you saved things to 
-path.p<-here("Data","RespoFiles","RawO2") #the location of all your respirometry files
+path.p<-here("Data","RespoFiles","RawO2", "PI") #the location of all your respirometry files
+#you can change to individual run folders if needed
 
 # bring in all of the individual files
 filenames_final<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRUE)) #list all csv file names in the folder and subfolders
@@ -53,7 +54,7 @@ filenames_final<-basename(list.files(path = path.p, pattern = "csv$", recursive 
 file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE) 
 
 #empty chamber volume
-ch.vol <- 650 #mL #of small chambers 
+ch.vol <- 475 #mL #of small chambers 
 
 ######### Load and tidy files ###############
 ############################################
@@ -61,7 +62,7 @@ ch.vol <- 650 #mL #of small chambers
 #RespoMeta <- read_csv(here("Data","RespoFiles","Respo_Metadata_SGDDilutions_Cabral_Varari.csv"))
 BioData <- read_csv(here("Data","RespoFiles","Fragment_Measurements_PI.csv"))
 
-RespoMeta <- read_csv(here("Data","RespoFiles","PI_meta_test.csv"))
+RespoMeta <- read_csv(here("Data","RespoFiles","PI_meta.csv"))
 #View(BioData)
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
@@ -86,7 +87,7 @@ Sample_Info <- Sample_Info %>%
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
 
-n_light_levels<-3 # number of unique light levels
+n_light_levels<-8 # number of unique light levels
 
 RespoR <- tibble(.rows =length(filenames_final)*n_light_levels,
                  sample_ID = NA,
@@ -134,7 +135,7 @@ for(i in 1:length(filenames_final)) {
   combined_oxy <- bind_rows(oxy_subsets)
      
   # Get the filename without the .csv
-  rename<- sub(".csv","", filenames_final[i])
+  rename<- sub("_O2.csv","", filenames_final[i])
   
     ### plot and export the thinned data ####
   p1<- ggplot(combined_oxy, aes(x = sec, y = Value)) +
@@ -144,7 +145,7 @@ for(i in 1:length(filenames_final)) {
       y = expression(paste(' O'[2],' (',mu,'mol/L)')),
       title = "original"
     )+
-    facet_wrap(~Light_level)
+    facet_wrap(~Light_level, scales = "free_y")
   
   
   ##Olito et al. 2017: It is running a bootstrapping technique and calculating the rate based on density
@@ -222,7 +223,7 @@ RespoR <- read_csv(here("Data","RespoFiles","Respo_R.csv"))
 RespoR2 <- RespoR %>%
   #drop_na(FileID_csv) %>% # drop NAs
   left_join(Sample_Info) %>% # Join the raw respo calculations with the metadata
-  mutate(Ch.Volume.mL = 650-volume_mL) %>% # 
+  mutate(Ch.Volume.mL = ch.vol-volume_mL) %>% # 
   mutate(Ch.Volume.L = Ch.Volume.mL * 0.001) %>% # mL to L conversion
   mutate(umol.sec = umol.L.sec*Ch.Volume.L) %>% #Account for chamber volume to convert from umol L-1 s-1 to umol s-1. This standardizes across water volumes (different because of coral size) and removes per Liter
   mutate_if(sapply(., is.character), as.factor)  #convert character columns to factors
