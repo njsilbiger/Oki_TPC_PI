@@ -44,7 +44,7 @@ library(furrr)
 
 #set the path to all of the raw oxygen datasheets
 ## these are saved onto the computer in whatever file path/naming scheme you saved things to 
-path.p<-here("Data","RespoFiles","RawO2", "PI") #the location of all your respirometry files
+path.p<-here("Data","RespoFiles","PI","RawO2") #the location of all your respirometry files
 #you can change to individual run folders if needed
 
 # bring in all of the individual files
@@ -60,9 +60,9 @@ ch.vol <- 475 #mL #of small chambers
 ############################################
 #Load your respiration data file, with all the times, water volumes(mL), #not doing dry weight just SA
 #RespoMeta <- read_csv(here("Data","RespoFiles","Respo_Metadata_SGDDilutions_Cabral_Varari.csv"))
-BioData <- read_csv(here("Data","RespoFiles","Fragment_Measurements_PI.csv"))
+BioData <- read_csv(here("Data","RespoFiles","PI","Fragment_Measurements_PI.csv"))
 
-RespoMeta <- read_csv(here("Data","RespoFiles","PI_meta.csv"))
+RespoMeta <- read_csv(here("Data","RespoFiles","PI","PI_meta.csv"))
 #View(BioData)
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
@@ -179,7 +179,7 @@ for(i in 1:length(filenames_final)) {
  #  Plot regression diagnostics
  
   for(j in 1:length(df$Light_level)){
-   pdf(paste0(here("Output"),"/",rename,"_",j,".pdf" ))
+   pdf(paste0(here("Output","PI"),"/",rename,"_",j,".pdf" ))
     plot(df$regs[[j]])
     dev.off() 
   }
@@ -211,11 +211,11 @@ for(i in 1:length(filenames_final)) {
 
 #export raw data and read back in as a failsafe 
 #this allows me to not have to run the for loop again !!!!!
-write_csv(RespoR, here("Data","RespoFiles","Respo_R.csv"))  
+write_csv(RespoR, here("Data","RespoFiles","PI","Respo_R.csv"))  
 
 ##### 
 
-RespoR <- read_csv(here("Data","RespoFiles","Respo_R.csv"))
+RespoR <- read_csv(here("Data","RespoFiles","PI","Respo_R.csv"))
 
 ######### Calculate Respiration rate ###############
 ############################################
@@ -260,7 +260,7 @@ Blank_only <- RespoR2 %>%
   summarise(blank.rate = mean(umol.sec, na.rm = TRUE))
 
 #############################
-write_csv(RespoR_Normalized , here("Data","RespoFiles","Respo_RNormalized_AllPIRates.csv"))  
+write_csv(RespoR_Normalized , here("Data","RespoFiles","PI","Respo_RNormalized_AllPIRates.csv"))  
 
 
 ## Plot the blanks across treatments to make sure nothing is funky
@@ -274,6 +274,6 @@ basic_PI_plot <- RespoR_Normalized %>%
   geom_point()+
   geom_line()+
   facet_wrap(~species, scales = "free")
-ggsave(here("Output","basic_PI_plot.pdf"), basic_PI_plot)
+ggsave(here("Output","PI","basic_PI_plot.pdf"), basic_PI_plot)
 
 ### run an nls model for PI curve and extract Ik for each species ###

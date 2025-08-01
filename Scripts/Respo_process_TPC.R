@@ -44,7 +44,7 @@ library(furrr)
 
 #set the path to all of the raw oxygen datasheets
 ## these are saved onto the computer in whatever file path/naming scheme you saved things to 
-path.p<-here("Data","RespoFiles","RawO2", "TPC") #the location of all your respirometry files
+path.p<-here("Data","RespoFiles","TPC","RawO2") #the location of all your respirometry files
 #you can change to individual run folders if needed
 
 # bring in all of the individual files
@@ -60,9 +60,9 @@ ch.vol <- 475 #mL #of small chambers
 ############################################
 #Load your respiration data file, with all the times, water volumes(mL), #not doing dry weight just SA
 #RespoMeta <- read_csv(here("Data","RespoFiles","Respo_Metadata_SGDDilutions_Cabral_Varari.csv"))
-BioData <- read_csv(here("Data","RespoFiles","Fragment_Measurements_TPC.csv"))
+BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
 
-RespoMeta <- read_csv(here("Data","RespoFiles","TPC_meta_test.csv"))
+RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta_test.csv"))
 #View(BioData)
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
@@ -179,7 +179,7 @@ for(i in 1:length(filenames_final)) {
   #  Plot regression diagnostics
   
   for(j in 1:length(df$temp_c_level)){
-    pdf(paste0(here("Output"),"/",rename,"_",j,".pdf" ))
+    pdf(paste0(here("Output","TPC"),"/",rename,"_",j,".pdf" ))
     plot(df$regs[[j]])
     dev.off() 
   }
@@ -211,11 +211,11 @@ for(i in 1:length(filenames_final)) {
 
 #export raw data and read back in as a failsafe 
 #this allows me to not have to run the for loop again !!!!!
-write_csv(RespoR, here("Data","RespoFiles","Respo_R_TPC.csv"))  
+write_csv(RespoR, here("Data","RespoFiles","TPC","Respo_R.csv"))  
 
 ##### 
 
-RespoR <- read_csv(here("Data","RespoFiles","Respo_R_TPC.csv"))
+RespoR <- read_csv(here("Data","RespoFiles","TPC","Respo_R.csv"))
 
 ######### Calculate Respiration rate ###############
 ############################################
@@ -260,7 +260,7 @@ Blank_only <- RespoR2 %>%
   summarise(blank.rate = mean(umol.sec, na.rm = TRUE))
 
 #############################
-write_csv(RespoR_Normalized , here("Data","RespoFiles","Respo_RNormalized_AllTPCRates.csv"))  
+write_csv(RespoR_Normalized , here("Data","RespoFiles","TPC","Respo_RNormalized_AllTPCRates.csv"))  
 
 
 ## Plot the blanks across treatments to make sure nothing is funky
