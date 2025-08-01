@@ -62,7 +62,7 @@ ch.vol <- 475 #mL #of small chambers
 #RespoMeta <- read_csv(here("Data","RespoFiles","Respo_Metadata_SGDDilutions_Cabral_Varari.csv"))
 BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
 
-RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta_test.csv"))
+RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta.csv"))
 #View(BioData)
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
@@ -87,16 +87,17 @@ Sample_Info <- Sample_Info %>%
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
 
-n_temp_levels<-8 # number of unique light levels
+n_temp_levels<-9 # number of unique light levels
 
-RespoR <- tibble(.rows =length(filenames_final)*n_temp_levels,
+RespoR <- tibble(.rows =length(filenames_final)*n_temp_levels*2, # temp * 2 for light and dark runs
                  sample_ID = NA,
                  Intercept = NA,
                  umol.L.sec = NA,
                  Temp.C = NA,
                  temp_c_level = NA,
                  temp_c_value = NA,
-                 run_block = NA)
+                 run_block = NA,
+                 light_dark = NA)
 
 ######### Create a for loop! ###############
 ############################################
@@ -116,11 +117,12 @@ for(i in 1:length(filenames_final)) {
   #Use start time of each light step from the metadata to separate data by light stop
   
   oxy_subsets <- Sample_Info[FRow,] %>%
-    pmap(function(temp_c_level, start_time, stop_time, ...) {
+    pmap(function(temp_c_value, light_dark, start_time, stop_time, ...) {
       data <- Respo.Data1  %>%
         filter(Time >= start_time & Time <= stop_time) %>%
         mutate(sec = row_number()) %>%# add an id for each row to help remove the first few mins
-        mutate(temp_c_level = temp_c_level,
+        mutate(light_dark = light_dark,
+               temp_c_value = temp_c_value,
                sec = sec) %>%
         filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 2 Hz
         mutate(row_number = row_number()) %>%
@@ -139,13 +141,13 @@ for(i in 1:length(filenames_final)) {
   
   ### plot and export the thinned data ####
   p1<- ggplot(combined_oxy, aes(x = sec, y = Value)) +
-    geom_point(color = "dodgerblue") +
+    geom_point(aes(color = light_dark)) +
     labs(
       x = 'Time (seconds)',
       y = expression(paste(' O'[2],' (',mu,'mol/L)')),
       title = "original"
     )+
-    facet_wrap(~temp_c_level, scales = "free_y")
+    facet_wrap(~temp_c_value, scales = "free_y")
   
   
   ##Olito et al. 2017: It is running a bootstrapping technique and calculating the rate based on density
@@ -162,9 +164,9 @@ for(i in 1:length(filenames_final)) {
   
   # Map LoLinR function onto all intervals of each sample's thinned dataset
   df <- combined_oxy %>%
-    select(sec2, Value, temp_c_level, Temp)%>%
+    select(sec2, Value, temp_c_value, Temp, light_dark)%>%
     mutate(sec2 = as.numeric(sec2))%>%
-    nest_by(temp_c_level) %>%
+    nest_by(temp_c_value, light_dark) %>%
     ungroup()%>%
     mutate(regs = furrr::future_map(data, fit_reg), # run the LOLinR fit in parallel
            Temp.C = map_dbl(map(data, "Temp"), mean),# get the mean temperature
@@ -177,8 +179,10 @@ for(i in 1:length(filenames_final)) {
   
   
   #  Plot regression diagnostics
+  df <- df %>% 
+    mutate(temp_light = paste(temp_c_value,light_dark))
   
-  for(j in 1:length(df$temp_c_level)){
+  for(j in 1:length(df$temp_light)){
     pdf(paste0(here("Output","TPC"),"/",rename,"_",j,".pdf" ))
     plot(df$regs[[j]])
     dev.off() 
@@ -186,16 +190,17 @@ for(i in 1:length(filenames_final)) {
   
   
   df<-df %>%
-    select(temp_c_level,Temp.C, RegStats ) %>%
+    select(temp_c_value,Temp.C,light_dark,RegStats ) %>%
     unnest(RegStats) %>%
     mutate(sample_ID = rename) %>%
     left_join(Sample_Info[FRow,] %>%
-                select(sample_ID, temp_c_level, temp_c_value, run_block)) # make sure the light value (or whatever other metadata you want) is in the final DF
+                select(sample_ID, temp_c_level, temp_c_value, run_block, light_dark))  # make sure the light value (or whatever other metadata you want) is in the final DF
   
   ################################
   # fill in all the O2 consumption and rate data
   
   RespoR[FRow,"Temp.C"]<-df$Temp.C
+  RespoR[FRow, "light_dark"]<-df$light_dark
   RespoR[FRow,"sample_ID"]<-df$sample_ID
   RespoR[FRow,"Intercept"]<-df$Intercept
   RespoR[FRow,"umol.L.sec"]<-df$umol.L.sec
@@ -236,7 +241,7 @@ RespoR2 <- RespoR %>%
 
 RespoR_Normalized <- RespoR2 %>% 
   filter(blank == 1) %>% # grab the blanks
-  group_by(temp_c_level, run_block,light_dark) %>%
+  group_by(temp_c_value, run_block,light_dark) %>%
   #dplyr::select(blank.rate = umol.sec) %>% ## rename the blank column 
   summarise(blank.rate = mean(umol.sec, na.rm = TRUE)) %>% # if you have multiple blanks per run take the average
   ungroup() %>% 
@@ -249,6 +254,32 @@ RespoR_Normalized <- RespoR2 %>%
   #ungroup() %>%
   dplyr::select(date, species, sample_ID, frag_ID, light_dark, run_block, SA_cm2, run_block, mmol.cm2.hr, chamber_channel, 
                 Temp.C, mmol.cm2.hr_uncorr, temp_c_level, temp_c_value) #keep only what we need
+
+RespoR_PR <- RespoR_Normalized %>%
+  select(-mmol.cm2.hr_uncorr, -Temp.C) %>% # remove to pivot
+  pivot_wider(names_from = light_dark, values_from = mmol.cm2.hr) %>% 
+  rename(Respiration = DARK , NetPhoto = LIGHT) %>% # rename the columns
+  mutate(Respiration = -1 * Respiration) %>%  # Make respiration positive
+  mutate(GrossPhoto = Respiration + NetPhoto) %>% 
+  pivot_longer(cols = Respiration:GrossPhoto, names_to = "PR", values_to = "Values")
+
+
+write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
+
+#dev.off() # may need if plot doesn't run?
+PR_plot <- RespoR_PR %>% 
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~PR) +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "bold"))
+
+# go back and delete from raw data the weird noisy data drops from O2 probes 1:4
+
+ggsave(here("Output", "TPC", "PR_boxplots.pdf"),
+       device = "pdf", height = 8, width = 8, PR_plot)
 
 
 #######################
@@ -268,9 +299,11 @@ Blank_only %>%
   ggplot(aes(x = temp_c_value, blank.rate)) +
   geom_point()
 
-#  basic plot of rates versus light before you make the real PI curve 
+#  basic plot of rates versus temp before you make the real TPC curve
+
 RespoR_Normalized %>%
   ggplot(aes(x = temp_c_value, y = mmol.cm2.hr, color = species))+
-  geom_point()
+  geom_point() +
+  facet_wrap(~light_dark)
 
 ### run an nls model for PI curve and extract Ik for each species ###
