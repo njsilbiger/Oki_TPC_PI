@@ -271,7 +271,7 @@ PR_plot <- RespoR_PR %>%
   ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species)) +
   geom_point() +
   geom_line() +
-  facet_wrap(~PR) +
+  facet_wrap(~PR*species, scales = "free") +
   theme_bw() +
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
@@ -306,4 +306,11 @@ RespoR_Normalized %>%
   geom_point() +
   facet_wrap(~light_dark)
 
-### run an nls model for PI curve and extract Ik for each species ###
+### run an nls model for TPC curves for each species ###
+
+# sharpeschoolhigh_1981
+# https://padpadpadpad.github.io/rTPC/articles/rTPC.html
+
+# first run Topt by species, then if not working, do it by FragID
+# is I get an error, starting values are off, so play around with starting values that would make sense
+
