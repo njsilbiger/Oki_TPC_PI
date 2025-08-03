@@ -306,11 +306,100 @@ RespoR_Normalized %>%
   geom_point() +
   facet_wrap(~light_dark)
 
+##########################################################
 ### run an nls model for TPC curves for each species ###
+
 
 # sharpeschoolhigh_1981
 # https://padpadpadpad.github.io/rTPC/articles/rTPC.html
 
 # first run Topt by species, then if not working, do it by FragID
 # is I get an error, starting values are off, so play around with starting values that would make sense
+
+# load packages
+library(rTPC)
+library(nls.multstart)
+library(broom)
+library(tidyverse)
+library(here)
+
+# read in data
+df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
+
+# use GP and filter by species
+df_gp <- df %>% 
+  filter(PR == "GrossPhoto")
+df_gp_sp <- df_gp %>% 
+  filter(species == "Peyd")
+
+# choose model
+mod = 'sharpschoolhigh_1981'
+
+topt_df <- tibble(rmax = as.numeric(),
+                  topt = as.numeric(),
+                  ctmin = as.numeric(),
+                  ctmax = as.numeric(),
+                  e = as.numeric(),
+                  eh = as.numeric(),
+                  q10 = as.numeric(),
+                  thermal_safety_margin = as.numeric(),
+                  thermal_tolerance = as.numeric(),
+                  breadth = as.numeric(),
+                  skewness = as.numeric(),
+                  sp = as.character())
+
+for(i in unique(df_gp$species)){
+  sp = i
+  my_df <- df_gp %>%
+    filter(species == sp)
+  
+  # get start vals
+  start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  
+  # get limits
+  low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  
+  # fit model
+  fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
+                       data = my_df,
+                       iter = 500,
+                       start_lower = start_vals - 10,
+                       start_upper = start_vals + 10,
+                       lower = low_lims,
+                       upper = upper_lims,
+                       supp_errors = 'Y')
+  
+  fit
+  
+  # calculate additional traits
+  topt_params <- calc_params(fit) %>%
+    # round for easy viewing
+    mutate_all(round, 2) %>% 
+    mutate(species = sp)
+  
+  topt_df <- topt_df %>%
+    rbind(topt_params)
+}
+
+topt_df %>% 
+  relocate(species, .before = rmax) %>% 
+  arrange(topt)
+
+pred_df <- df_gp_sp %>% # attempt to get preds on one run*species at a time
+  filter(run_block == "RUN2")
+
+# predict new data (this is where it breaks for DMB)
+new_data <- data.frame(temp = seq(min(pred_df$temp_c_value), max(pred_df$temp_c_value), 0.5))
+preds <- augment(fit, newdata = new_data)
+
+# plot data and model fit
+ggplot(df_gp_sp, aes(temp_c_value, Values)) +
+  geom_point() +
+  geom_line(aes(temp_c_value, .fitted), preds, col = 'blue') +
+  theme_bw(base_size = 12) +
+  labs(x = 'Temperature (ºC)',
+       y = 'Metabolic rate',
+       title = 'Respiration across temperatures')
+
 
