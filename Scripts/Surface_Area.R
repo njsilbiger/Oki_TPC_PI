@@ -11,10 +11,9 @@ library(here)
 SA_standard <- read_csv(here("Data", "SA_standards.csv"))
 SA_frag <- read_csv(here("Data", "SA_fragments.csv"))
 
+###Calculate standards wax weight
+SA_standard$Wax_weight <- SA_standard$weight_wWax - SA_standard$weight
 
-#############################
-### CREATE PLOT
-#############################
 model<-lm(data = SA_standard, waxweight_g ~ SA_cm2)
 eq <- function(model){
   coefs <- coef(model)
