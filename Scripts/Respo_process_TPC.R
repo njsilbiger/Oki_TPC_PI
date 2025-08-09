@@ -67,8 +67,16 @@ RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta.csv"))
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
 
+# species names
+sp_names <- read_csv(here("Data", "species_names.csv"))
 
 # join the data together
+BioData <- BioData %>% 
+  full_join(sp_names) %>% 
+  select(-full_species, -species_ID)
+RespoMeta <- RespoMeta %>% 
+  select(-notes)
+
 Sample_Info <- left_join(RespoMeta, BioData)
 #View(Sample.Info)
 
