@@ -14,7 +14,7 @@ SA_frag <- read_csv(here("Data", "SA_fragments.csv"))
 ###Calculate standards wax weight
 SA_standard$Wax_weight <- SA_standard$weight_wWax - SA_standard$weight
 
-model<-lm(data = SA_standard, waxweight_g ~ SA_cm2)
+model<-lm(data = SA_standard, Wax_weight ~ SA_cm2)
 eq <- function(model){
   coefs <- coef(model)
   r2 <- summary(model)$r.squared
@@ -22,13 +22,13 @@ eq <- function(model){
          "R² = ", round(r2, 3))
 }
 wax.plot <- SA_standard%>% 
-  ggplot(aes(x = SA_cm2, y = waxweight_g)) +
+  ggplot(aes(x = SA_cm2, y = Wax_weight)) +
   geom_point() +
   geom_smooth(method = "lm") +
   theme_bw() +
   labs(x = expression("Dowel surface area (cm"^2*")"),
        y = "Wax weight (g)") +
-  annotate("text",x = 5, y = max(waxSA$waxweight_g), label = eq(model), hjust = 0)
+  annotate("text",x = 5, y = max(SA_standard$Wax_weight), label = eq(model), hjust = 0)
 wax.plot
 
 ###Calculate wax weight
