@@ -8,7 +8,6 @@
 library(tidyverse)
 library(here)
 library(dplyr)
-library(emmeans)
 
 #read in metadata
 phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta.csv"))
@@ -77,8 +76,3 @@ summary(DW.mod.spp)
 DW.mod.gro <- lm(dw_mg_cm2~growth_form, data = avg_DW)
 anova(DW.mod.gro)
 summary(DW.mod.gro)
-
-##################
-## Dry weight
-###################
-
