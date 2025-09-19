@@ -2,11 +2,7 @@
 
 library(tidyverse)
 library(here)
-library(tidyr)
-library(dplyr)
-library(lubridate)
 library(climaemet)
-library(readr)
 
 #### Load Data ###
 
@@ -15,34 +11,60 @@ view(Tilt1Data)
 
 ### Using Lubridate to set DateTime Column"
 
-Tilt1Data$DateTime <- ymd_hms(Tilt1Data$DateTime)
-Tilt1Data$Speed_m <- Tilt1Data$Speed * 0.01
-Tilt1Data$VelocityN_m <- Tilt1Data$Velocity_N * 0.01
-Tilt1Data$VelocityE_m <- Tilt1Data$Velocity_E * 0.01
-    
-Tilt1Hourly <- Tilt1Data %>% #Created a dataframe that has the mean for everyhour
-  group_by(DateTime = floor_date(DateTime, "min")) %>% #New datetime that is rounded to the start of each hour
-  summarise( #Averaging the remaining columns by hour
-    Speed = mean(Speed_m, na.rm = TRUE), 
-    Heading = mean(Heading, na.rm = TRUE), 
-    Velocity_N = mean(VelocityN_m, na.rm = TRUE), 
-    Velocity_E = mean(VelocityE_m, na.rm = TRUE), 
-    .groups = "drop") #Give you a clean data frame and drops the groups
+tilt_fun<-function(Tilt1Data = Tilt1Data, plotname){
 
-
-### Making a windrose plot of the current data
-
-ggwindrose(
-  speed = Tilt1Data$Speed_m, 
-  direction = Tilt1Data$Heading,
-  legend_title =  "Current speed (m/s)", 
-  speed_cuts = seq(0, 0.15,.025)) +
-
+  Tilt1Data$DateTime <- ymd_hms(Tilt1Data$DateTime)
+  Tilt1Data$Speed_m <- Tilt1Data$Speed * 0.01
+  Tilt1Data$VelocityN_m <- Tilt1Data$Velocity_N * 0.01
+  Tilt1Data$VelocityE_m <- Tilt1Data$Velocity_E * 0.01
   
-  scale_fill_manual (values = c("blue", "cyan", "green", "yellow", "orange", "red"), 
-                                drop =FALSE)
+  Tilt1Hourly <- Tilt1Data %>% #Created a dataframe that has the mean for everyhour
+    group_by(DateTime = floor_date(DateTime, "min")) %>% #New datetime that is rounded to the start of each hour
+    summarise( #Averaging the remaining columns by hour
+      Speed = mean(Speed_m, na.rm = TRUE), 
+      Heading = mean(Heading, na.rm = TRUE), 
+      Velocity_N = mean(VelocityN_m, na.rm = TRUE), 
+      Velocity_E = mean(VelocityE_m, na.rm = TRUE), 
+      .groups = "drop") #Give you a clean data frame and drops the groups
+  
+  
+  ### Making a windrose plot of the current data
+  
+  ggwindrose(
+    speed = Tilt1Data$Speed_m, 
+    direction = Tilt1Data$Heading,
+    legend_title =  "Current speed (m/s)", 
+    speed_cuts = seq(0, 0.15,.025)) +
+    
+    
+    scale_fill_manual (values = c("blue", "cyan", "green", "yellow", "orange", "red", "darkred"), 
+                       drop =FALSE)
+  
+  ggsave(here("Output","TiltMeterData",plotname))
+  
+}
 
-ggsave(here("TiltMeterData","rose.png"))
+
+tilt_fun(Tilt1Data, plotname = "tilt1.png")
+
+Tilt2Data<-read_csv(here("TiltMeterData","Tilt2_CurrentData.csv"))
+tilt_fun(Tilt2Data, plotname = "tilt2.png")
+
+Tilt3Data <- read_csv(hear("TiltMeterData", "Tilt3_CurrentData.csv"))
+tilt_fun(Tilt3Data, plotname = "tilt3.png")
+
+Tilt4Data <- read_csv(here("TiltMeterData", "Tilt4_CurrentData.csv"))
+tilt_fun(Tilt4Data, plotname = "tilt4.png")
+
+Tilt5Data <- read_csv(here("TiltMeterData", "Tilt5_CurrentData.csv"))
+tilt_fun(Tilt5Data, plotname = "tilt5.png")
+
+Tilt6Data <- read_csv(here("TiltMeterData", "Tilt6_CurrentData.csv"))
+tilt_fun(Tilt6Data, plotname = "tilt6.png")
+
+Tilt8Data <- read_csv(here("TiltMeterData", "Tilt8_CurrentData.csv"))
+tilt_fun(Tilt8Data, plotname = "tilt8.png")
+
 
 table(cut(Tilt1Data$Speed_m, seq(0, 0.15, 0.025), include.lowest = TRUE)) ##Showing me the different bins and how many data points I have in each one
 
@@ -117,4 +139,4 @@ ggplot(Tilt1Binned, aes(x = dir_center, y = percent, fill = factor(spd_bin))) +
     axis.text.y = element_blank(),
     axis.ticks = element_blank()
   ) +
-  ggtitle("Tilt1 Current Flow Rose (1-min data)")
+  labs(title ="Tilt1 Current Flow Rose (1-min data)")
