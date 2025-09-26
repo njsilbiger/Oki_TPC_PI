@@ -8,27 +8,31 @@ library(dplyr)
 #############################
 ### READ IN DATA
 #############################
-SA_standard <- read_csv(here("Data","SurfaceArea", "SA_standards.csv"))
+SA_standard_CMO <- read_csv(here("Data","SurfaceArea", "SA_standards_CMO.csv"))
+#add DMB standards here
 SA_frag <- read_csv(here("Data", "SurfaceArea","SA_fragments.csv"))
+#once DMB standards in - do two separate calibrations and then concatenate them down below
+#SA_frag_CMO <- SA_frag %>% subset(dipper == "CMO")
+#SA_frag_DMB <- SA_frag %>% subset(dipper == "DMB")
 
 ###Calculate standards wax weight
-SA_standard$Wax_weight <- SA_standard$weight_wWax - SA_standard$weight
+SA_standard_CMO$Wax_weight <- SA_standard_CMO$weight_wWax - SA_standard_CMO$weight
 
-model<-lm(data = SA_standard, Wax_weight ~ SA_cm2)
+model<-lm(data = SA_standard_CMO, Wax_weight ~ SA_cm2)
 eq <- function(model){
   coefs <- coef(model)
   r2 <- summary(model)$r.squared
   paste0("y = ", round(coefs[1], 2), " + ", round(coefs[2], 2), "x\n",
          "R² = ", round(r2, 3))
 }
-wax.plot <- SA_standard%>% 
+wax.plot <- SA_standard_CMO%>% 
   ggplot(aes(x = SA_cm2, y = Wax_weight)) +
   geom_point() +
   geom_smooth(method = "lm") +
   theme_bw() +
   labs(x = expression("Dowel surface area (cm"^2*")"),
        y = "Wax weight (g)") +
-  annotate("text",x = 5, y = max(SA_standard$Wax_weight), label = eq(model), hjust = 0)
+  annotate("text",x = 5, y = max(SA_standard_CMO$Wax_weight), label = eq(model), hjust = 0)
 wax.plot
 
 ###Calculate wax weight
@@ -41,10 +45,10 @@ b <- coef(model)[2]  # slope
 SA_frag$calc_SA <- (SA_frag$Wax_weight - a) / b
 write.csv(SA_frag, here("Data","SurfaceArea","SA_fragments_final.csv"), row.names = FALSE)
 
-#MP 8/29/2025 - not all data is filled in for weights for TPC
-#Estimated approx weights in SA_fragments_final_est.csv to use for TPC for now
-#Make sure to update with appropriate data once this is added/follow up with Danielle/Claire!
-#shoutout to the wax dipper extraordinaires!!
+#MP 9/26/2025 
+#need to update with DMB curve for TPC #2 data
+#all of the SA is set for PI and physio data
+#shout out to the wax dipper extraordinaires!!
 
 ##############################################
 ### PUT SA DATA INTO OTHER METADATA SHEETS
