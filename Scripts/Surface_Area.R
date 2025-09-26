@@ -1,3 +1,9 @@
+#################################
+##### Fragment Surface Area #####
+# Okinawa PI, TPC, and Physiology data
+#Written by Claire Moreland-Ochoa July 2025
+#Updated by Maya Powell August - Sept 2025
+
 #############################
 ### LOAD LIBRARIES
 #############################
@@ -58,11 +64,8 @@ write.csv(SA_frag, here("Data","SurfaceArea","SA_fragments_final.csv"), row.name
 SA_frag_final <- read.csv(here("Data","SurfaceArea","SA_fragments_final.csv"))
 
 #####TPC data####
-#change to regular dataframe not est for TPC only later
-SA_frag_final_est <- read.csv(here("Data","SurfaceArea","SA_fragments_final_est.csv"))
-
 frag_data_TPC <- read_csv(here("Data", "RespoFiles", "TPC", "Fragment_Measurements_TPC.csv"))
-SA_frag_final_TPC <- SA_frag_final_est %>% filter(Frag_type == "TPC") %>% select(frag_ID, calc_SA)
+SA_frag_final_TPC <- SA_frag_final %>% filter(Frag_type == "TPC") %>% select(frag_ID, calc_SA)
 
 #join with SA and remove old SA dummy variable rename for it to work easily in scripts
 frag_data_TPC <- frag_data_TPC %>% 
@@ -91,7 +94,7 @@ SA_frag_final_phys <- SA_frag_final %>% filter(Frag_type == "physio") %>% select
 #join with SA and remove old SA dummy variable and rename for it to work easily in scripts
 frag_data_phys <- frag_data_phys %>% 
   left_join(SA_frag_final_phys, by = "frag_ID") %>% 
-  #select(-SA_cm2) %>% 
+  select(-SA_cm2) %>% 
   rename(SA_cm2 = calc_SA)
 
 write.csv(frag_data_phys, here("Data", "Physiology", "Physio_meta.csv"), row.names = FALSE)
