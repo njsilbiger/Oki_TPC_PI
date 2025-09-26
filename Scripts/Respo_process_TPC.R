@@ -18,6 +18,8 @@ if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages
 if ("here" %in% rownames(installed.packages()) == 'FALSE') install.packages('here')
 if ("patchwork" %in% rownames(installed.packages()) == 'FALSE') install.packages('patchwork')
 if ("PNWColors" %in% rownames(installed.packages()) == 'FALSE') install.packages('PNWColors')
+if ("nls.multstart" %in% rownames(installed.packages()) == 'FALSE') install.packages('nls.multstart')
+if ("rTPC" %in% rownames(installed.packages()) == 'FALSE') install.packages('rTPC')
 
 #Read in required libraries
 ##### Include Versions of libraries
@@ -37,6 +39,9 @@ library(viridis)
 library(car)
 library(future)
 library(furrr)
+library(nls.multstart)
+library(rTPC)
+library(dplyr)
 
 ############# now it's time to code ############
 ################################################
@@ -64,6 +69,7 @@ BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.cs
 
 RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta.csv"))
 #View(BioData)
+#View(RespoMeta)
 ## try first with prelim fake data to make sure script runs
 ## then switch to real calculated data after getting volumes and weight and surface area
 
@@ -72,13 +78,14 @@ sp_names <- read_csv(here("Data", "species_names.csv"))
 
 # join the data together
 BioData <- BioData %>% 
-  full_join(sp_names) %>% 
-  select(-full_species, -species_ID)
+  full_join(sp_names) %>%
+  dplyr::select(-full_species, -species_ID)
+
 RespoMeta <- RespoMeta %>% 
-  select(-notes)
+  dplyr::select(-notes)
 
 Sample_Info <- left_join(RespoMeta, BioData)
-#View(Sample.Info)
+#View(Sample_Info)
 
 ##### Make sure times are consistent ####
 # make start and stop times real times, so that we can join the respo output and sample_info data frames
@@ -90,12 +97,12 @@ Sample_Info <- Sample_Info %>%
   mutate(stop_time = mdy_hms(stop_time)) %>% 
   mutate(date = mdy(date))
 
-#view(Sample_Info)
+#View(Sample_Info)
 
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
 
-n_temp_levels<-9 # number of unique light levels
+n_temp_levels<-9 # number of unique temperature levels
 
 RespoR <- tibble(.rows =length(filenames_final)*n_temp_levels*2, # temp * 2 for light and dark runs
                  sample_ID = NA,
@@ -119,7 +126,7 @@ for(i in 1:length(filenames_final)) {
     unite(Date,Time,col="Time",remove=T, sep = " ") %>%
     drop_na() %>% 
     mutate(Time = mdy_hms(Time)) #%>% # convert time
-  #mutate(help = i) ##if stuck in forloop with error from filter, can check RespoR and see at what row the forloop stopped working  
+    #mutate(help = i) ##if stuck in forloop with error from filter, can check RespoR and see at what row the forloop stopped working  
   
   ## cut the data by start and stop times from metadata
   #Use start time of each light step from the metadata to separate data by light stop
@@ -135,7 +142,7 @@ for(i in 1:length(filenames_final)) {
         filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 2 Hz
         mutate(row_number = row_number()) %>%
         filter(row_number %% 10 == 0) %>%  # keep every 10th row only to thin the data
-        select(-row_number) %>%
+        dplyr::select(-row_number) %>%
         mutate(sec2 = row_number())  #update the row numbers
       #return(subset)
     }) 
@@ -172,7 +179,7 @@ for(i in 1:length(filenames_final)) {
   
   # Map LoLinR function onto all intervals of each sample's thinned dataset
   df <- combined_oxy %>%
-    select(sec2, Value, temp_c_value, Temp, light_dark)%>%
+    dplyr::select(sec2, Value, temp_c_value, Temp, light_dark)%>%
     mutate(sec2 = as.numeric(sec2))%>%
     nest_by(temp_c_value, light_dark) %>%
     ungroup()%>%
@@ -181,7 +188,7 @@ for(i in 1:length(filenames_final)) {
            RegStats =map(regs, function(x){ # extract the intercept and slope for the parameters
              x$allRegs %>%
                slice(1) %>%
-               select(Intercept = b0,
+               dplyr::select(Intercept = b0,
                       umol.L.sec = b1)
            }) )
   
@@ -198,11 +205,11 @@ for(i in 1:length(filenames_final)) {
   
   
   df<-df %>%
-    select(temp_c_value,Temp.C,light_dark,RegStats ) %>%
+    dplyr::select(temp_c_value,Temp.C,light_dark,RegStats ) %>%
     unnest(RegStats) %>%
     mutate(sample_ID = rename) %>%
     left_join(Sample_Info[FRow,] %>%
-                select(sample_ID, temp_c_level, temp_c_value, run_block, light_dark))  # make sure the light value (or whatever other metadata you want) is in the final DF
+                dplyr::select(sample_ID, temp_c_level, temp_c_value, run_block, light_dark))  # make sure the light value (or whatever other metadata you want) is in the final DF
   
   ################################
   # fill in all the O2 consumption and rate data
@@ -218,14 +225,14 @@ for(i in 1:length(filenames_final)) {
   
 }  
 
-
+#View(RespoR)
 ######### end of for loop - celebrate victory of getting through that ###############
 ############################################
 
 #export raw data and read back in as a failsafe 
 #this allows me to not have to run the for loop again !!!!!
 write_csv(RespoR, here("Data","RespoFiles","TPC","Respo_R.csv"))  
-
+#MP ran for TPC 1-6 (all) on Sept 26th 2025
 ##### 
 
 RespoR <- read_csv(here("Data","RespoFiles","TPC","Respo_R.csv"))
@@ -273,6 +280,7 @@ RespoR_PR <- RespoR_Normalized %>%
 
 
 write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
+
 
 #dev.off() # may need if plot doesn't run?
 PR_plot <- RespoR_PR %>% 
