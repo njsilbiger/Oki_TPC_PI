@@ -4,7 +4,8 @@ library(tidyverse)
 library(here)
 library(climaemet)
 library(rstatix)
-
+library(cowplot)
+library(ggpubr)
 
 ####Condensing Data IGNORE and continue from Load Data#####
 ##Only overwrote the orginal CSV because it was too big to upload to GitHub 
@@ -109,7 +110,7 @@ separate(col = DateTime, #Choose the column that you want separated
              sep = " ", #What are the two separated by 
              remove = FALSE) %>% #Keep the orginial DateTime Column    
     
-mutate(DateTime = lubridate::ymd_hms(DateTime), #Set datetime
+mutate(DateTime = lubridate::ymd_hms(gsub(" UTC", "", DateTime), tz = "UTC"), #Set datetime,a dding in the UTC timezone so wer are removing taht
        Date = lubridate::ymd(Date), #Set Date
        Time = lubridate::hms(Time), #Set Time
        Speed_m = Speed * 0.01, #Change cm/s -> m/s
@@ -123,7 +124,6 @@ mutate(DateTime = lubridate::ymd_hms(DateTime), #Set datetime
 }
 
 Tilt1DataClean <- Tilt_Data_fun(Tilt1Data, "Tilt1")
-view(Tilt1DataClean)
 Tilt2DataClean <- Tilt_Data_fun(Tilt2Data, "Tilt2")
 Tilt3DataClean <- Tilt_Data_fun(Tilt3Data, "Tilt3")
 Tilt4DataClean <- Tilt_Data_fun(Tilt4Data, "Tilt4")
@@ -170,7 +170,8 @@ ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
    facet_wrap(~TiltMeter)
 
 
-### Making a windrose plot ####
+### Windrose plot of Tilt Meter Speed Data ####
+
 tilt_fun<-function(df, plotname){ #Creating a function to run all tilt meter data easier
 
     ggwindrose(
@@ -210,6 +211,102 @@ tilt_fun(Tilt7DataClean, plotname = "tilt7b.jpeg")
 tilt_fun(Tilt8DataClean, plotname = "tilt8b.jpeg")
 
 
+
+
+#### Stick Plot of Tilt Meter Speed Data ####
+# --- velocity components VelocityE_m, VelocityN_m set teh arrow tile, arrows points in the true direction fo the current
+# --- length of the arrow reflects the speed
+# --- Tip: If you want the y-axis labeled in real m/s, keep VelocityN_m as is (no scale factor on yend), and only scale the xend.
+
+# We want to plot the data in hours instead of every minute so that we can compare with the tide data #
+
+#### Plotting Tide Data ####
+
+
+Velocity_TidePlot_fun <- function(df, TideData, plotname, combinedplot){
+  
+Newdf <- df %>%
+group_by(DateTime = floor_date(DateTime, "hour")) %>% #New datetime that is rounded to the start of each hour
+  summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop")
+
+speed_limits <- c(0, 0.25) #Setting the min/max speeds so that each graph has the same scale (m/s)
+time_limits <- as.POSIXct(range(Newdf$DateTime, na.rm = TRUE))
+
+TideData$DateTime <- as.POSIXct(TideData$DateTime, tz = "UTC")
+
+plot1 <- ggplot(Newdf) +
+ 
+  geom_segment(aes( x = DateTime, y = 0, 
+                    xend = DateTime + VelocityE_m, #Makes the arrows lean left/right
+                    yend = VelocityN_m, #Makes the arrows point up/down
+                    color = Speed_m), 
+               arrow = arrow(length = unit(0.2, "cm")),
+               linewidth = 0.5) +
+ 
+  scale_color_viridis_c(limits = speed_limits, 
+                        breaks = seq(0, 0.25,.05), 
+                        oob = scales::squish, 
+                        direction = -1) +
+  scale_x_datetime(limits =  time_limits) +
+  labs(
+     
+    x = "Time", 
+    y = "Velocity", 
+    color = "Speed (m/s)") +
+  theme_minimal()  
+ 
+ ggsave(here("Output","TiltMeterData",plotname))
+
+ TidePlot <- ggplot(TideData, aes(DateTime, Sealevel_m)) +
+   geom_line(color = "steelblue") +
+   scale_x_datetime(limits = time_limits) 
+   
+ 
+ 
+ combined <- plot_grid(plot1, TidePlot, ncol = 1, align = "v", rel_heights =  c(2,1))
+
+
+ ggsave(here::here("Output", "TiltMeterData", combinedplot))
+ 
+ return(combined) #View the plot
+
+}
+
+
+Velocity_TidePlot_fun(Tilt1DataClean, TideData, plotname = "Tilt1Velocity.png", combinedplot = "Tilt1TideCombo.png")
+Velocity_TidePlot_fun(Tilt2DataClean, TideData, plotname = "Tilt2Velocity.png", combinedplot = "Tilt2TideCombo.png")
+Velocity_TidePlot_fun(Tilt3DataClean, TideData, plotname = "Tilt3Velocity.png", combinedplot = "Tilt3TideCombo.png")
+Velocity_TidePlot_fun(Tilt4DataClean, TideData, plotname = "Tilt4Velocity.png", combinedplot = "Tilt4TideCombo.png")
+Velocity_TidePlot_fun(Tilt5DataClean, TideData, plotname = "Tilt5Velocity.png", combinedplot = "Tilt5TideCombo.png")
+Velocity_TidePlot_fun(Tilt6DataClean, TideData, plotname = "Tilt6Velocity.png", combinedplot = "Tilt6TideCombo.png")
+Velocity_TidePlot_fun(Tilt7DataClean, TideData, plotname = "Tilt7Velocity.png", combinedplot = "Tilt7TideCombo.png")
+Velocity_TidePlot_fun(Tilt8DataClean, TideData, plotname = "Tilt8Velocity.png", combinedplot = "Tilt8TideCombo.png")
+ 
+
+## -- Adding on the Tide Data ## 
+ TideData <- TideData %>%
+   mutate(DateTime = ymd_hms(paste(Date, sprintf("%02d:00:00", Hour))), #Combining Data and time into one column 
+          Sealevel_m = Sealevel_mm / 1000) #Convert mm to m 
+
+ 
+ 
+ TideData <- TideData %>%
+   filter(between(DateTime, ymd_hms("2025-08-01 11:00:00"), ymd_hms("2025-08-15 15:00:00"))) #Filtering out the dates that data was not recorded during 
+ 
+ 
+ TidePlot <- ggplot(TideData, aes(DateTime, Sealevel_m)) +
+   geom_line(color = "steelblue") +
+   scale_x_datetime(limits = time_limits) +
+   labs(title = "Tide Plot")
+ 
+ 
+ plot_grid(p1, TidePlot, ncol = 1, align = "v", rel_heights =  c(2,1))
+ 
+ 
+
+ #ggarrange(p1, TidePlot, nrow = 2) #Another way to add the two graphs together
+ 
 
 #### Organizing Temperature Data ####
 Tilt_Temp_fun <- function(df){ 
@@ -252,15 +349,6 @@ Tilt_TempPlot_fun(Tilt7TempData, plotname = "Tilt7TempPlot.png")
 Tilt_TempPlot_fun(Tilt8TempData, plotname = "Tilt8TempPlot.png")
 
 
-#### Plotting Tide Data ####
-TideData <- TideData %>%
-  mutate(DateTime = ymd_hms(paste(Date, sprintf("%02d:00:00", Hour))), #Combining Data and time into one column 
-  Sealevel_m = Sealevel_mm / 1000) #Convert mm to m 
-view(TideData)
-
-
-ggplot(TideData, aes(DateTime, Sealevel_m)) +
-  geom_line()
 
 
 #CorrectedSealevel_mm = TideData$Sealevel_mm + TideData$DatumConstant_mm - TideData$FixedPointHeight_mm
@@ -270,7 +358,7 @@ ggplot(TideData, aes(DateTime, Sealevel_m)) +
 
 # Pre-bin the data by direction + speed bins
 rose_data <- 
-  Tilt1Data %>%
+  Tilt1DataClean %>%
   mutate(speed_bin = cut(Speed_m, breaks = seq(0, 0.15, .025), include.lowest = TRUE)) %>%
   group_by(Heading, speed_bin) %>%
   tally() %>%
@@ -292,9 +380,9 @@ ggplot(rose_data, aes(x = Heading, y = percent, fill = speed_bin)) +
 
   ### Trying the code from Shaun to R ###
 # Convert to m/s
-Tilt1Data <- Tilt1Data %>%
+Tilt1DataClean <- Tilt1DataClean %>%
   mutate(
-    Speed = Speed / 100,   # cm/s → m/s
+
     Heading = Heading %% 360  # wrap into [0,360)
   )
 
