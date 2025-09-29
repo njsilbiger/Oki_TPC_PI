@@ -323,8 +323,8 @@ Resp_plot <- RespoR_PR %>% filter(PR == "Respiration") %>%
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
 
-# go back and delete from raw data the weird noisy data drops from O2 probes 1:4
-#deal with Mvie 29 °C
+#MP go back and delete from raw data the weird noisy data drops from O2 probes 1:4
+#MP deal with Mvie 29 °C - weird drop - issue with data selection or??
 
 #######################
 ### making a df for just blank data for future use in plots ### 
@@ -369,20 +369,16 @@ library(here)
 # read in data
 df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
 
-# use GP and filter by species
-df_gp <- df %>% 
-  filter(PR == "GrossPhoto")
-df_np <- df %>% 
-  filter(PR == "NetPhoto")
-df_resp <- df %>% 
-  filter(PR == "Respiration")
-#df_gp_sp <- df_gp %>% 
-#  filter(species == "Peyd")
-
 # choose model
 mod = 'sharpschoolhigh_1981'
 
-topt_df <- tibble(rmax = as.numeric(),
+#define metrics
+metrics <- c("GrossPhoto", "NetPhoto", "Respiration")
+
+#create topt dataframe to fill in
+topt_df <- tibble(metric = as.character(),
+                  species = as.character(),
+                  rmax = as.numeric(),
                   topt = as.numeric(),
                   ctmin = as.numeric(),
                   ctmax = as.numeric(),
@@ -392,61 +388,95 @@ topt_df <- tibble(rmax = as.numeric(),
                   thermal_safety_margin = as.numeric(),
                   thermal_tolerance = as.numeric(),
                   breadth = as.numeric(),
-                  skewness = as.numeric(),
-                  sp = as.character())
+                  skewness = as.numeric()
+                  )
 
-for(i in unique(df_gp$species)){
-  sp = i
-  my_df <- df_gp %>%
-    filter(species == sp)
-  
-  # get start vals
-  start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  # get limits
-  low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  # fit model
-  fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
-                       data = my_df,
-                       iter = 500,
-                       start_lower = start_vals - 10,
-                       start_upper = start_vals + 10,
-                       lower = low_lims,
-                       upper = upper_lims,
-                       supp_errors = 'Y')
-  
-  fit
-  
-  # calculate additional traits
-  topt_params <- calc_params(fit) %>%
-    # round for easy viewing
-    mutate_all(round, 2) %>% 
-    mutate(species = sp)
-  
-  topt_df <- topt_df %>%
-    rbind(topt_params)
+#create prediction dataframe to fill in
+preds_df <- tibble(metric = as.character(),
+                   species = as.character(),
+                   temp_c_value = as.numeric(),
+                   .fitted = as.numeric()
+)
+
+#define temperatures to predict
+new_temps <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
+
+for (m in metrics) {
+  df_m <- df %>% filter(PR == m)
+  for(i in unique(df_gp$species)){
+    sp = i
+    my_df <- df %>%
+      filter(species == sp)
+    
+    # get start vals
+    start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    
+    # get limits
+    low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    
+    # fit model
+    fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
+                         data = my_df,
+                         iter = 500,
+                         start_lower = start_vals - 10,
+                         start_upper = start_vals + 10,
+                         lower = low_lims,
+                         upper = upper_lims,
+                         supp_errors = 'Y')
+    
+    fit
+    
+    # calculate additional traits
+    topt_params <- calc_params(fit) %>%
+      # round for easy viewing
+      mutate_all(round, 2) %>% 
+      mutate(metric = m,
+             species = sp)
+    
+    topt_df <- bind_rows(topt_df,topt_params)
+    
+    #generate predictions using augment (brooms)
+    preds_sp <- augment(fit, newdata = new_temps) %>%
+      transmute(metric = m,
+                species = sp,
+                temp_c_value = new_temps$temp_c_value,
+                .fitted = .fitted)
+    
+    preds_all <- bind_rows(preds_all, preds_sp)
+  }
 }
 
+#sort and save topt dataframe
 topt_df %>% 
   relocate(species, .before = rmax) %>% 
   arrange(topt)
 
-pred_df <- df_gp_sp %>% # attempt to get preds on one run*species at a time
-  filter(run_block == "RUN2")
+#save data
+write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_df.csv"))
 
-# predict new data (this is where it breaks for DMB)
-new_data <- data.frame(temp = seq(min(pred_df$temp_c_value), max(pred_df$temp_c_value), 0.5))
-preds <- augment(fit, newdata = new_data)
+#save predictions dataframe
+write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_df.csv"))
 
-# plot data and model fit
-ggplot(df_gp_sp, aes(temp_c_value, Values)) +
-  geom_point() +
-  geom_line(aes(temp_c_value, .fitted), preds, col = 'blue') +
+#subset to plot individual metric predictions
+df_gp <- df %>% filter(PR == "GrossPhoto")
+df_np <- df %>% filter(PR == "NetPhoto")
+df_resp <- df %>% filter(PR == "Respiration")
+gp_pred <- preds_all %>% filter(metric == "GrossPhoto")
+np_pred <- preds_all %>% filter(metric == "NetPhoto")
+resp_pred <- preds_all %>% filter(metric == "Respiration")
+
+#plot predictions
+#gp
+ggplot(df_gp, aes(temp_c_value, Values)) +
+  geom_point(alpha = 0.7) +
+  geom_line(data = gp_pred,
+            aes(temp_c_value, .fitted, group = species),
+            linewidth = 0.6, color = "blue") +
+  facet_wrap(~ species, scales = "free_y") +
   theme_bw(base_size = 12) +
-  labs(x = 'Temperature (ºC)',
-       y = 'Metabolic rate',
-       title = 'Respiration across temperatures')
+  labs(x = "Temperature (ºC)",
+       y = "Gross Photosynthesis",
+       title = "Thermal performance: gross photosynthesis by species")
 
-
+#np
