@@ -39,8 +39,6 @@ library(viridis)
 library(car)
 library(future)
 library(furrr)
-library(nls.multstart)
-library(rTPC)
 library(dplyr)
 
 ############# now it's time to code ############
@@ -98,6 +96,7 @@ Sample_Info <- Sample_Info %>%
   mutate(date = mdy(date))
 
 #View(Sample_Info)
+write_csv(Sample_Info, here("Data","RespoFiles","TPC","Sample_Info.csv"))
 
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
@@ -235,10 +234,12 @@ write_csv(RespoR, here("Data","RespoFiles","TPC","Respo_R.csv"))
 #MP ran for TPC 1-6 (all) on Sept 26th 2025
 ##### 
 
-RespoR <- read_csv(here("Data","RespoFiles","TPC","Respo_R.csv"))
-
 ######### Calculate Respiration rate ###############
 ############################################
+
+RespoR <- read_csv(here("Data","RespoFiles","TPC","Respo_R.csv"))
+Sample_Info <- read_csv(here("Data","RespoFiles","TPC","Sample_Info.csv"))
+ch.vol <- 475 #mL #of small chambers 
 
 RespoR2 <- RespoR %>%
   #drop_na(FileID_csv) %>% # drop NAs
@@ -280,11 +281,11 @@ RespoR_PR <- RespoR_Normalized %>%
 
 
 write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
-
+RespoR_PR <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
 
 #dev.off() # may need if plot doesn't run?
 PR_plot <- RespoR_PR %>% 
-  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species)) +
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species, shape = run_block)) +
   geom_point() +
   geom_line() +
   facet_wrap(~PR*species, scales = "free") +
@@ -292,11 +293,38 @@ PR_plot <- RespoR_PR %>%
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
 
-# go back and delete from raw data the weird noisy data drops from O2 probes 1:4
-
-ggsave(here("Output", "TPC", "PR_boxplots.pdf"),
+ggsave(here("Output", "TPC", "PR_boxplots_run_block.pdf"),
        device = "pdf", height = 8, width = 8, PR_plot)
 
+GP_plot <- RespoR_PR %>% filter(PR == "GrossPhoto") %>%
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species, shape = run_block)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~species, scales = "free") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "bold"))
+
+NP_plot <- RespoR_PR %>% filter(PR == "NetPhoto") %>%
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species, shape = run_block)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~species, scales = "free") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "bold"))
+
+Resp_plot <- RespoR_PR %>% filter(PR == "Respiration") %>%
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species, shape = run_block)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~species, scales = "free") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "bold"))
+
+# go back and delete from raw data the weird noisy data drops from O2 probes 1:4
+#deal with Mvie 29 °C
 
 #######################
 ### making a df for just blank data for future use in plots ### 
@@ -308,7 +336,7 @@ Blank_only <- RespoR2 %>%
 
 #############################
 write_csv(RespoR_Normalized , here("Data","RespoFiles","TPC","Respo_RNormalized_AllTPCRates.csv"))  
-
+RespoR_Normalized <- read_csv(here("Data","RespoFiles","TPC","Respo_RNormalized_AllTPCRates.csv"))
 
 ## Plot the blanks across treatments to make sure nothing is funky
 Blank_only %>%
@@ -324,7 +352,6 @@ RespoR_Normalized %>%
 
 ##########################################################
 ### run an nls model for TPC curves for each species ###
-
 
 # sharpeschoolhigh_1981
 # https://padpadpadpad.github.io/rTPC/articles/rTPC.html
@@ -345,8 +372,12 @@ df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
 # use GP and filter by species
 df_gp <- df %>% 
   filter(PR == "GrossPhoto")
-df_gp_sp <- df_gp %>% 
-  filter(species == "Peyd")
+df_np <- df %>% 
+  filter(PR == "NetPhoto")
+df_resp <- df %>% 
+  filter(PR == "Respiration")
+#df_gp_sp <- df_gp %>% 
+#  filter(species == "Peyd")
 
 # choose model
 mod = 'sharpschoolhigh_1981'
