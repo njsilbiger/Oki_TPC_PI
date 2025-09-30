@@ -273,8 +273,7 @@ RespoR_Normalized <- RespoR2 %>%
   #dplyr::select(Light_level, run_block, blank.rate, date) %>% # this is what I will use to join the blanks back with the raw data
   right_join(RespoR2) %>% # join blanks with the respo data
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates   
-         umol.hr = umol.sec.corr*3600,
-         umol.cm2.hr = umol.hr/SA_cm2,
+         umol.cm2.hr = (umol.sec.corr*3600)/SA_cm2,
          umol.cm2.hr_uncorr = (umol.sec*3600)/SA_cm2) %>%
          #mmol.cm2.hr = 0.001*(umol.sec.corr*3600)/SA_cm2, # convert to mmol cm-2 hr-1
          #mmol.cm2.hr_uncorr = 0.001*(umol.sec*3600)/SA_cm2) %>% 
@@ -289,7 +288,7 @@ RespoR_PR <- RespoR_Normalized %>%
   rename(Respiration = DARK , NetPhoto = LIGHT) %>% # rename the columns
   mutate(Respiration = -1 * Respiration) %>%  # Make respiration positive
   mutate(GrossPhoto = Respiration + NetPhoto) %>% 
-  pivot_longer(cols = Respiration:GrossPhoto, names_to = "PR", values_to = "Values")
+  pivot_longer(cols = Respiration:GrossPhoto, names_to = "PR", values_to = "Values") #values still in umol.cm2.hr
 
 
 write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
@@ -297,7 +296,7 @@ RespoR_PR <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
 
 #dev.off() # may need if plot doesn't run?
 PR_plot <- RespoR_PR %>% 
-  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species, shape = run_block)) +
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species)) +
   geom_point() +
   geom_line() +
   facet_wrap(~PR*species, scales = "free") +
@@ -306,7 +305,7 @@ PR_plot <- RespoR_PR %>%
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
 
-ggsave(here("Output", "TPC", "Graphs","PR_boxplots_run_block.pdf"),
+ggsave(here("Output", "TPC", "Graphs","PR_boxplots.pdf"),
        device = "pdf", height = 8, width = 8, PR_plot)
 
 GP_plot <- RespoR_PR %>% filter(PR == "GrossPhoto") %>%
@@ -335,9 +334,6 @@ Resp_plot <- RespoR_PR %>% filter(PR == "Respiration") %>%
   theme_bw() +
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
-
-#MP go back and delete from raw data the weird noisy data drops from O2 probes 1:4
-#MP deal with Mvie 29 °C - weird drop - issue with data selection or??
 
 #######################
 ### making a df for just blank data for future use in plots ### 
@@ -369,17 +365,23 @@ RespoR_Normalized %>%
 # sharpeschoolhigh_1981
 # https://padpadpadpad.github.io/rTPC/articles/rTPC.html
 
-#########THE CODE BELOW HERE WORKS TO GENERATE PREDICTIONS FOR JUST ONE METRIC AT ONCE
-#MP will edit this later to try and run but for now it's throwing some errors - likely bc of respiration model = NULL
-#So for now just go through and calculate each rate individually using this for loop by filtering by metric
-#It's throwing an error for respiration because of some negative values likely
+# first run Topt by species, then if not working, do it by FragID
+# is I get an error, starting values are off, so play around with starting values that would make sense
+
+# load packages
+library(rTPC)
+library(nls.multstart)
+library(broom)
+library(tidyverse)
+library(here)
 
 # read in data
 df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
-# df <- df %>% mutate(full_ID = paste(sample_ID,run_block,temp_c_value,PR))
-# df <- df %>% mutate(id_block = paste(sample_ID,run_block))
+df <- df %>% mutate(full_ID = paste(sample_ID,run_block,temp_c_value,PR)) %>% mutate(id_block = paste(sample_ID,run_block,PR))
+#log_df <- df %>% mutate(logValues = log(Values))
 
-#remove outliers using IQR
+
+#create outlier IQR function
 is_outlier_iqr <- function(x) {
   q1 <- quantile(x, 0.25, na.rm = TRUE)
   q3 <- quantile(x, 0.75, na.rm = TRUE)
@@ -387,23 +389,43 @@ is_outlier_iqr <- function(x) {
   (x < (q1 - 1.5 * iqr)) | (x > (q3 + 1.5 * iqr))
 }
 
+#add column to flag outliers
+#just grouped by species and PR, could also do more finescale grouping
 df_iqr <- df %>%
   group_by(PR, species) %>%
   mutate(outlier_iqr = if (n() >= 4) is_outlier_iqr(Values) else FALSE) %>%
   ungroup()
 
-# drop IQR outliers
-df_clean_iqr <- df_iqr %>% filter(!outlier_iqr)
-
-#look at which points it removed as outliers - can adjust later as needed
+#look at graph of IQR values to remove
 ggplot(df_iqr, aes(temp_c_value, Values, color = outlier_iqr)) +
   geom_point() +
   facet_wrap(PR ~ species, scales = "free_y") +
   theme_bw()
 
-# choose model
-mod = 'sharpschoolhigh_1981'
+#now remove those from runs where <4 data points were removed by IQR removal
+df_ir_check <- df_iqr %>% filter(outlier_iqr)
+bad_ids <- c("C06_TPC RUN4 Respiration", "D04_TPC RUN6 NetPhoto", "I08_TPC RUN6 NetPhoto")
 
+df_iqr <- df %>%
+  mutate(outlier_manual = id_block %in% bad_ids) %>% #manual flags
+  group_by(PR, species) %>%
+  mutate(outlier_iqr = if (n() >= 4) is_outlier_iqr(Values) else FALSE) %>%
+  ungroup() %>%
+  mutate(outlier_any = outlier_iqr | outlier_manual)   
+
+#check updated graph of IQR values to remove
+ggplot(df_iqr, aes(temp_c_value, Values, color = outlier_any)) +
+  geom_point() +
+  facet_wrap(PR ~ species, scales = "free_y") +
+  theme_bw()
+
+#drop IQR outliers
+df_clean_iqr <- df_iqr %>% filter(!outlier_any)
+#removes 66 data points
+
+#choose model for rTPC: 'sharpschoolhigh_1981'
+
+#generate empty dataframes to fill in data for topt
 topt_df <- tibble(rmax = as.numeric(),
                   topt = as.numeric(),
                   ctmin = as.numeric(),
@@ -418,6 +440,7 @@ topt_df <- tibble(rmax = as.numeric(),
                   frag_ID = as.character(),
                   PR = as.character())
 
+#and predicted data
 preds_all <- tibble(
   PR = as.character(),
   frag_ID = as.character(),
@@ -489,21 +512,23 @@ for (j in unique(df_clean_iqr$PR)){
 # Skipping F01 Respiration: could not set start values
 # Skipping E01 Respiration: could not set start values
 # Skipping J01 Respiration: could not set start values
+# Skipping I01 Respiration: could not set start values
 # Skipping B01 Respiration: could not set start values
 # Skipping D01 Respiration: could not set start values
 # Skipping E02 Respiration: could not set start values
 # Skipping F04 Respiration: could not set start values
 # Skipping D02 Respiration: could not set start values
-# Skipping I02 Respiration: could not set start values
 # Skipping C02 Respiration: could not set start values
 # Skipping J02 Respiration: could not set start values
 # Skipping B02 Respiration: could not set start values
 # Skipping E03 Respiration: could not set start values
+# Skipping I03 Respiration: could not set start values
+# Skipping A03 Respiration: could not set start values
 # Skipping H04 Respiration: could not set start values
 # Skipping F03 Respiration: could not set start values
 # Skipping J03 Respiration: could not set start values
+# Skipping G05 Respiration: could not set start values
 # Skipping I06 Respiration: could not set start values
-# Skipping G06 Respiration: could not set start values
 # Skipping E06 Respiration: could not set start values
 # Skipping F06 Respiration: could not set start values
 # Skipping B07 Respiration: could not set start values
@@ -511,19 +536,19 @@ for (j in unique(df_clean_iqr$PR)){
 # Skipping E07 Respiration: could not set start values
 # Skipping J07 Respiration: could not set start values
 # Skipping C07 Respiration: could not set start values
+# Skipping I07 Respiration: could not set start values
+# Skipping H07 Respiration: could not set start values
 # Skipping B08 Respiration: could not set start values
-# Skipping C08 Respiration: could not set start values
 # Skipping E08 Respiration: could not set start values
 # Skipping D04 Respiration: could not set start values
 # Skipping J08 Respiration: could not set start values
 # Skipping I08 Respiration: could not set start values
 # Skipping G08 Respiration: could not set start values
-# Skipping I03 Respiration: could not set start values
 # Skipping A06 NetPhoto: could not set start values
-# Skipping H06 NetPhoto: could not set start values
-# Skipping D04 NetPhoto: could not set start values
 
 #add species names to predictions and topt dfs
+BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
+
 preds_all <- preds_all %>% left_join(BioData, by = "frag_ID")
 topt_df <- topt_df %>% left_join(BioData, by = "frag_ID")
 
@@ -591,150 +616,20 @@ ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean.pdf"),
        device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
-###
-# read in data
-df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
-
-#Filter by metric
-df_gp <- df %>% filter(PR == "GrossPhoto")
-
-# choose model
-mod = 'sharpschoolhigh_1981'
-
-topt_df <- tibble(rmax = as.numeric(),
-                  topt = as.numeric(),
-                  ctmin = as.numeric(),
-                  ctmax = as.numeric(),
-                  e = as.numeric(),
-                  eh = as.numeric(),
-                  q10 = as.numeric(),
-                  thermal_safety_margin = as.numeric(),
-                  thermal_tolerance = as.numeric(),
-                  breadth = as.numeric(),
-                  skewness = as.numeric(),
-                  sp = as.character())
-
-preds_all <- tibble(
-  species = character(),
-  temp_c_value = numeric(),
-  .fitted = numeric()
-)
-
-new_data <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
-
-for(i in unique(df_gp$species)){
-  sp = i
-  my_df <- df_gp %>%
-    filter(species == sp)
-  
-  # get start vals
-  start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  # get limits
-  low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  # fit model
-  fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
-                       data = my_df,
-                       iter = 500,
-                       start_lower = start_vals - 10,
-                       start_upper = start_vals + 10,
-                       lower = low_lims,
-                       upper = upper_lims,
-                       supp_errors = 'Y')
-  
-  fit
-  
-  # calculate additional traits
-  topt_params <- calc_params(fit) %>%
-    # round for easy viewing
-    mutate_all(round, 2) %>% 
-    mutate(species = sp)
-  
-  topt_df <- topt_df %>%
-    rbind(topt_params)
-  
-  #generate predictions
-  preds_sp <- augment(fit, newdata = new_data) %>%
-    transmute(species = sp,
-              temp_c_value = new_data$temp_c_value,
-              .fitted = .fitted)
-  
-  preds_all <- bind_rows(preds_all, preds_sp)
-}
-
-#save data files (change each time for gp/np/resp)
-write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_df_gp.csv"))
-
-#save predictions dataframe (change each time for gp/np/resp)
-write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_df_gp.csv"))
-
-#plot predictions
-#gross photo
-gp_pred_plot <- ggplot(df_gp, aes(temp_c_value, Values)) +
+#Put plots all together
+species_all_plot <- df_clean_iqr %>% ggplot(aes(temp_c_value, Values, color = species)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_all,
-            aes(temp_c_value, .fitted, group = species),
-            linewidth = 0.6, color = "blue") +
-  facet_wrap(~ species, scales = "free_y") +
+            aes(temp_c_value, .fitted, group = frag_ID, color = species),
+            linewidth = 0.6) +
+  facet_wrap(~ PR, scales = "free_y") +
   theme_bw(base_size = 12) +
   labs(x = "Temperature (ºC)",
-       y = "Gross Photosynthesis",
-       title = "Thermal performance: gross photosynthesis by species")
+       y = "Metabolic rate (umol.cm2.hr)",
+       title = "Thermal performance")
 
-ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot.pdf"),
-       device = "pdf", height = 8, width = 6, gp_pred_plot)
+species_all_plot
 
-
-
-####code working for all!!
-for(i in unique(df_resp$frag_ID)){
-  id = i
-  my_df <- df_resp %>%
-    filter(frag_ID == id)
-  
-  # get start vals
-  start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  #issues with setting start values with some parameters
-  #skip these
-  if (anyNA(start_vals) || any(!is.finite(start_vals))) {
-    message(sprintf("Skipping %s: could not set start values", id))
-    next
-  }
-  
-  # get limits
-  low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-  
-  # fit model
-  fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
-                       data = my_df,
-                       iter = 500,
-                       start_lower = start_vals - 10,
-                       start_upper = start_vals + 10,
-                       lower = low_lims,
-                       upper = upper_lims,
-                       supp_errors = 'Y')
-  
-  fit
-  
-  # calculate additional traits
-  topt_params <- calc_params(fit) %>%
-    # round for easy viewing
-    mutate_all(round, 2) %>% 
-    mutate(frag_ID = id)
-  
-  topt_df <- topt_df %>%
-    rbind(topt_params)
-  
-  #generate predictions
-  preds_id <- augment(fit, newdata = new_data) %>%
-    transmute(frag_ID = id,
-              temp_c_value = new_data$temp_c_value,
-              .fitted = .fitted)
-  
-  preds_all <- bind_rows(preds_all, preds_id)
-}
+ggsave(here("Output", "TPC", "Graphs", "all_rates_all_species_plot_clean.pdf"),
+       device = "pdf", height = 8, width = 6, species_all_plot)
 
