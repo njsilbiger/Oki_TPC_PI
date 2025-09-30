@@ -293,7 +293,7 @@ PR_plot <- RespoR_PR %>%
   theme(strip.background = element_rect(fill = "white"),
         strip.text = element_text(face = "bold"))
 
-ggsave(here("Output", "TPC", "PR_boxplots_run_block.pdf"),
+ggsave(here("Output", "TPC", "Graphs","PR_boxplots_run_block.pdf"),
        device = "pdf", height = 8, width = 8, PR_plot)
 
 GP_plot <- RespoR_PR %>% filter(PR == "GrossPhoto") %>%
@@ -433,10 +433,10 @@ for(i in unique(df_gp$species)){
   preds_all <- bind_rows(preds_all, preds_sp)
 }
 
-#save data files (change each time for gp/gp/gp)
+#save data files (change each time for gp/np/resp)
 write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_df_gp.csv"))
 
-#save predictions dataframe (change each time for gp/gp/gp)
+#save predictions dataframe (change each time for gp/np/resp)
 write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_df_gp.csv"))
 
 #plot predictions
@@ -452,7 +452,7 @@ gp_pred_plot <- ggplot(df_gp, aes(temp_c_value, Values)) +
        y = "Gross Photosynthesis",
        title = "Thermal performance: gross photosynthesis by species")
 
-ggsave(here("Output", "TPC", "gp_predicted_plot.pdf"),
+ggsave(here("Output", "TPC", "Graphs" "gp_predicted_plot.pdf"),
        device = "pdf", height = 8, width = 6, gp_pred_plot)
 
 #net photo
@@ -467,7 +467,7 @@ np_pred_plot <- ggplot(df_np, aes(temp_c_value, Values)) +
        y = "Net Photosynthesis",
        title = "Thermal performance: net photosynthesis by species")
 
-ggsave(here("Output", "TPC", "np_predicted_plot.pdf"),
+ggsave(here("Output", "TPC", "Graphs","np_predicted_plot.pdf"),
        device = "pdf", height = 8, width = 6, np_pred_plot)
 
 #respiration - not working
@@ -482,5 +482,5 @@ ggsave(here("Output", "TPC", "np_predicted_plot.pdf"),
 #        y = "Respiration",
 #        title = "Thermal performance: Respiration by species")
 # 
-# ggsave(here("Output", "TPC", "resp_predicted_plot.pdf"),
+# ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot.pdf"),
 #        device = "pdf", height = 8, width = 6, resp_pred_plot)
