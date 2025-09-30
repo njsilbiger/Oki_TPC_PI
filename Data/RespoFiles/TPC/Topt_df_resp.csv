@@ -1,0 +1,4 @@
+rmax,topt,ctmin,ctmax,e,eh,q10,thermal_safety_margin,thermal_tolerance,breadth,skewness,frag_ID,sample_ID,weight_g,volume_mL,SA_cm2,species
+-0.47,24.5,24.5,24.5,NA,NA,NA,0,0,-Inf,NA,J06,J06_TPC,1,466,15.5880644,Ahya
+-4.2,24.5,24.5,24.5,NA,-0.28,NA,0,0,-Inf,NA,C06,C06_TPC,1,456,18.47840636,Fcom
+-20.92,29,29,29,NA,NA,NA,0,0,-Inf,NA,B06,B06_TPC,1,466,13.28791369,Mvie
