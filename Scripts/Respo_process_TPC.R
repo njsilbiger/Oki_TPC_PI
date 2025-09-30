@@ -421,6 +421,7 @@ ggplot(df_iqr, aes(temp_c_value, Values, color = outlier_any)) +
 
 #drop IQR outliers
 df_clean_iqr <- df_iqr %>% filter(!outlier_any)
+write_csv(df_clean_iqr, here("Data","RespoFiles","TPC","PnR_clean_iqr.csv"))
 #removes 66 data points
 
 #choose model for rTPC: 'sharpschoolhigh_1981'
@@ -557,15 +558,17 @@ topt_df <- topt_df %>% left_join(BioData, by = "frag_ID")
 write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean.csv"))
 write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean.csv"))
 
-#read in dataframes for each one
+#read in dataframes and generate prediction dfs for each metric to graph
+PnR_clean_iqr <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_iqr.csv"))
 preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean.csv"))
 preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
 
-#plot predictions
+######plots of predicted TPCs with data#####
+
 #gross photo
-gp_pred_plot <- df_clean_iqr %>% filter(PR == "GrossPhoto") %>% ggplot(aes(temp_c_value, Values)) +
+gp_pred_plot <- PnR_clean_iqr %>% filter(PR == "GrossPhoto") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_gp,
             aes(temp_c_value, .fitted, group = frag_ID),
@@ -582,7 +585,7 @@ ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot_clean.pdf"),
        device = "pdf", height = 8, width = 6, gp_pred_plot)
 
 #net photo
-np_pred_plot <- df_clean_iqr %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_value, Values)) +
+np_pred_plot <- PnR_clean_iqr %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_np,
             aes(temp_c_value, .fitted, group = frag_ID),
@@ -599,7 +602,7 @@ ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean.pdf"),
        device = "pdf", height = 8, width = 6, np_pred_plot)
 
 #respiration 
-resp_pred_plot <- df_clean_iqr %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
+resp_pred_plot <- PnR_clean_iqr %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_resp,
             aes(temp_c_value, .fitted, group = frag_ID),
@@ -616,8 +619,8 @@ ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean.pdf"),
        device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
-#Put plots all together
-species_all_plot <- df_clean_iqr %>% ggplot(aes(temp_c_value, Values, color = species)) +
+#all species all rates plot
+species_all_plot <- PnR_clean_iqr %>% ggplot(aes(temp_c_value, Values, color = species)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_all,
             aes(temp_c_value, .fitted, group = frag_ID, color = species),
@@ -632,4 +635,173 @@ species_all_plot
 
 ggsave(here("Output", "TPC", "Graphs", "all_rates_all_species_plot_clean.pdf"),
        device = "pdf", height = 8, width = 6, species_all_plot)
+
+##########################################################
+####stats to look at differences in thermal performance metrics####
+#interested in the effect of species (species) on these parameters:
+#rmax, topt, e, breadth
+#include random effect of genotype (frag_ID)
+
+#load libraries
+library(here)
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(performance)
+library(DHARMa)
+
+#read in data
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean.csv"))
+
+#first visualize data - plots of Topt and other variables from TPCs######
+rmax_plot <- topt_df %>% 
+  ggplot(aes(species, rmax, fill = species)) +
+  geom_violin(drop = FALSE)+
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ PR, scales = "free_y") +
+  theme_bw(base_size = 12)+
+  labs(x = "Coral Species", 
+       y = "Rmax")
+
+topt_plot <- topt_df %>% 
+  ggplot(aes(species, topt, fill = species)) +
+  geom_violin(drop = FALSE)+
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ PR, scales = "free_y") +
+  theme_bw(base_size = 12)+
+  labs(x = "Coral Species", 
+       y = "Topt")
+
+e_plot <- topt_df %>% 
+  ggplot(aes(species, e, fill = species)) +
+  geom_violin(drop = FALSE)+
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ PR, scales = "free_y") +
+  theme_bw(base_size = 12)+
+  labs(x = "Coral Species", 
+       y = "e")
+
+breadth_plot <- topt_df %>% 
+  ggplot(aes(species, breadth, fill = species)) +
+  geom_violin(drop = FALSE)+
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ PR, scales = "free_y") +
+  theme_bw(base_size = 12)+
+  labs(x = "Coral Species", 
+       y = "breadth")
+
+#Meeting with Nyssa
+#plot as mean + SE
+#filter out run 4 - run predictions and see how the data looks after that (seems like it's giving the most errors/usses)
+#plot predicted with Topt with geom vline to check and make sure
+#only remove points we think are not accurate
+#scatterplot with dry weight and rmax or other parameter
+#is it actually species or just the physiology that's driving topt?
+#ancova style - with individual lines for each species
+#see which variables are related to eachother
+#later - see what depths
+#net or gross whatever is cleaner - just focus on one
+#HI = species have different physiology (anovas of all parameters)
+#H2 = differences in phys translate to thermal performance (regresssions)
+#H3 = morphology
+#drop frags that we don't have data for
+#H1 and H2, pretty pictures, maps are nice - simple star with data collection and 
+#temperature data - changes by 3C, 27-30-27
+#HOBO data - look for this
+#yearly - NOAA data
+#thermal variability is wild and that's why its cool to look at this
+#tomorrow - meet again
+
+#check distributions of data as well
+ggplot(topt_df, aes(rmax)) + #look pretty ok
+  geom_histogram(bins = 30) + 
+  facet_wrap(~PR, scales = "free")
+ggplot(topt_df, aes(topt)) + #slight left skew for GP and NP, resp won't work
+  geom_histogram(bins = 30) + 
+  facet_wrap(~PR, scales = "free")
+ggplot(topt_df, aes(e)) + #a couple high variables for GP and NP, resp weird
+  geom_histogram(bins = 30) + 
+  facet_wrap(~PR, scales = "free")
+ggplot(topt_df, aes(breadth)) + #left skewed for GP, NP good, resp weird
+  geom_histogram(bins = 30) + 
+  facet_wrap(~PR, scales = "free")
+
+#all params
+topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
+topt_np <- topt_df %>% filter(PR == "NetPhoto")
+topt_resp <- topt_df %>% filter(PR == "Respiration")
+
+#run lm for rmax
+rmax_lm <- lm(rmax ~ species, data = topt_gp)
+anova(rmax_lm)
+
+#checks
+simres <- simulateResiduals(rmax_lm)
+plot(simres)
+
+emm_rmax <- emmeans(rmax_lm, ~ species)
+pairs(emm_rmax, adjust = "tukey")
+emm_tbl_rmax <- as_tibble(summary(emm_rmax, infer = TRUE))
+
+ggplot(emm_tbl_rmax, aes(emmean, species, color = species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 12) +
+  labs(x = "rmax est", y = "Species")
+
+
+#run lm for topt
+topt_lm <- lm(topt ~ species, data = topt_gp)
+anova(topt_lm)
+
+#checks
+simres <- simulateResiduals(topt_lm)
+plot(simres)
+
+emm_topt <- emmeans(topt_lm, ~ species)
+pairs(emm_topt, adjust = "tukey")
+emm_tbl_topt <- as_tibble(summary(emm_topt, infer = TRUE))
+
+ggplot(emm_tbl_topt, aes(emmean, species, color = species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 12) +
+  labs(x = "Topt est", y = "Species")
+
+#run lm for e
+e_lm <- lm(e ~ species, data = topt_gp)
+anova(e_lm)
+
+#checks
+simres <- simulateResiduals(e_lm)
+plot(simres)
+
+emm_e <- emmeans(e_lm, ~ species)
+pairs(emm_e, adjust = "tukey")
+emm_tbl_e <- as_tibble(summary(emm_e, infer = TRUE))
+
+ggplot(emm_tbl_e, aes(emmean, species, color = species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 12) +
+  labs(x = "e est", y = "Species")
+
+#run lm for breadth
+breadth_lm <- lm(breadth ~ species, data = topt_gp)
+anova(breadth_lm)
+
+#checks
+simres <- simulateResiduals(breadth_lm)
+plot(simres)
+
+emm_breadth <- emmeans(breadth_lm, ~ species)
+pairs(emm_breadth, adjust = "tukey")
+emm_tbl_breadth <- as_tibble(summary(emm_breadth, infer = TRUE))
+
+ggplot(emm_tbl_breadth, aes(emmean, species, color = species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 12) +
+  labs(x = "breadth est", y = "Species")
 
