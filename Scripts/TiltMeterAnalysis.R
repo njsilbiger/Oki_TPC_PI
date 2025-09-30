@@ -145,7 +145,7 @@ is_outlier(JoinedData$Speed_m) %>%
   table()
 lower_bound <- quantile(JoinedData$Speed_m, 0.001)
 lower_bound #0.1% of the data lower quantile number
-Upper_bound <- quantile(JoinedData$Speed_m, 0.999)
+Upper_bound <- quantile(JoinedData$Speed_m, 0.999) #Filter out the upper bound data
 Upper_bound #99.9% of the data upper bound limit (0.2501416 )
 
 
@@ -234,26 +234,39 @@ speed_limits <- c(0, 0.25) #Setting the min/max speeds so that each graph has th
 time_limits <- as.POSIXct(range(Newdf$DateTime, na.rm = TRUE))
 
 TideData$DateTime <- as.POSIXct(TideData$DateTime, tz = "UTC")
+Newdf$DateTime <- as.POSIXct(Newdf$DateTime, tz = "UTC")
+
+
 
 plot1 <- ggplot(Newdf) +
  
   geom_segment(aes( x = DateTime, y = 0, 
-                    xend = DateTime + VelocityE_m, #Makes the arrows lean left/right
-                    yend = VelocityN_m, #Makes the arrows point up/down
-                    color = Speed_m), 
+                    xend = DateTime  , #Makes the arrows lean left/right
+                    yend = Velocity_N #Makes the arrows point up/down
+                    ), 
+               color = "blue",
                arrow = arrow(length = unit(0.2, "cm")),
-               linewidth = 0.5) +
- 
-  scale_color_viridis_c(limits = speed_limits, 
-                        breaks = seq(0, 0.25,.05), 
-                        oob = scales::squish, 
-                        direction = -1) +
+               linewidth = 0.5,
+               alpha = 0.5) +
+  
+  geom_segment(aes( x = DateTime, y = 0, 
+                    xend = DateTime  , #Makes the arrows lean left/right
+                    yend = Velocity_E #Makes the arrows point up/down
+                    ), 
+               color = "red",
+               arrow = arrow(length = unit(0.2, "cm")),
+               linewidth = 0.5, 
+               alpha = 0.5)+
+  
+  #scale_color_viridis_c(limits = speed_limits, 
+  #                      breaks = seq(0, 0.25,.05), 
+  #                      oob = scales::squish, 
+  #                      direction = -1) +
   scale_x_datetime(limits =  time_limits) +
   labs(
      
     x = "Time", 
-    y = "Velocity", 
-    color = "Speed (m/s)") +
+    y = "Velocity (cm/s)") +
   theme_minimal()  
  
  ggsave(here("Output","TiltMeterData",plotname))
@@ -269,10 +282,10 @@ plot1 <- ggplot(Newdf) +
 
  ggsave(here::here("Output", "TiltMeterData", combinedplot))
  
- return(combined) #View the plot
 
 }
 
+head(Newdf)
 
 Velocity_TidePlot_fun(Tilt1DataClean, TideData, plotname = "Tilt1Velocity.png", combinedplot = "Tilt1TideCombo.png")
 Velocity_TidePlot_fun(Tilt2DataClean, TideData, plotname = "Tilt2Velocity.png", combinedplot = "Tilt2TideCombo.png")
