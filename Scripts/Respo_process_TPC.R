@@ -135,16 +135,24 @@ for(i in 1:length(filenames_final)) {
     pmap(function(temp_c_value, light_dark, start_time, stop_time, ...) {
       data <- Respo.Data1  %>%
         filter(Time >= start_time & Time <= stop_time) %>%
-        mutate(sec = row_number()) %>%# add an id for each row to help remove the first few mins
+        arrange(Time) %>%
+        mutate(t_sec = as.numeric(difftime(Time, first(Time), units = "secs"))) %>% #keep everything in seconds
         mutate(light_dark = light_dark,
-               temp_c_value = temp_c_value,
-               sec = sec) %>%
-        filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 2 Hz
-        mutate(row_number = row_number()) %>%
-        filter(row_number %% 10 == 0) %>%  # keep every 10th row only to thin the data
-        dplyr::select(-row_number) %>%
-        mutate(sec2 = row_number())  #update the row numbers
-      #return(subset)
+               temp_c_value = temp_c_value) %>%
+        filter(t_sec > 120) %>%                          # drop first 2 min (120 s)
+        filter(row_number() %% 10 == 0)                  # keep every 10th row
+      # now t_sec increments by ~20 s for your kept rows
+      #   filter(Time >= start_time & Time <= stop_time) %>%
+      #   mutate(sec = row_number()) %>%# add an id for each row to help remove the first few mins
+      #   mutate(light_dark = light_dark,
+      #          temp_c_value = temp_c_value,
+      #          sec = sec) %>%
+      #   filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 2 Hz
+      #   mutate(row_number = row_number()) %>%
+      #   filter(row_number %% 10 == 0) %>%  # keep every 10th row only to thin the data
+      #   dplyr::select(-row_number) %>%
+      #   mutate(sec2 = row_number())  #update the row numbers
+      # #return(subset)
     }) 
   
   
@@ -170,7 +178,7 @@ for(i in 1:length(filenames_final)) {
   
   # Define function for fitting LoLinR regressions to be applied to all intervals for all samples
   fit_reg <- function(data) {
-    rankLocReg(xall = data$sec2, yall = data$Value, 
+    rankLocReg(xall = data$t_sec, yall = data$Value, #changed to secs in time instead of sec2 variable
                alpha = 0.2, method = "pc", verbose = FALSE)
   }
   
@@ -179,8 +187,8 @@ for(i in 1:length(filenames_final)) {
   
   # Map LoLinR function onto all intervals of each sample's thinned dataset
   df <- combined_oxy %>%
-    dplyr::select(sec2, Value, temp_c_value, Temp, light_dark)%>%
-    mutate(sec2 = as.numeric(sec2))%>%
+    dplyr::select(t_sec, Value, temp_c_value, Temp, light_dark)%>%
+    #mutate(sec2 = as.numeric(sec2))%>%
     nest_by(temp_c_value, light_dark) %>%
     ungroup()%>%
     mutate(regs = furrr::future_map(data, fit_reg), # run the LOLinR fit in parallel
@@ -232,7 +240,7 @@ for(i in 1:length(filenames_final)) {
 #export raw data and read back in as a failsafe 
 #this allows me to not have to run the for loop again !!!!!
 write_csv(RespoR, here("Data","RespoFiles","TPC","Respo_R.csv"))  
-#MP ran for TPC 1-6 (all) on Sept 26th 2025
+#MP ran for TPC 1-6 (all) on Sept 29th 2025
 ##### 
 
 ######### Calculate Respiration rate ###############
@@ -265,7 +273,8 @@ RespoR_Normalized <- RespoR2 %>%
   #dplyr::select(Light_level, run_block, blank.rate, date) %>% # this is what I will use to join the blanks back with the raw data
   right_join(RespoR2) %>% # join blanks with the respo data
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates   
-         umol.cm2.hr = (umol.sec.corr*3600)/SA_cm2,
+         umol.hr = umol.sec.corr*3600,
+         umol.cm2.hr = umol.hr/SA_cm2,
          umol.cm2.hr_uncorr = (umol.sec*3600)/SA_cm2) %>%
          #mmol.cm2.hr = 0.001*(umol.sec.corr*3600)/SA_cm2, # convert to mmol cm-2 hr-1
          #mmol.cm2.hr_uncorr = 0.001*(umol.sec*3600)/SA_cm2) %>% 
