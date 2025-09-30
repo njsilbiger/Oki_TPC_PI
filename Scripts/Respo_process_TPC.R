@@ -356,29 +356,21 @@ RespoR_Normalized %>%
 # sharpeschoolhigh_1981
 # https://padpadpadpad.github.io/rTPC/articles/rTPC.html
 
-# first run Topt by species, then if not working, do it by FragID
-# is I get an error, starting values are off, so play around with starting values that would make sense
-
-# load packages
-library(rTPC)
-library(nls.multstart)
-library(broom)
-library(tidyverse)
-library(here)
+#########THE CODE BELOW HERE WORKS TO GENERATE PREDICTIONS FOR JUST ONE METRIC AT ONCE
+#MP will edit this later to try and run but for now it's throwing some errors
+#So for now just go through and calculate each rate individually using this for loop by filtering by metric
+#It's throwing an error for respiration because of some negative values likely
 
 # read in data
 df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
 
+#Filter by metric
+df_gp <- df %>% filter(PR == "GrossPhoto")
+
 # choose model
 mod = 'sharpschoolhigh_1981'
 
-#define metrics
-metrics <- c("GrossPhoto", "NetPhoto", "Respiration")
-
-#create topt dataframe to fill in
-topt_df <- tibble(metric = as.character(),
-                  species = as.character(),
-                  rmax = as.numeric(),
+topt_df <- tibble(rmax = as.numeric(),
                   topt = as.numeric(),
                   ctmin = as.numeric(),
                   ctmax = as.numeric(),
@@ -388,89 +380,70 @@ topt_df <- tibble(metric = as.character(),
                   thermal_safety_margin = as.numeric(),
                   thermal_tolerance = as.numeric(),
                   breadth = as.numeric(),
-                  skewness = as.numeric()
-                  )
+                  skewness = as.numeric(),
+                  sp = as.character())
 
-#create prediction dataframe to fill in
-preds_df <- tibble(metric = as.character(),
-                   species = as.character(),
-                   temp_c_value = as.numeric(),
-                   .fitted = as.numeric()
+preds_all <- tibble(
+  species = character(),
+  temp_c_value = numeric(),
+  .fitted = numeric()
 )
 
-#define temperatures to predict
-new_temps <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
+new_data <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
 
-for (m in metrics) {
-  df_m <- df %>% filter(PR == m)
-  for(i in unique(df_gp$species)){
-    sp = i
-    my_df <- df %>%
-      filter(species == sp)
-    
-    # get start vals
-    start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-    
-    # get limits
-    low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-    upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
-    
-    # fit model
-    fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
-                         data = my_df,
-                         iter = 500,
-                         start_lower = start_vals - 10,
-                         start_upper = start_vals + 10,
-                         lower = low_lims,
-                         upper = upper_lims,
-                         supp_errors = 'Y')
-    
-    fit
-    
-    # calculate additional traits
-    topt_params <- calc_params(fit) %>%
-      # round for easy viewing
-      mutate_all(round, 2) %>% 
-      mutate(metric = m,
-             species = sp)
-    
-    topt_df <- bind_rows(topt_df,topt_params)
-    
-    #generate predictions using augment (brooms)
-    preds_sp <- augment(fit, newdata = new_temps) %>%
-      transmute(metric = m,
-                species = sp,
-                temp_c_value = new_temps$temp_c_value,
-                .fitted = .fitted)
-    
-    preds_all <- bind_rows(preds_all, preds_sp)
-  }
+for(i in unique(df_gp$species)){
+  sp = i
+  my_df <- df_gp %>%
+    filter(species == sp)
+  
+  # get start vals
+  start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  
+  # get limits
+  low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+  
+  # fit model
+  fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
+                       data = my_df,
+                       iter = 500,
+                       start_lower = start_vals - 10,
+                       start_upper = start_vals + 10,
+                       lower = low_lims,
+                       upper = upper_lims,
+                       supp_errors = 'Y')
+  
+  fit
+  
+  # calculate additional traits
+  topt_params <- calc_params(fit) %>%
+    # round for easy viewing
+    mutate_all(round, 2) %>% 
+    mutate(species = sp)
+  
+  topt_df <- topt_df %>%
+    rbind(topt_params)
+
+  #generate predictions
+  preds_sp <- augment(fit, newdata = new_data) %>%
+    transmute(species = sp,
+              temp_c_value = new_data$temp_c_value,
+              .fitted = .fitted)
+  
+  preds_all <- bind_rows(preds_all, preds_sp)
 }
 
-#sort and save topt dataframe
-topt_df %>% 
-  relocate(species, .before = rmax) %>% 
-  arrange(topt)
+#save data files (change each time for gp/gp/gp)
+write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_df_gp.csv"))
 
-#save data
-write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_df.csv"))
-
-#save predictions dataframe
-write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_df.csv"))
-
-#subset to plot individual metric predictions
-df_gp <- df %>% filter(PR == "GrossPhoto")
-df_np <- df %>% filter(PR == "NetPhoto")
-df_resp <- df %>% filter(PR == "Respiration")
-gp_pred <- preds_all %>% filter(metric == "GrossPhoto")
-np_pred <- preds_all %>% filter(metric == "NetPhoto")
-resp_pred <- preds_all %>% filter(metric == "Respiration")
+#save predictions dataframe (change each time for gp/gp/gp)
+write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_df_gp.csv"))
 
 #plot predictions
-#gp
-ggplot(df_gp, aes(temp_c_value, Values)) +
+#gross photo
+gp_pred_plot <- ggplot(df_gp, aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
-  geom_line(data = gp_pred,
+  geom_line(data = preds_all,
             aes(temp_c_value, .fitted, group = species),
             linewidth = 0.6, color = "blue") +
   facet_wrap(~ species, scales = "free_y") +
@@ -479,4 +452,35 @@ ggplot(df_gp, aes(temp_c_value, Values)) +
        y = "Gross Photosynthesis",
        title = "Thermal performance: gross photosynthesis by species")
 
-#np
+ggsave(here("Output", "TPC", "gp_predicted_plot.pdf"),
+       device = "pdf", height = 8, width = 6, gp_pred_plot)
+
+#net photo
+np_pred_plot <- ggplot(df_np, aes(temp_c_value, Values)) +
+  geom_point(alpha = 0.7) +
+  geom_line(data = preds_all,
+            aes(temp_c_value, .fitted, group = species),
+            linewidth = 0.6, color = "blue") +
+  facet_wrap(~ species, scales = "free_y") +
+  theme_bw(base_size = 12) +
+  labs(x = "Temperature (ºC)",
+       y = "Net Photosynthesis",
+       title = "Thermal performance: net photosynthesis by species")
+
+ggsave(here("Output", "TPC", "np_predicted_plot.pdf"),
+       device = "pdf", height = 8, width = 6, np_pred_plot)
+
+#respiration - not working
+# resp_pred_plot <- ggplot(df_resp, aes(temp_c_value, Values)) +
+#   geom_point(alpha = 0.7) +
+#   geom_line(data = preds_all,
+#             aes(temp_c_value, .fitted, group = species),
+#             linewidth = 0.6, color = "blue") +
+#   facet_wrap(~ species, scales = "free_y") +
+#   theme_bw(base_size = 12) +
+#   labs(x = "Temperature (ºC)",
+#        y = "Respiration",
+#        title = "Thermal performance: Respiration by species")
+# 
+# ggsave(here("Output", "TPC", "resp_predicted_plot.pdf"),
+#        device = "pdf", height = 8, width = 6, resp_pred_plot)
