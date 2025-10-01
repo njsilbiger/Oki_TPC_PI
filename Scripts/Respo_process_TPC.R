@@ -293,6 +293,8 @@ RespoR_PR <- RespoR_Normalized %>%
 
 write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
 RespoR_PR <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
+sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
+RespoR_PR <- RespoR_PR %>% filter(species %in% sp_keep)
 
 #dev.off() # may need if plot doesn't run?
 PR_plot <- RespoR_PR %>% 
@@ -397,7 +399,7 @@ df_no4 <- df %>%
   mutate(outlier_ids = full_ID %in% bad_ids) %>% #remove a couple individuals for NP
   mutate(outlier_any = outlier_run | outlier_block | outlier_ids) 
 
-#check updated graph of IQR values to remove
+#check graph of values to remove
 ggplot(df_no4, aes(temp_c_value, Values, color = outlier_any)) +
   geom_point() +
   facet_wrap(PR ~ species, scales = "free_y") +
@@ -497,7 +499,7 @@ for (j in unique(df_clean$PR)){
 #these will print when you run
 #skips no NP or GP
 
-#add species names to predictions and topt dfs
+#add species names to predictions and topt dfs and pnr data
 BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
 # species names
 sp_names <- read_csv(here("Data", "species_names.csv"))
@@ -519,12 +521,20 @@ write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 
 #read in dataframes and generate prediction dfs for each metric to graph
 PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+BioSp <- BioData %>% dplyr::select(frag_ID, full_species)
+PnR_clean <-  PnR_clean %>% left_join(BioSp, by = "frag_ID")
+PnR_clean <- PnR_clean %>% filter(species %in% sp_keep)
+write_csv(PnR_clean, here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
 preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
+preds_all <- preds_all %>% filter(species %in% sp_keep)
+write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv")) #P and R rate data cleaned 7sp only
 preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
 #and topt data
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_df <- topt_df %>% filter(species %in% sp_keep)
+write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
 topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
 topt_np <- topt_df %>% filter(PR == "NetPhoto")
 topt_resp <- topt_df %>% filter(PR == "Respiration")
@@ -538,17 +548,18 @@ gp_pred_plot <- PnR_clean %>% filter(PR == "GrossPhoto") %>% ggplot(aes(temp_c_v
             aes(temp_c_value, .fitted, group = frag_ID),
             linewidth = 0.6, color = "darkblue") +
   theme_bw(base_size = 12) +
+  theme(strip.text = element_text(face = "italic"))+
   #geom_vline(data = topt_gp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
   #geom_hline(data = topt_gp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
-  facet_wrap(~ species, scales = "free_y") +
+  facet_wrap(~ full_species, scales = "free_y") +
   ylim(0.48,2.5) +
   labs(x = "Temperature (ºC)",
-       y = "Gross Photosynthesis (umol.cm2.hr)",
+       y = expression("Gross Photosynthesis" ~ (mu*mol ~ cm^{-2} ~ h^{-1})),
        title = "Thermal performance: gross photosynthesis by species")
 
 gp_pred_plot
 
-ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot_clean_no4.pdf"),
+ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot_7sp.pdf"),
        device = "pdf", height = 8, width = 8, gp_pred_plot)
 
 #net photo
@@ -557,18 +568,18 @@ np_pred_plot <- PnR_clean %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_val
   geom_line(data = preds_np,
             aes(temp_c_value, .fitted, group = frag_ID),
             linewidth = 0.6, color = "darkblue") +
-  facet_wrap(~ species, scales = "free_y") +
+  facet_wrap(~ full_species, scales = "free_y") +
   #geom_vline(data = topt_np,aes(xintercept = topt),linewidth = 0.3, color = "red") +
   #geom_hline(data = topt_np,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
   theme_bw(base_size = 12) +
+  theme(strip.text = element_text(face = "italic")) +
   labs(x = "Temperature (ºC)",
-       y = "Net Photosynthesis (umol.cm2.hr)",
+       y = expression("Net Photosynthesis" ~ (mu*mol ~ cm^{-2} ~ h^{-1})),
        title = "Thermal performance: net photosynthesis by species")
 
 np_pred_plot
-#runs to be left out for net photo: A01, B08, and F08 - done above
 
-ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean_no4_rmax_topt.pdf"),
+ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_7sp.pdf"),
        device = "pdf", height = 8, width = 8, np_pred_plot)
 
 #respiration 
@@ -592,22 +603,44 @@ ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean_no4_rmax_topt.pdf
 #        device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
-#all species all rates plot
-species_all_plot <- PnR_clean %>% ggplot(aes(temp_c_value, Values, color = species)) +
+#all rates stacked plots
+PnR_gp <- PnR_clean %>% filter(PR == "GrossPhoto")
+species_gp_plot <- PnR_gp %>% ggplot(aes(temp_c_value, Values, color = full_species)) +
   geom_point(alpha = 0.7) +
-  geom_line(data = preds_all,
-            aes(temp_c_value, .fitted, group = frag_ID, color = species),
+  geom_line(data = preds_gp,
+            aes(temp_c_value, .fitted, group = frag_ID, color = full_species),
             linewidth = 0.6) +
-  facet_wrap(~ PR, scales = "free_y") +
+  #facet_wrap(~ PR, scales = "free_y") +
+  scale_color_discrete(labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 12) +
   labs(x = "Temperature (ºC)",
-       y = "Metabolic rate (umol.cm2.hr)",
-       title = "Thermal performance")
+       y = expression("Gross Photosynthesis" ~ (mu*mol ~ cm^{-2} ~ h^{-1})),
+       title = "Thermal performance",
+       color = "Species")
 
-species_all_plot
+species_gp_plot
 
-ggsave(here("Output", "TPC", "Graphs", "all_rates_all_species_plot_clean_no4.pdf"),
-       device = "pdf", height = 8, width = 8, species_all_plot)
+ggsave(here("Output", "TPC", "Graphs", "gp_stacked_plot_7sp.pdf"),
+       device = "pdf", height = 8, width = 8, species_gp_plot)
+
+PnR_np <- PnR_clean %>% filter(PR == "NetPhoto")
+species_np_plot <- PnR_np %>% ggplot(aes(temp_c_value, Values, color = full_species)) +
+  geom_point(alpha = 0.7) +
+  geom_line(data = preds_np,
+            aes(temp_c_value, .fitted, group = frag_ID, color = full_species),
+            linewidth = 0.6) +
+  #facet_wrap(~ PR, scales = "free_y") +
+  scale_color_discrete(labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 12) +
+  labs(x = "Temperature (ºC)",
+       y = expression("Net Photosynthesis" ~ (mu*mol ~ cm^{-2} ~ h^{-1})),
+       title = "Thermal performance",
+       color = "Species")
+
+species_np_plot
+
+ggsave(here("Output", "TPC", "Graphs", "np_stacked_plot_7sp.pdf"),
+       device = "pdf", height = 8, width = 8, species_np_plot)
 
 ##########################################################
 ####stats to look at differences in thermal performance metrics####
@@ -656,7 +689,7 @@ topt_summary <- as.data.frame(topt_summary)
 #first visualize data - plots of Topt and other variables from TPCs######
 topt_plot <- ggplot() +
   geom_jitter(data = topt_long,
-              aes(x = species, y = value, color = species),
+              aes(x = species, y = value, color = full_species),
               width = 0.15, alpha = 0.5) +
   geom_errorbar(data = topt_summary,
                 aes(x = species,
@@ -666,7 +699,8 @@ topt_plot <- ggplot() +
              aes(x = species, y = mean),
              size = 2) +
   facet_wrap(PR ~ metric, scales = "free_y") +
-  theme_bw(base_size = 12)
+  theme_bw(base_size = 12) +
+  scale_color_discrete(labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))
   #labs(x = )
 topt_plot
 
