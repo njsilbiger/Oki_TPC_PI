@@ -377,52 +377,30 @@ library(here)
 
 # read in data
 df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
-df <- df %>% mutate(full_ID = paste(sample_ID,run_block,temp_c_value,PR)) %>% mutate(id_block = paste(sample_ID,run_block,PR))
+df <- df %>% mutate(full_ID = paste(sample_ID,run_block,temp_c_value)) %>% mutate(id_block = paste(sample_ID,run_block,PR))
 #log_df <- df %>% mutate(logValues = log(Values))
 
+#remove data that is not biologically possible
+#and remove run 4
+bad_ids <- c("A08_TPC RUN6 24.5","C08_TPC RUN6 24.5")
+bad_run <- "RUN4"
 
-#create outlier IQR function
-is_outlier_iqr <- function(x) {
-  q1 <- quantile(x, 0.25, na.rm = TRUE)
-  q3 <- quantile(x, 0.75, na.rm = TRUE)
-  iqr <- q3 - q1
-  (x < (q1 - 1.5 * iqr)) | (x > (q3 + 1.5 * iqr))
-}
-
-#add column to flag outliers
-#just grouped by species and PR, could also do more finescale grouping
-df_iqr <- df %>%
-  group_by(PR, species) %>%
-  mutate(outlier_iqr = if (n() >= 4) is_outlier_iqr(Values) else FALSE) %>%
-  ungroup()
-
-#look at graph of IQR values to remove
-ggplot(df_iqr, aes(temp_c_value, Values, color = outlier_iqr)) +
-  geom_point() +
-  facet_wrap(PR ~ species, scales = "free_y") +
-  theme_bw()
-
-#now remove those from runs where <4 data points were removed by IQR removal
-df_ir_check <- df_iqr %>% filter(outlier_iqr)
-bad_ids <- c("C06_TPC RUN4 Respiration", "D04_TPC RUN6 NetPhoto", "I08_TPC RUN6 NetPhoto")
-
-df_iqr <- df %>%
-  mutate(outlier_manual = id_block %in% bad_ids) %>% #manual flags
-  group_by(PR, species) %>%
-  mutate(outlier_iqr = if (n() >= 4) is_outlier_iqr(Values) else FALSE) %>%
-  ungroup() %>%
-  mutate(outlier_any = outlier_iqr | outlier_manual)   
+df_no4 <- df %>%
+  mutate(outlier_block = run_block %in% bad_run) %>% #remove run 4 for all 
+  mutate(outlier_ids = full_ID %in% bad_ids) %>% #individual removal
+  mutate(outlier_any = outlier_ids | outlier_block) 
 
 #check updated graph of IQR values to remove
-ggplot(df_iqr, aes(temp_c_value, Values, color = outlier_any)) +
+ggplot(df_no4, aes(temp_c_value, Values, color = outlier_any)) +
   geom_point() +
   facet_wrap(PR ~ species, scales = "free_y") +
   theme_bw()
 
-#drop IQR outliers
-df_clean_iqr <- df_iqr %>% filter(!outlier_any)
-write_csv(df_clean_iqr, here("Data","RespoFiles","TPC","PnR_clean_iqr.csv"))
-#removes 66 data points
+#drop outliers
+df_clean <- df_no4 %>% filter(!outlier_any)
+write_csv(df_clean, here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+df_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+#removes 276 data points (makes sense, one whole run)
 
 #choose model for rTPC: 'sharpschoolhigh_1981'
 
@@ -451,9 +429,9 @@ preds_all <- tibble(
 
 new_data <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
 
-for (j in unique(df_clean_iqr$PR)){
+for (j in unique(df_clean$PR)){
   pr = j
-  PR_df <- df_clean_iqr %>%
+  PR_df <- df_clean %>%
     filter(PR == pr)
   
   for(i in unique(PR_df$frag_ID)){
@@ -508,119 +486,106 @@ for (j in unique(df_clean_iqr$PR)){
   }
 }
 
-#Values that this code skipped because couldn't set start values:
-# Skipping C01 Respiration: could not set start values
-# Skipping F01 Respiration: could not set start values
-# Skipping E01 Respiration: could not set start values
-# Skipping J01 Respiration: could not set start values
-# Skipping I01 Respiration: could not set start values
-# Skipping B01 Respiration: could not set start values
-# Skipping D01 Respiration: could not set start values
-# Skipping E02 Respiration: could not set start values
-# Skipping F04 Respiration: could not set start values
-# Skipping D02 Respiration: could not set start values
-# Skipping C02 Respiration: could not set start values
-# Skipping J02 Respiration: could not set start values
-# Skipping B02 Respiration: could not set start values
-# Skipping E03 Respiration: could not set start values
-# Skipping I03 Respiration: could not set start values
-# Skipping A03 Respiration: could not set start values
-# Skipping H04 Respiration: could not set start values
-# Skipping F03 Respiration: could not set start values
-# Skipping J03 Respiration: could not set start values
-# Skipping G05 Respiration: could not set start values
-# Skipping I06 Respiration: could not set start values
-# Skipping E06 Respiration: could not set start values
-# Skipping F06 Respiration: could not set start values
-# Skipping B07 Respiration: could not set start values
-# Skipping A07 Respiration: could not set start values
-# Skipping E07 Respiration: could not set start values
-# Skipping J07 Respiration: could not set start values
-# Skipping C07 Respiration: could not set start values
-# Skipping I07 Respiration: could not set start values
-# Skipping H07 Respiration: could not set start values
-# Skipping B08 Respiration: could not set start values
-# Skipping E08 Respiration: could not set start values
-# Skipping D04 Respiration: could not set start values
-# Skipping J08 Respiration: could not set start values
-# Skipping I08 Respiration: could not set start values
-# Skipping G08 Respiration: could not set start values
-# Skipping A06 NetPhoto: could not set start values
+#Code skips over a lot of the respiration values because it can't set start values
+#these will print when you run
+#skips no NP or GP
 
 #add species names to predictions and topt dfs
 BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
+# species names
+sp_names <- read_csv(here("Data", "species_names.csv"))
+# join the data together
+BioData <- BioData %>% 
+  full_join(sp_names)
 
-preds_all <- preds_all %>% left_join(BioData, by = "frag_ID")
-topt_df <- topt_df %>% left_join(BioData, by = "frag_ID")
+preds_all <- preds_all %>% 
+  select(PR, frag_ID, temp_c_value, .fitted) %>% 
+  left_join(BioData, by = "frag_ID")
+topt_df <- topt_df %>% 
+  select(rmax, topt, ctmin, ctmax, e, eh, q10, thermal_safety_margin, thermal_tolerance, breadth, skewness, PR, frag_ID) %>% 
+  left_join(BioData, by = "frag_ID")
 
 #save data files
 #clean = outliers removed
-write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean.csv"))
-write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean.csv"))
+write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 
 #read in dataframes and generate prediction dfs for each metric to graph
-PnR_clean_iqr <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_iqr.csv"))
-preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean.csv"))
+PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
+#and topt data
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
+topt_np <- topt_df %>% filter(PR == "NetPhoto")
+topt_resp <- topt_df %>% filter(PR == "Respiration")
 
 ######plots of predicted TPCs with data#####
 
 #gross photo
-gp_pred_plot <- PnR_clean_iqr %>% filter(PR == "GrossPhoto") %>% ggplot(aes(temp_c_value, Values)) +
+gp_pred_plot <- PnR_clean %>% filter(PR == "GrossPhoto") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_gp,
             aes(temp_c_value, .fitted, group = frag_ID),
-            linewidth = 0.6, color = "blue") +
-  facet_wrap(~ species, scales = "free_y") +
+            linewidth = 0.6, color = "darkblue") +
   theme_bw(base_size = 12) +
+  #geom_vline(data = topt_gp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_gp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+  facet_wrap(~ species, scales = "free_y") +
+  ylim(0.48,2.5) +
   labs(x = "Temperature (ºC)",
        y = "Gross Photosynthesis (umol.cm2.hr)",
        title = "Thermal performance: gross photosynthesis by species")
 
 gp_pred_plot
 
-ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot_clean.pdf"),
-       device = "pdf", height = 8, width = 6, gp_pred_plot)
+ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 8, gp_pred_plot)
 
 #net photo
-np_pred_plot <- PnR_clean_iqr %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_value, Values)) +
+np_pred_plot <- PnR_clean %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_np,
             aes(temp_c_value, .fitted, group = frag_ID),
-            linewidth = 0.6, color = "blue") +
+            linewidth = 0.6, color = "darkblue") +
   facet_wrap(~ species, scales = "free_y") +
+  #geom_vline(data = topt_np,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_np,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
   theme_bw(base_size = 12) +
   labs(x = "Temperature (ºC)",
-       y = "Net Photosynthesis",
+       y = "Net Photosynthesis (umol.cm2.hr)",
        title = "Thermal performance: net photosynthesis by species")
 
 np_pred_plot
+#runs to be left out for net photo: A01, B08, and F08
 
-ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean.pdf"),
-       device = "pdf", height = 8, width = 6, np_pred_plot)
+ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 8, np_pred_plot)
 
 #respiration 
-resp_pred_plot <- PnR_clean_iqr %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
+resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
   geom_point(alpha = 0.7) +
-  geom_line(data = preds_resp,
-            aes(temp_c_value, .fitted, group = frag_ID),
+  geom_line(data = preds_resp, aes(temp_c_value, .fitted, group = frag_ID),
             linewidth = 0.6, color = "blue") +
-  facet_wrap(~ species, scales = "free_y") +
+  facet_wrap(~ frag_ID, scales = "free_y") +
+  geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
   theme_bw(base_size = 12) +
   labs(x = "Temperature (ºC)",
-       y = "Respiration",
+       y = "Respiration (umol.cm2.hr)",
        title = "Thermal performance: respiration by species")
 
 resp_pred_plot
 
-ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean.pdf"),
+
+ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean_no4.pdf"),
        device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
 #all species all rates plot
-species_all_plot <- PnR_clean_iqr %>% ggplot(aes(temp_c_value, Values, color = species)) +
+species_all_plot <- PnR_clean %>% ggplot(aes(temp_c_value, Values, color = species)) +
   geom_point(alpha = 0.7) +
   geom_line(data = preds_all,
             aes(temp_c_value, .fitted, group = frag_ID, color = species),
@@ -633,8 +598,8 @@ species_all_plot <- PnR_clean_iqr %>% ggplot(aes(temp_c_value, Values, color = s
 
 species_all_plot
 
-ggsave(here("Output", "TPC", "Graphs", "all_rates_all_species_plot_clean.pdf"),
-       device = "pdf", height = 8, width = 6, species_all_plot)
+ggsave(here("Output", "TPC", "Graphs", "all_rates_all_species_plot_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 8, species_all_plot)
 
 ##########################################################
 ####stats to look at differences in thermal performance metrics####
@@ -652,66 +617,47 @@ library(performance)
 library(DHARMa)
 
 #read in data
-topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean.csv"))
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+
+#convert to long so you can plot everything at once
+metrics <- c("topt", "rmax", "e", "breadth") #select metrics
+grouping_vars <- c("species", "PR", "frag_ID", "full_species") #select grouping variables
+
+topt_long <- topt_df %>% #make long dataframe
+  dplyr::select(all_of(c(grouping_vars, metrics))) %>%
+  pivot_longer(cols = all_of(metrics),
+               names_to = "metric",
+               values_to = "value")
+
+#now generate mean and se dataframe
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+topt_summary <- topt_long %>%
+  group_by(across(c(species,PR)), metric) %>%
+  summarise(
+    n    = sum(!is.na(value)),
+    mean = mean(value, na.rm = TRUE),
+    se   = se_fun(value),
+    .groups = "drop"
+  )
 
 #first visualize data - plots of Topt and other variables from TPCs######
-rmax_plot <- topt_df %>% 
-  ggplot(aes(species, rmax, fill = species)) +
-  geom_violin(drop = FALSE)+
+topt_plot <- topt_long %>% 
+  ggplot(aes(species, value, fill = species)) +
+  
   geom_point(alpha = 0.7) +
-  facet_wrap(~ PR, scales = "free_y") +
+  facet_wrap(PR ~ metric, scales = "free_y") +
   theme_bw(base_size = 12)+
   labs(x = "Coral Species", 
        y = "Rmax")
+topt_plot
 
-topt_plot <- topt_df %>% 
-  ggplot(aes(species, topt, fill = species)) +
-  geom_violin(drop = FALSE)+
-  geom_point(alpha = 0.7) +
-  facet_wrap(~ PR, scales = "free_y") +
-  theme_bw(base_size = 12)+
-  labs(x = "Coral Species", 
-       y = "Topt")
-
-e_plot <- topt_df %>% 
-  ggplot(aes(species, e, fill = species)) +
-  geom_violin(drop = FALSE)+
-  geom_point(alpha = 0.7) +
-  facet_wrap(~ PR, scales = "free_y") +
-  theme_bw(base_size = 12)+
-  labs(x = "Coral Species", 
-       y = "e")
-
-breadth_plot <- topt_df %>% 
-  ggplot(aes(species, breadth, fill = species)) +
-  geom_violin(drop = FALSE)+
-  geom_point(alpha = 0.7) +
-  facet_wrap(~ PR, scales = "free_y") +
-  theme_bw(base_size = 12)+
-  labs(x = "Coral Species", 
-       y = "breadth")
-
-#Meeting with Nyssa
-#plot as mean + SE
-#filter out run 4 - run predictions and see how the data looks after that (seems like it's giving the most errors/usses)
-#plot predicted with Topt with geom vline to check and make sure
-#only remove points we think are not accurate
-#scatterplot with dry weight and rmax or other parameter
-#is it actually species or just the physiology that's driving topt?
-#ancova style - with individual lines for each species
-#see which variables are related to eachother
-#later - see what depths
-#net or gross whatever is cleaner - just focus on one
-#HI = species have different physiology (anovas of all parameters)
-#H2 = differences in phys translate to thermal performance (regresssions)
-#H3 = morphology
-#drop frags that we don't have data for
-#H1 and H2, pretty pictures, maps are nice - simple star with data collection and 
-#temperature data - changes by 3C, 27-30-27
-#HOBO data - look for this
-#yearly - NOAA data
-#thermal variability is wild and that's why its cool to look at this
-#tomorrow - meet again
+ggsave(here("Output", "TPC", "Graphs","Topt_allparams_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 8, topt_plot)
 
 #check distributions of data as well
 ggplot(topt_df, aes(rmax)) + #look pretty ok
