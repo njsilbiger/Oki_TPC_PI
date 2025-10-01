@@ -678,81 +678,52 @@ ggplot(topt_long, aes(value)) + #look pretty ok
   geom_histogram(bins = 30) + 
   facet_wrap(PR~metric, scales = "free")
 
-#all params
-topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
-topt_np <- topt_df %>% filter(PR == "NetPhoto")
-topt_resp <- topt_df %>% filter(PR == "Respiration")
+#run a loop to model the data and get the output and the pairwise comparisons
+library(broom)
 
-#run lm for rmax
-rmax_lm <- lm(rmax ~ species, data = topt_np)
-anova(rmax_lm)
-# Df Sum Sq  Mean Sq F value   Pr(>F)   
-# species    9 2.3720 0.263561  3.0278 0.007468 **
+PR_levels <- c("GrossPhoto", "NetPhoto", "Respiration")
+resp_metrics <- c("rmax", "topt", "e", "breadth")
 
-#checks
-simres <- simulateResiduals(rmax_lm)
-plot(simres)
+#data lists
+emm_list   <- list()
+anova_list <- list()
 
-emm_rmax <- emmeans(rmax_lm, ~ species)
-pairs(emm_rmax, adjust = "tukey")
-emm_tbl_rmax <- as_tibble(summary(emm_rmax, infer = TRUE))
+for (pr in PR_levels) {
+  dat_pr <- topt_long %>% filter(PR == pr)
+  
+  for (resp in resp_metrics) {
+    dat <- dat_pr %>% filter(metric == resp)
+    
+    fit <- lm(value ~ species, data = dat)
+    
+    # ANOVA table -> tidy tibble
+    an_tbl <- broom::tidy(anova(fit)) %>%
+      mutate(PR = pr, metric = resp, .before = 1)
+    anova_list[[paste(pr, resp, sep = "__")]] <- an_tbl
+    
+    # EMMs per species (+ CIs) -> tibble
+    emm_obj <- emmeans::emmeans(fit, ~ species)
+    emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>%
+      mutate(PR = pr, metric = resp, .before = 1)
+    emm_list[[paste(pr, resp, sep = "__")]] <- emm_tbl
+  }
+}
 
-ggplot(emm_tbl_rmax, aes(emmean, species, color = species)) +
+#add values to table
+emm_all   <- bind_rows(emm_list)
+anova_all <- bind_rows(anova_list)
+
+write_csv(emm_all, here("Data","RespoFiles","TPC","emmeans_all_PR_metrics.csv"))
+write_csv(anova_all, here("Data","RespoFiles","TPC","anova_all_PR_metrics.csv"))
+
+emm_plot <- ggplot(emm_all, aes(x = emmean, y = species, color = species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 12) +
-  labs(x = "rmax est", y = "Species")
+  facet_wrap(PR ~ metric, scales = "free") +
+  labs(title = "emmeans + confidence intervals")
+emm_plot
 
-#run lm for topt
-topt_lm <- lm(topt ~ species, data = topt_np)
-anova(topt_lm)
+ggsave(here("Output", "TPC", "Graphs","Emmeans_allparams_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 8, emm_plot)
 
-#checks
-simres <- simulateResiduals(topt_lm)
-plot(simres)
-
-emm_topt <- emmeans(topt_lm, ~ species)
-pairs(emm_topt, adjust = "tukey")
-emm_tbl_topt <- as_tibble(summary(emm_topt, infer = TRUE))
-
-ggplot(emm_tbl_topt, aes(emmean, species, color = species)) +
-  geom_point() +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
-  theme_bw(base_size = 12) +
-  labs(x = "Topt est", y = "Species")
-
-#run lm for e
-e_lm <- lm(e ~ species, data = topt_np)
-anova(e_lm)
-
-#checks
-simres <- simulateResiduals(e_lm)
-plot(simres)
-
-emm_e <- emmeans(e_lm, ~ species)
-pairs(emm_e, adjust = "tukey")
-emm_tbl_e <- as_tibble(summary(emm_e, infer = TRUE))
-
-ggplot(emm_tbl_e, aes(emmean, species, color = species)) +
-  geom_point() +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
-  theme_bw(base_size = 12) +
-  labs(x = "e est", y = "Species")
-
-#run lm for breadth
-breadth_lm <- lm(breadth ~ species, data = topt_np)
-anova(breadth_lm)
-
-#checks
-simres <- simulateResiduals(breadth_lm)
-plot(simres)
-
-emm_breadth <- emmeans(breadth_lm, ~ species)
-pairs(emm_breadth, adjust = "tukey")
-emm_tbl_breadth <- as_tibble(summary(emm_breadth, infer = TRUE))
-
-ggplot(emm_tbl_breadth, aes(emmean, species, color = species)) +
-  geom_point() +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
-  theme_bw(base_size = 12) +
-  labs(x = "breadth est", y = "Species")
