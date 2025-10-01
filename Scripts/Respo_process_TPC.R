@@ -377,18 +377,25 @@ library(here)
 
 # read in data
 df <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
-df <- df %>% mutate(full_ID = paste(sample_ID,run_block,temp_c_value)) %>% mutate(id_block = paste(sample_ID,run_block,PR))
+df <- df %>% 
+  mutate(id_block = paste(sample_ID,run_block,PR)) %>%
+  mutate(full_ID = paste(sample_ID,run_block,temp_c_value, PR))
 #log_df <- df %>% mutate(logValues = log(Values))
 
 #remove data that is not biologically possible
 #and remove run 4
-bad_ids <- c("A08_TPC RUN6 24.5","C08_TPC RUN6 24.5")
+bad_ids <- c("A01_TPC RUN1 24.5 NetPhoto","A01_TPC RUN1 26 NetPhoto", "A01_TPC RUN1 34 NetPhoto",
+             "F08_TPC RUN6 34 NetPhoto",
+             "A08_TPC RUN6 24.5 Respiration", "A08_TPC RUN6 24.5 NetPhoto", "A08_TPC RUN6 24.5 GrossPhoto",
+             "C08_TPC RUN6 24.5 Respiration", "C08_TPC RUN6 24.5 NetPhoto", "C08_TPC RUN6 24.5 GrossPhoto")
+bad_block <- c("B08_TPC RUN6 NetPhoto")
 bad_run <- "RUN4"
 
 df_no4 <- df %>%
-  mutate(outlier_block = run_block %in% bad_run) %>% #remove run 4 for all 
-  mutate(outlier_ids = full_ID %in% bad_ids) %>% #individual removal
-  mutate(outlier_any = outlier_ids | outlier_block) 
+  mutate(outlier_run = run_block %in% bad_run) %>% #remove run 4 for all 
+  mutate(outlier_block = id_block %in% bad_block) %>% #remove a couple frags Run6
+  mutate(outlier_ids = full_ID %in% bad_ids) %>% #remove a couple individuals for NP
+  mutate(outlier_any = outlier_run | outlier_block | outlier_ids) 
 
 #check updated graph of IQR values to remove
 ggplot(df_no4, aes(temp_c_value, Values, color = outlier_any)) +
@@ -400,7 +407,7 @@ ggplot(df_no4, aes(temp_c_value, Values, color = outlier_any)) +
 df_clean <- df_no4 %>% filter(!outlier_any)
 write_csv(df_clean, here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
 df_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
-#removes 276 data points (makes sense, one whole run)
+#removes 289 data points (makes sense, one whole run plus quite a few)
 
 #choose model for rTPC: 'sharpschoolhigh_1981'
 
@@ -559,29 +566,30 @@ np_pred_plot <- PnR_clean %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_val
        title = "Thermal performance: net photosynthesis by species")
 
 np_pred_plot
-#runs to be left out for net photo: A01, B08, and F08
+#runs to be left out for net photo: A01, B08, and F08 - done above
 
-ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean_no4.pdf"),
+ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_clean_no4_rmax_topt.pdf"),
        device = "pdf", height = 8, width = 8, np_pred_plot)
 
 #respiration 
-resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
-  geom_point(alpha = 0.7) +
-  geom_line(data = preds_resp, aes(temp_c_value, .fitted, group = frag_ID),
-            linewidth = 0.6, color = "blue") +
-  facet_wrap(~ frag_ID, scales = "free_y") +
-  geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
-  geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
-  theme_bw(base_size = 12) +
-  labs(x = "Temperature (ºC)",
-       y = "Respiration (umol.cm2.hr)",
-       title = "Thermal performance: respiration by species")
-
-resp_pred_plot
-
-
-ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean_no4.pdf"),
-       device = "pdf", height = 8, width = 6, resp_pred_plot)
+#this has been left alone for now since MP just focusing on GP and NP for poster
+# resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
+#   geom_point(alpha = 0.7) +
+#   geom_line(data = preds_resp, aes(temp_c_value, .fitted, group = frag_ID),
+#             linewidth = 0.6, color = "blue") +
+#   facet_wrap(~ frag_ID, scales = "free_y") +
+#   geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+#   geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+#   theme_bw(base_size = 12) +
+#   labs(x = "Temperature (ºC)",
+#        y = "Respiration (umol.cm2.hr)",
+#        title = "Thermal performance: respiration by species")
+# 
+# resp_pred_plot
+# 
+# 
+# ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean_no4.pdf"),
+#        device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
 #all species all rates plot
@@ -646,16 +654,6 @@ topt_summary <- topt_long %>%
 topt_summary <- as.data.frame(topt_summary)
 
 #first visualize data - plots of Topt and other variables from TPCs######
-topt_plot <- topt_long %>% 
-  ggplot(aes(species, value, fill = species)) +
-  
-  geom_point(alpha = 0.7) +
-  facet_wrap(PR ~ metric, scales = "free_y") +
-  theme_bw(base_size = 12)+
-  labs(x = "Coral Species", 
-       y = "Rmax")
-topt_plot
-
 topt_plot <- ggplot() +
   geom_jitter(data = topt_long,
               aes(x = species, y = value, color = species),
@@ -670,6 +668,7 @@ topt_plot <- ggplot() +
   facet_wrap(PR ~ metric, scales = "free_y") +
   theme_bw(base_size = 12)
   #labs(x = )
+topt_plot
 
 ggsave(here("Output", "TPC", "Graphs","Topt_allparams_clean_no4.pdf"),
        device = "pdf", height = 8, width = 8, topt_plot)
@@ -685,8 +684,10 @@ topt_np <- topt_df %>% filter(PR == "NetPhoto")
 topt_resp <- topt_df %>% filter(PR == "Respiration")
 
 #run lm for rmax
-rmax_lm <- lm(rmax ~ species, data = topt_gp)
+rmax_lm <- lm(rmax ~ species, data = topt_np)
 anova(rmax_lm)
+# Df Sum Sq  Mean Sq F value   Pr(>F)   
+# species    9 2.3720 0.263561  3.0278 0.007468 **
 
 #checks
 simres <- simulateResiduals(rmax_lm)
@@ -702,9 +703,8 @@ ggplot(emm_tbl_rmax, aes(emmean, species, color = species)) +
   theme_bw(base_size = 12) +
   labs(x = "rmax est", y = "Species")
 
-
 #run lm for topt
-topt_lm <- lm(topt ~ species, data = topt_gp)
+topt_lm <- lm(topt ~ species, data = topt_np)
 anova(topt_lm)
 
 #checks
@@ -722,7 +722,7 @@ ggplot(emm_tbl_topt, aes(emmean, species, color = species)) +
   labs(x = "Topt est", y = "Species")
 
 #run lm for e
-e_lm <- lm(e ~ species, data = topt_gp)
+e_lm <- lm(e ~ species, data = topt_np)
 anova(e_lm)
 
 #checks
@@ -740,7 +740,7 @@ ggplot(emm_tbl_e, aes(emmean, species, color = species)) +
   labs(x = "e est", y = "Species")
 
 #run lm for breadth
-breadth_lm <- lm(breadth ~ species, data = topt_gp)
+breadth_lm <- lm(breadth ~ species, data = topt_np)
 anova(breadth_lm)
 
 #checks
@@ -756,4 +756,3 @@ ggplot(emm_tbl_breadth, aes(emmean, species, color = species)) +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 12) +
   labs(x = "breadth est", y = "Species")
-
