@@ -637,13 +637,13 @@ se_fun <- function(x) {
 }
 
 topt_summary <- topt_long %>%
-  group_by(across(c(species,PR)), metric) %>%
+  group_by(species,PR, metric) %>%
   summarise(
     n    = sum(!is.na(value)),
     mean = mean(value, na.rm = TRUE),
     se   = se_fun(value),
-    .groups = "drop"
-  )
+    .groups = "drop")
+topt_summary <- as.data.frame(topt_summary)
 
 #first visualize data - plots of Topt and other variables from TPCs######
 topt_plot <- topt_long %>% 
@@ -656,22 +656,28 @@ topt_plot <- topt_long %>%
        y = "Rmax")
 topt_plot
 
+topt_plot <- ggplot() +
+  geom_jitter(data = topt_long,
+              aes(x = species, y = value, color = species),
+              width = 0.15, alpha = 0.5) +
+  geom_errorbar(data = topt_summary,
+                aes(x = species,
+                    ymin = mean - se, ymax = mean + se),
+                width = 0.2, linewidth = 0.6) +
+  geom_point(data = topt_summary,
+             aes(x = species, y = mean),
+             size = 2) +
+  facet_wrap(PR ~ metric, scales = "free_y") +
+  theme_bw(base_size = 12)
+  #labs(x = )
+
 ggsave(here("Output", "TPC", "Graphs","Topt_allparams_clean_no4.pdf"),
        device = "pdf", height = 8, width = 8, topt_plot)
 
 #check distributions of data as well
-ggplot(topt_df, aes(rmax)) + #look pretty ok
+ggplot(topt_long, aes(value)) + #look pretty ok
   geom_histogram(bins = 30) + 
-  facet_wrap(~PR, scales = "free")
-ggplot(topt_df, aes(topt)) + #slight left skew for GP and NP, resp won't work
-  geom_histogram(bins = 30) + 
-  facet_wrap(~PR, scales = "free")
-ggplot(topt_df, aes(e)) + #a couple high variables for GP and NP, resp weird
-  geom_histogram(bins = 30) + 
-  facet_wrap(~PR, scales = "free")
-ggplot(topt_df, aes(breadth)) + #left skewed for GP, NP good, resp weird
-  geom_histogram(bins = 30) + 
-  facet_wrap(~PR, scales = "free")
+  facet_wrap(PR~metric, scales = "free")
 
 #all params
 topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
