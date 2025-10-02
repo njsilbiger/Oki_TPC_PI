@@ -1,4 +1,4 @@
-frag_ID,species_long,species,Frag_type,weight,weight_wWax,dipper,Wax_weight,calc_SA
+frag_ID,full_species,species,Frag_type,weight,weight_wWax,dipper,Wax_weight,calc_SA
 A01,Porites cylindrica,Pcyl,PI,13.9765,14.2964,CMO,0.3199,13.5814142
 A02,Porites cylindrica,Pcyl,PI,13.0378,13.2241,CMO,0.1863,9.319276391
 A03,Porites cylindrica,Pcyl,PI,14.0894,14.3472,CMO,0.2578,11.60028577

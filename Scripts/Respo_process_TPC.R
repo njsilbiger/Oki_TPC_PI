@@ -68,8 +68,6 @@ BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.cs
 RespoMeta <- read_csv(here("Data","RespoFiles","TPC","TPC_meta.csv"))
 #View(BioData)
 #View(RespoMeta)
-## try first with prelim fake data to make sure script runs
-## then switch to real calculated data after getting volumes and weight and surface area
 
 # species names
 sp_names <- read_csv(here("Data", "species_names.csv"))
@@ -463,7 +461,7 @@ for (j in unique(df_clean$PR)){
     upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
     
     # fit model
-    fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 15),
+    fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 27),
                          data = my_df,
                          iter = 500,
                          start_lower = start_vals - 10,

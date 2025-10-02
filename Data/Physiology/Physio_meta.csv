@@ -1,4 +1,4 @@
-frag_ID,species_long,species,blastate_vol_mL,morphology,stress,SA_cm2
+frag_ID,full_species,species,blastate_vol_mL,morphology,stress,SA_cm2
 C01,Favites complanata,Fcom,50,massive,tolerant,47.1170374
 C02,Favites complanata,Fcom,50,massive,tolerant,31.69549987
 C03,Favites complanata,Fcom,50,massive,tolerant,40.06664478
@@ -40,7 +40,7 @@ G08,Echinopora lamellosa,Elam,50,encrusting,sensitive,35.40891933
 G09,Echinopora lamellosa,Elam,50,encrusting,sensitive,23.67527948
 G10,Echinopora lamellosa,Elam,50,encrusting,sensitive,24.19847603
 H01,Montipora aequituberculata,Maeq,50,plating,sensitive,42.66667645
-H02,Montipora aequituberculata,Maeq,50,plating,sensitive,25.64045679
+H02,Montipora aequituberculata,Maeq,50,plating,sensitive,25.640456790000002
 H03,Montipora aequituberculata,Maeq,50,plating,sensitive,18.7623362
 H04,Montipora aequituberculata,Maeq,50,plating,sensitive,25.86377239
 H05,Montipora aequituberculata,Maeq,50,plating,sensitive,32.6047134

@@ -67,6 +67,25 @@ AllData<-AllData %>%
   mutate(Column = ifelse(Column<10, gsub("(\\d)+", "0\\1", Column),Column))%>% # only add a 0 in front of 1-9
   mutate(Well.Location = paste0(Rows,Column)) # paste with row name
 
+AllData <- AllData %>%
+  left_join(sampleIDNames, by = "Well.Location") %>%
+  mutate(is_blank = str_detect(tolower(coalesce(Sample.Name, "")), "blank"))
+
+blank_vals <- AllData %>%
+  filter(is_blank) %>%
+  summarise(
+    blank_630 = mean(ChlPlate_630, na.rm = TRUE),
+    blank_663 = mean(ChlPlate_663, na.rm = TRUE),
+    blank_750 = mean(ChlPlate_750, na.rm = TRUE)
+  )
+
+AllData <- AllData %>%
+  mutate(
+    ChlPlate_630_corr = ChlPlate_630 - blank_vals$blank_630,
+    ChlPlate_663_corr = ChlPlate_663 - blank_vals$blank_663,
+    ChlPlate_750_corr = ChlPlate_750 - blank_vals$blank_750
+  )
+
 ### Run pH Analysis ##################
 # chl from Jeffry and Humphreys
 ChlData_raw<-AllData %>%
@@ -79,7 +98,8 @@ ChlData_raw<-AllData %>%
   left_join(metadata) %>%
   mutate(chla_ug_cm2 = (chla*Slurry_vol_ml)/SA_cm2,  # normalize to coral slurry and SA
          chlc_ug_cm2 = (chlc*Slurry_vol_ml)/SA_cm2,
-         Totalchl_ug_cm2 = (Totalchl*Slurry_vol_ml)/SA_cm2)
+         Totalchl_ug_cm2 = (Totalchl*Slurry_vol_ml)/SA_cm2) %>%
+  filter(!is_blank)
          
 
 # averaged data by sample ID
