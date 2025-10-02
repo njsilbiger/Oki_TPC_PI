@@ -164,4 +164,105 @@ ggsave(here("Output", "Physiology", "dryweight_breadth_scatter_reglines.pdf"), d
 
 
 ##### chlorophyll a #####
+##### dry weight #####
+chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
+
+library(powerjoin)
+power_full_join(df1, df2, by = "Species", conflict = coalesce_xy)
+
+chla_topt <- power_full_join(chla_avg, topt_df, by = "frag_ID", conflict = coalesce_xy) %>% 
+  drop_na() %>%
+  filter(PR != "Respiration")
+
+#scatterplot of chla and topt params
+
+#topt
+chla_topt_scatter <- ggplot(chla_topt) +
+  geom_point(aes(x = topt, y = chla_mg_cm2, color = full_species)) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  facet_wrap(~PR, scales = "free_y")+
+  ylim(25,250)+
+  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), x = "Thermal optimum (°C)", color = "Species")
+chla_topt_scatter
+
+chla_topt_scatter <- chla_topt_scatter +
+  #species-specific regression lines
+  geom_smooth(aes(x = topt, y = chla_mg_cm2, color = full_species),
+              method = "lm", se = FALSE, linewidth = 1) +
+  #overall regression line within each facet
+  geom_smooth(aes(x = topt, y = chla_mg_cm2, group = 1),
+              method = "lm", se = FALSE, color = "black",
+              linetype = "longdash", linewidth = 1.1)
+
+ggsave(here("Output", "Physiology", "dryweight_topt_scatter_reglines.pdf"), chla_topt_scatter, h = 8, w = 10)
+
+#rmax
+chla_rmax_scatter <- ggplot(chla_topt) +
+  geom_point(aes(x = rmax, y = chla_mg_cm2, color = full_species)) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  facet_wrap(~PR, scales = "free")+
+  ylim(25,250)+
+  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
+       x = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
+       color = "Species")
+chla_rmax_scatter
+
+chla_rmax_scatter <- chla_rmax_scatter +
+  #species-specific regression lines
+  geom_smooth(aes(x = rmax, y = chla_mg_cm2, color = full_species),
+              method = "lm", se = FALSE, linewidth = 1) +
+  #overall regression line within each facet
+  geom_smooth(aes(x = rmax, y = chla_mg_cm2, group = 1),
+              method = "lm", se = FALSE, color = "black",
+              linetype = "longdash", linewidth = 1.1)
+
+ggsave(here("Output", "Physiology", "dryweight_rmax_scatter_reglines.pdf"), chla_rmax_scatter, h = 8, w = 10)
+
+#e
+chla_e_scatter <- ggplot(chla_topt) +
+  geom_point(aes(x = e, y = chla_mg_cm2, color = full_species)) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  facet_wrap(~PR, scales = "free")+
+  ylim(25,250)+
+  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
+       x = ("Activation energy (eV)"), 
+       color = "Species")
+chla_e_scatter
+
+chla_e_scatter <- chla_e_scatter +
+  #species-specific regression lines
+  geom_smooth(aes(x = e, y = chla_mg_cm2, color = full_species),
+              method = "lm", se = FALSE, linewidth = 1) +
+  #overall regression line within each facet
+  geom_smooth(aes(x = e, y = chla_mg_cm2, group = 1),
+              method = "lm", se = FALSE, color = "black",
+              linetype = "longdash", linewidth = 1.1)
+
+ggsave(here("Output", "Physiology", "dryweight_e_scatter_reglines.pdf"), chla_e_scatter, h = 8, w = 10)
+
+#breadth
+chla_breadth_scatter <- ggplot(chla_topt) +
+  geom_point(aes(x = breadth, y = chla_mg_cm2, color = full_species)) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  facet_wrap(~PR, scales = "free")+
+  ylim(25,250)+
+  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
+       x = expression("Thermal performance breadth (°C)"), 
+       color = "Species")
+chla_breadth_scatter
+
+chla_breadth_scatter <- chla_breadth_scatter +
+  #species-specific regression lines
+  geom_smooth(aes(x = breadth, y = chla_mg_cm2, color = full_species),
+              method = "lm", se = FALSE, linewidth = 1) +
+  #overall regression line within each facet
+  geom_smooth(aes(x = breadth, y = chla_mg_cm2, group = 1),
+              method = "lm", se = FALSE, color = "black",
+              linetype = "longdash", linewidth = 1.1)
+
+ggsave(here("Output", "Physiology", "dryweight_breadth_scatter_reglines.pdf"), chla_breadth_scatter, h = 8, w = 10)
 

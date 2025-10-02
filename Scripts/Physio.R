@@ -177,8 +177,10 @@ write_csv(chla_data, here("Data", "Physiology", "Chla_avg.csv"))
 
 #read in updated chla data
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
-sp_remove <- c("Montipora vietnamensis","Pachyseris rugosa", "Porites cylindrica")
-chla_avg_7sp <- chla_avg %>% filter(full_species %in% sp_remove)
+sp_keep <- c("Acropora hyacinthus","Echinopora lamellosa", "Favites complanata","Montipora aequituberculata","Pocillopora eydouxi","Porites rus","Turbinaria frondens")
+
+chla_avg_7sp <- chla_avg %>% filter(full_species %in% sp_keep)
+
 
 #now generate mean and se dataframe of chla
 se_fun <- function(x) {
@@ -214,7 +216,7 @@ chla_plot <- ggplot() +
        y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})))
 chla_plot
 
-ggsave(here("Output", "Physiology", "chla_species_jitter.pdf"), chla_plot, h = 8, w = 8)
+ggsave(here("Output", "Physiology", "chla_species_jitter.pdf"), chla_plot, h = 8, w = 6)
 
 #summarize mean, sd, se
 chla_avg_7sp_spp <- chla_avg_7sp %>% 
@@ -225,15 +227,15 @@ chla_avg_7sp_spp <- chla_avg_7sp %>%
   )
 
 #quickly see if there is a dif between species
-chla.mod.spp <- lm(chla_ug_cm2_mean~species_long, data = chla_avg_7sp)
+chla.mod.spp <- lm(chla_ug_cm2_mean~full_species, data = chla_avg_7sp)
 Anova(chla.mod.spp)
 summary(chla.mod.spp)
 
+emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-emm_obj <- emmeans::emmeans(chla.mod.spp, ~ species_long)
-emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(species_long = fct_reorder(species_long, emmean))
+emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = species_long, color = species_long)) +
+emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
@@ -244,13 +246,4 @@ emm_plot
 
 ggsave(here("Output", "TPC", "Graphs","chla_emmeans.pdf"),
        device = "pdf", height = 8, width = 8, emm_plot)
-
-#yes there is - Prus, Tfro, and Fcom all higher
-
-#and sensitivity
-chla.mod.stress <- lm(chla_ug_cm2_mean~stress, data = chla_avg_7sp)
-Anova(chla.mod.stress)
-summary(chla.mod.stress)
-#based on graph, looks like Peyd and Tfro should be switched
-#we'll see what happens with the rest of the TPC data!
 
