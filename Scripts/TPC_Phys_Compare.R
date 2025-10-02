@@ -22,31 +22,9 @@ library(car)
 library(dplyr)
 library(ggplot2)
 
-######Read in Data########
-#metadata
-meta <- read_csv(here("Data","Physiology","Physio_meta.csv"))
-meta <- meta %>% rename_at('species_long', ~'full_species')
-
+###### Initial Data Read In ########
 #TPC data with only the seven species that we have physio data for
-#sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya") #species that we have physio for
-PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
-preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv"))
-#preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
-#preds_np <- preds_all %>% filter(PR == "NetPhoto")
-#preds_resp <- preds_all %>% filter(PR == "Respiration")
-#and topt data
-#convert to long so you can plot everything at once
-# metrics <- c("topt", "rmax", "e", "breadth") #select metrics
-# grouping_vars <- c("species", "PR", "frag_ID", "full_species") #select grouping variables
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
-# topt_long <- topt_df %>% #make long dataframe
-#   dplyr::select(all_of(c(grouping_vars, metrics))) %>%
-#   pivot_longer(cols = all_of(metrics),
-#                names_to = "metric",
-#                values_to = "value")
-#topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
-#topt_np <- topt_df %>% filter(PR == "NetPhoto")
-#topt_resp <- topt_df %>% filter(PR == "Respiration")
 
 #additional setup
 sp_cols <- c(
@@ -58,6 +36,7 @@ sp_cols <- c(
   "Porites rus" = '#7bbcd5',
   "Turbinaria frondens" = '#00496f'
 )
+
 
 ##### dry weight #####
 avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
@@ -164,11 +143,9 @@ ggsave(here("Output", "Physiology", "dryweight_breadth_scatter_reglines.pdf"), d
 
 
 ##### chlorophyll a #####
-##### dry weight #####
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 
 library(powerjoin)
-power_full_join(df1, df2, by = "Species", conflict = coalesce_xy)
 
 chla_topt <- power_full_join(chla_avg, topt_df, by = "frag_ID", conflict = coalesce_xy) %>% 
   drop_na() %>%

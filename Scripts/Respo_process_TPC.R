@@ -499,17 +499,12 @@ for (j in unique(df_clean$PR)){
 
 #add species names to predictions and topt dfs and pnr data
 BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
-# species names
-sp_names <- read_csv(here("Data", "species_names.csv"))
-# join the data together
-BioData <- BioData %>% 
-  full_join(sp_names)
 
 preds_all <- preds_all %>% 
-  select(PR, frag_ID, temp_c_value, .fitted) %>% 
+  dplyr::select(PR, frag_ID, temp_c_value, .fitted) %>% 
   left_join(BioData, by = "frag_ID")
 topt_df <- topt_df %>% 
-  select(rmax, topt, ctmin, ctmax, e, eh, q10, thermal_safety_margin, thermal_tolerance, breadth, skewness, PR, frag_ID) %>% 
+  dplyr::select(rmax, topt, ctmin, ctmax, e, eh, q10, thermal_safety_margin, thermal_tolerance, breadth, skewness, PR, frag_ID) %>% 
   left_join(BioData, by = "frag_ID")
 
 #save data files
@@ -582,23 +577,23 @@ ggsave(here("Output", "TPC", "Graphs","np_predicted_plot_7sp.pdf"),
 
 #respiration 
 #this has been left alone for now since MP just focusing on GP and NP for poster
-# resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
-#   geom_point(alpha = 0.7) +
-#   geom_line(data = preds_resp, aes(temp_c_value, .fitted, group = frag_ID),
-#             linewidth = 0.6, color = "blue") +
-#   facet_wrap(~ frag_ID, scales = "free_y") +
-#   geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
-#   geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
-#   theme_bw(base_size = 12) +
-#   labs(x = "Temperature (ºC)",
-#        y = "Respiration (umol.cm2.hr)",
-#        title = "Thermal performance: respiration by species")
-# 
-# resp_pred_plot
-# 
-# 
-# ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean_no4.pdf"),
-#        device = "pdf", height = 8, width = 6, resp_pred_plot)
+resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>% ggplot(aes(temp_c_value, Values)) +
+  geom_point(alpha = 0.7) +
+  geom_line(data = preds_resp, aes(temp_c_value, .fitted, group = frag_ID),
+            linewidth = 0.6, color = "blue") +
+  facet_wrap(~ species, scales = "free_y") +
+  #geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+  theme_bw(base_size = 12) +
+  labs(x = "Temperature (ºC)",
+       y = "Respiration (umol.cm2.hr)",
+       title = "Thermal performance: respiration by species")
+
+resp_pred_plot
+
+
+ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot_clean_no4.pdf"),
+       device = "pdf", height = 8, width = 6, resp_pred_plot)
 
 
 #all rates stacked plots
@@ -682,7 +677,6 @@ topt_summary <- topt_long %>%
     mean = mean(value, na.rm = TRUE),
     se   = se_fun(value),
     .groups = "drop")
-topt_summary <- as.data.frame(topt_summary)
 
 #first visualize data - plots of Topt and other variables from TPCs######
 topt_plot <- ggplot() +
@@ -706,7 +700,7 @@ ggsave(here("Output", "TPC", "Graphs","Topt_allparams_clean_no4.pdf"),
        device = "pdf", height = 8, width = 8, topt_plot)
 
 #check distributions of data as well
-ggplot(topt_long, aes(value)) + #look pretty ok
+ggplot(topt_long, aes(value)) +
   geom_histogram(bins = 30) + 
   facet_wrap(PR~metric, scales = "free")
 
