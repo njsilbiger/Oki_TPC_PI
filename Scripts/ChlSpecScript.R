@@ -13,11 +13,11 @@ library(tidyverse)
 
 
 ## File names -------------------
-foldername<-'test_chl' # folder of the day
-filename<-'testchl2.csv' # data
-sampleID<-'Chl_template_test.csv' # template of sample IDs
-platename<-'plate1_test' # this will be the name of your file
-metadata_file<-"testchl2_metadata.csv" # file with slurry vols and SA
+foldername<-'ChlaSpec' # folder of the day
+filename<-'Plate4_Chla_16.50_8.12.2025.csv' # data
+sampleID<-'Chl_template_plate4.csv' # template of sample IDs
+platename<-'oki_chla_plate4' # this will be the name of your file
+metadata_file<-"Chl_metadata_plate4.csv" # file with slurry vols and SA
 
 ## What is the path length?
 PL<-0.71 # pathlength for donahue lab plate
@@ -96,8 +96,6 @@ ChlData_ave<-ChlData_raw %>%
   select(Sample.Name,chla_mean,chla_SE,chlc_mean,chlc_SE,TotalChl_mean,Totalchl_SE,
          chla_ug_cm2_mean,chla_ug_cm2_SE, chlc_ug_cm2_mean,chlc_ug_cm2_SE,Totalchl_ug_cm2_mean,Totalchl_ug_cm2_SE ) # put in a better order
   
-
-
 ### Export the data
 ## all the info
 write_csv(ChlData_ave, here("Data", foldername, paste0(platename,"_summary.csv"))) # print the summary data

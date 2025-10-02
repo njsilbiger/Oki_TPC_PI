@@ -130,3 +130,6 @@ Anova(DW.mod.stress)
 summary(DW.mod.stress)
 #based on graph, looks like Peyd and Tfro should be switched
 #we'll see what happens with the rest of the TPC data!
+
+
+##### Chlorophyll a #####
