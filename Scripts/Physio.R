@@ -15,15 +15,16 @@ library(PNWColors)
 #load data for all
 meta <- read_csv(here("Data","Physiology","Physio_meta.csv"))
 #assign colors to species
+
 sp_cols <- c(
-  "Acropora hyacinthus" = '#ba7999',
-  "Echinopora lamellosa" = '#dd4124',
-  "Favites complanata"   = '#ed8b00',
-  "Montipora aequituberculata" = '#edd746',
-  "Montipora vietnamensis" = '#89689d',
-  "Pachyseris rugosa" = '#d0e2af',
-  "Pocillopora eydouxi" = '#45681e',
-  "Porites cylindrica" = '#f2af4a',
+  "Acropora hyacinthus" = '#d8aedd',
+  "Echinopora lamellosa" = '#ba7999',
+  "Favites complanata"   = '#dd4124',
+  "Montipora aequituberculata" = '#ed8b00',
+  "Montipora vietnamensis" = '#efbc82',
+  "Pachyseris rugosa" = '#edd746',
+  "Pocillopora eydouxi" = '#d0e2af',
+  "Porites cylindrica" = '#45681e',
   "Porites rus" = '#7bbcd5',
   "Turbinaria frondens" = '#00496f'
 )
@@ -44,6 +45,7 @@ sp_cols <- c(
 #   Sunset2 = rbind(c('#1d457f', '#61599d', '#c36377', '#eb7f54', '#f2af4a'),c(5,1,2,4,3)),
 #   Anemone = rbind(c("#009474" ,"#11c2b5" ,"#72e1e1", "#f1f4ee" ,"#efddcf", "#dcbe9b" ,"#b0986c"),c(3, 5, 1 ,7, 2, 6, 4))
 # )
+
 ##### Dry weight#####
 
 #load data
@@ -140,40 +142,32 @@ emm_plot
 ggsave(here("Output", "TPC", "Graphs","dw_emmeans.pdf"),
        device = "pdf", height = 8, width = 8, emm_plot)
 
-#yes there is - Prus, Tfro, and Fcom all higher
-
-#and sensitivity
-DW.mod.stress <- lm(dw_mg_cm2~stress, data = avg_DW)
-Anova(DW.mod.stress)
-summary(DW.mod.stress)
-#based on graph, looks like Peyd and Tfro should be switched
-#we'll see what happens with the rest of the TPC data!
-
-
 ##### Chlorophyll a #####
 
 #read in data
 #data is corrected for blank rates and surface area and blanks are removed
-chla_plate1 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate1_summary.csv"))
-chla_plate2 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate2_summary.csv"))
-chla_plate3 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate3_summary.csv"))
-chla_plate4 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate4_summary.csv"))
-
-# concatenate all plates
-chla_all_corr <- bind_rows(chla_plate1,chla_plate2,chla_plate3,chla_plate4)
-chla_all_corr <- chla_all_corr %>% rename(frag_ID = Sample.Name)
-
-#add metadata
-SA_frag_final <- read.csv(here("Data","SurfaceArea","SA_fragments_final.csv"))
-chla_meta <- SA_frag_final %>%
-  filter(Frag_type == "physio") %>%
-  select(frag_ID, full_species, species, calc_SA)
-
-chla_data <- left_join(chla_all_corr, chla_meta, by = "frag_ID") %>% 
-  rename(SA_cm2 = calc_SA)
-
-#save data
-write_csv(chla_data, here("Data", "Physiology", "Chla_avg.csv"))
+#uncomment this section if you need to redo prep for chla dataframe
+# chla_plate1 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate1_summary.csv"))
+# chla_plate2 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate2_summary.csv"))
+# chla_plate3 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate3_summary.csv"))
+# chla_plate4 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate4_summary.csv"))
+# 
+# # concatenate all plates
+# chla_all_corr <- bind_rows(chla_plate1,chla_plate2,chla_plate3,chla_plate4)
+# chla_all_corr <- chla_all_corr %>% rename(frag_ID = Sample.Name)
+# 
+# #add metadata
+# SA_frag_final <- read.csv(here("Data","SurfaceArea","SA_fragments_final.csv"))
+# chla_meta <- SA_frag_final %>%
+#   filter(Frag_type == "physio") %>%
+#   select(frag_ID, full_species, species, calc_SA)
+# 
+# chla_data <- left_join(chla_all_corr, chla_meta, by = "frag_ID") %>% 
+#   rename(SA_cm2 = calc_SA)
+# 
+# #save data
+# write_csv(chla_data, here("Data", "Physiology", "Chla_avg.csv"))
+# 
 
 #read in updated chla data
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
