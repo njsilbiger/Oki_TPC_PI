@@ -1,0 +1,448 @@
+---
+title: "Tilt Meter Analysis"
+author: "Ashley Carreiro"
+format: html
+editor: visual
+---
+
+# Load Libraries
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+## Ignore: Creating New CSV Files
+
+Trimming down the tilt meter data to one hour after deployment and one hour before retrieval of the tilt meters.
+
+Making sure all data is captured at one minute intervals.
+
+Note that all data has been adjusted for the Magnetic Declination of -5.85 West within the Domino app.
+
+All data speed units are in cm/s
+
+**This code does not need to be run again!**
+
+```{r}
+#| eval: false
+#| echo: false
+read_csv(here("Data/TiltMeterData/Tilt1_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% #Changing the headers int he dataframe
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% #Changing the date to character using lubridatde
+  filter(between(DateTime, ymd_hms("2025-08-01 11:21:13"), ymd_hms("2025-08-14 08:45:13"))) %>% #Filtering between the dates that we want data from
+  write_csv(file ="Data/TiltMeterData/Tilt1_Current.csv") #Creating new CSV File with filtered dates
+
+read_csv(here("Data/TiltMeterData/Tillt2_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-01 13:00:42"), ymd_hms("2025-08-14 09:30:42"))) %>% 
+write_csv(file ="Data/TiltMeterData/Tilt2_Current.csv")
+
+read_csv(here("Data/TiltMeterData/Tilt3_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-01 14:45:50"), ymd_hms("2025-08-14T11:30:50"))) %>% 
+write_csv(file ="Data/TiltMeterData/Tilt3_Current.csv")
+
+#Tilt 4 was taking data every 20 seconds
+read_csv(here("Data/TiltMeterData/Tilt4_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 10:45:14"), ymd_hms("2025-08-14 12:45:04"))) %>% 
+    group_by(DateTime = floor_date(DateTime, "min")) %>% #Averaging the data over 1 minute to match the other data
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(file ="Data/TiltMeterData/Tilt4_Current.csv")  
+
+read_csv(here("Data/TiltMeterData/Tilt5_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 12:18:28"), ymd_hms("2025-08-15 12:30:28"))) %>% 
+write_csv(file ="Data/TiltMeterData/Tilt5_Current.csv")
+
+read_csv(here("Data/TiltMeterData/Tilt6_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 13:57:00"), ymd_hms("2025-08-15 11:30:00"))) %>% 
+write_csv(file ="Data/TiltMeterData/Tilt6_Current.csv")
+
+#Tilt 7 was taking readings every second
+read_csv(here("Data/TiltMeterData/Tilt7_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-03 10:32:32"), ymd_hms("2025-08-15 08:46:00"))) %>% 
+      group_by(DateTime = floor_date(DateTime, "min")) %>% 
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(file ="Data/TiltMeterData/Tilt7_Current.csv")
+
+#Tilt 8 was taking readings every 20 seconds
+read_csv(here("Data/TiltMeterData/Tilt8_Current.csv")) %>%
+ set_names(c("DateTime","Speed","Heading","Velocity_N","Velocity_E")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-03 12:06:06"), ymd_hms("2025-08-15 9:47:06"))) %>% 
+      group_by(DateTime = floor_date(DateTime, "min")) %>% 
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(file ="Data/TiltMeterData/Tilt8_Current.csv")
+```
+
+Temperature Data
+
+```{r}
+#| eval: false
+#| echo: false
+ read_csv(here("Data/TiltMeterData/Tlt1_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% #Changing the headers int he dataframe
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% #Changing the date to character using lubridatde
+  filter(between(DateTime, ymd_hms("2025-08-01 11:21:13"), ymd_hms("2025-08-14 08:45:13"))) %>%  #Filtering between the dates that we want data from
+  write_csv(here("Data/TiltMeterData/Tilt1_Temperature.csv")) #Creating new CSV File with filtered dates
+
+ read_csv(here("Data/TiltMeterData/Tilt2_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-01 13:00:42"), ymd_hms("2025-08-14 09:30:42"))) %>% 
+write_csv(here("Data/TiltMeterData/Tilt2_Temperature.csv"))
+ 
+ read_csv(here("Data/TiltMeterData/Tilt3_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-01 14:45:50"), ymd_hms("2025-08-14T11:30:50"))) %>% 
+write_csv(here("Data/TiltMeterData/Tilt3_Temperature.csv"))
+ 
+ #Tilt 4 was taking data every 20 seconds
+read_csv(here("Data/TiltMeterData/Tilt4_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 10:45:14"), ymd_hms("2025-08-14 12:45:04"))) %>% 
+    group_by(DateTime = floor_date(DateTime, "min")) %>% #Averaging the data over 1 minute to match the other data
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(here("Data/TiltMeterData/Tilt4_Temperature.csv"))
+ 
+read_csv(here("Data/TiltMeterData/Tilt5_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 12:18:28"), ymd_hms("2025-08-15 12:30:28"))) %>% 
+write_csv(here("Data/TiltMeterData/Tilt5_Temperature.csv"))
+
+read_csv(here("Data/TiltMeterData/Tilt6_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-02 13:57:00"), ymd_hms("2025-08-15 11:30:00"))) %>% 
+write_csv(here("Data/TiltMeterData/Tilt6_Temperature.csv"))
+
+#Tilt 7 was taking readings every second
+read_csv(here("Data/TiltMeterData/Tilt7_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-03 10:32:32"), ymd_hms("2025-08-15 08:46:00"))) %>% 
+      group_by(DateTime = floor_date(DateTime, "min")) %>% 
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(here("Data/TiltMeterData/Tilt7_Temperature.csv"))
+
+#Tilt 8 was taking readings every 20 seconds
+read_csv(here("Data/TiltMeterData/Tilt8_Temperature.csv")) %>%
+ set_names(c("DateTime","Temperature")) %>% 
+  mutate(DateTime = lubridate::ymd_hms(DateTime)) %>% 
+  filter(between(DateTime, ymd_hms("2025-08-03 12:06:06"), ymd_hms("2025-08-15 9:47:06"))) %>% 
+      group_by(DateTime = floor_date(DateTime, "min")) %>% 
+   summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+write_csv(here("Data/TiltMeterData/Tilt8_Temperature.csv"))
+
+```
+
+Doing the same for the tide data
+
+Tide data was downloaded from: <https://www.gsi.go.jp/kanshi/tide_data_21_e.html>
+
+```{r}
+#| eval: false
+#| echo: false
+read_table(here("Data/TiltMeterData/21_2021-2025_hour.txt"), col_names = FALSE) %>%
+select(-1) %>% #Drops the first column
+set_names(c("Date", "Hour", "Sealevel_mm", "DatumConstant_mm", "FixedPointHeight_mm")) %>%
+ mutate(Date = lubridate::ymd(Date)) %>% 
+  filter(between(Date, ymd("2025-08-01"), ymd("2025-08-15"))) %>%
+  
+write_csv(here("Data/TiltMeterData/TideData_2025.08.csv"))
+
+```
+
+## Load Data
+
+Load current, temperature, and tide data from new csv files created above.
+
+```{r}
+#Load Current Data
+Tilt1Data <- read_csv(here("Data", "TiltMeterData", "Tilt1_Current.csv"))
+Tilt2Data <- read_csv(here("Data", "TiltMeterData", "Tilt2_Current.csv"))
+Tilt3Data <- read_csv(here("Data","TiltMeterData", "Tilt3_Current.csv"))
+Tilt4Data <- read_csv(here("Data","TiltMeterData","Tilt4_Current.csv"))
+Tilt5Data <- read_csv(here("Data","TiltMeterData", "Tilt5_Current.csv"))
+Tilt6Data <- read_csv(here("Data","TiltMeterData", "Tilt6_Current.csv"))
+Tilt7Data <- read_csv(here("Data","TiltMeterData", "Tilt7_Current.csv"))
+Tilt8Data <- read_csv(here("Data","TiltMeterData", "Tilt8_Current.csv"))
+
+#Load Temp Data
+
+Tilt1Temp <- read_csv(here("Data/TiltMeterData/Tilt1_Temperature.csv"))
+Tilt2Temp <- read_csv(here("Data/TiltMeterData/Tilt2_Temperature.csv"))
+Tilt3Temp <- read_csv(here("Data/TiltMeterData/Tilt3_Temperature.csv"))
+Tilt4Temp <- read_csv(here("Data/TiltMeterData/Tilt4_Temperature.csv"))
+Tilt5Temp <- read_csv(here("Data/TiltMeterData/Tilt5_Temperature.csv"))
+Tilt6Temp <- read_csv(here("Data/TiltMeterData/Tilt6_Temperature.csv"))
+Tilt7Temp <- read_csv(here("Data/TiltMeterData/Tilt7_Temperature.csv"))
+Tilt8Temp <- read_csv(here("Data/TiltMeterData/Tilt8_Temperature.csv"))
+
+#Load Tide Data
+
+TideData <- read_csv(here("Data/TiltMeterData/TideData_2025.08.csv"))
+
+
+```
+
+# Summary Stats 
+
+First, join all the Current Data
+
+```{r}
+JoinedData <- rbind(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean)
+
+```
+
+Visualize Summary stats to see where to filter data from **Don't Need to Run Everytime**
+
+```{r}
+summary(JoinedData$Speed)
+lower_bound <- quantile(JoinedData$Speed, 0.001)
+Upper_bound <- quantile(JoinedData$Speed, 0.999)
+Upper_bound#Upper bound is 25.01416 we will filter data from this number 
+
+boxplot.stats(JoinedData$Speed_m)
+
+sum(JoinedData$Speed >= .5) #Counting the number of points above .5
+# = 5
+
+sum(JoinedData$Speed> 25.01416) #Number of points above the upper bound, 0.25, 145 points
+
+table(cut(JoinedData$Speed_m , seq(0, .25,.05), include.lowest = TRUE)) ##Showing me the different bins and how many data points I have in each one
+
+Means <- JoinedData %>%
+  group_by(TiltMeter) %>%
+  summarise(mean(Speed_m))
+Means #Giving the average speed m/s of each tilt meter
+
+#Visualize the data 
+
+ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
+  geom_point() +
+   facet_wrap(~TiltMeter)
+```
+
+# Organizing the data
+
+### Tilt Meter Data
+
+Creating a function to organize all the current data
+
+-   Separating Data
+
+-   
+
+```{r}
+Tilt_Data_fun <- function(df, tilt_name){  #Function to add a tilt name column and separate data and time column 
+df %>%
+    
+separate(col = DateTime, #Choose the column that you want separated
+             into = c("Date", "Time"), # Separate it into two columns "Data" and "Time"
+             sep = " ", #What are the two separated by 
+             remove = FALSE) %>% #Keep the orginial DateTime Column    
+    
+mutate( #Set datetime,a dding in the UTC timezone so wer are removing taht
+       Date = lubridate::ymd(Date), #Set Date
+       Time = lubridate::hms(Time), #Set Time
+       Speed_m = Speed * 0.01, #Change cm/s -> m/s
+       VelocityN_m = Velocity_N * 0.01, #Change cm/s -> m/s
+       VelocityE_m = Velocity_E* 0.01, #Change cm/s -> m/s
+   
+       #Double check that there are no negative headings, can do 360 + negative
+       
+       TiltMeter = tilt_name) %>%
+    
+    select(TiltMeter, everything()) #Moving TiltMeter# Column to be the first column
+    
+}
+
+Tilt1DataClean <- Tilt_Data_fun(Tilt1Data, "Tilt1")
+Tilt2DataClean <- Tilt_Data_fun(Tilt2Data, "Tilt2")
+Tilt3DataClean <- Tilt_Data_fun(Tilt3Data, "Tilt3")
+Tilt4DataClean <- Tilt_Data_fun(Tilt4Data, "Tilt4")
+Tilt5DataClean <- Tilt_Data_fun(Tilt5Data, "Tilt5")
+Tilt6DataClean <- Tilt_Data_fun(Tilt6Data, "Tilt6")
+Tilt7DataClean <- Tilt_Data_fun(Tilt7Data, "Tilt7")
+Tilt8DataClean <- Tilt_Data_fun(Tilt8Data, "Tilt8")
+```
+
+Now we will average everything by hour and create a new data frame **hourly**
+
+This dataframe is in cm/s
+
+Filtering out the 99.9% upper bound which is anything above 25.01416 cm/s
+
+```{r}
+HourlyTilt_Data_fun <- function(df){  #Function to add a tilt name column and separate data and time column 
+ df %>% 
+    
+    group_by(DateTime = floor_date(DateTime, "hour")) %>% #New datetime that is rounded to the start of each hour
+  summarise(across(where(is.numeric), mean, na.rm = TRUE),
+    .groups = "drop") %>%
+    filter(Speed <=  25.01416) 
+}
+
+Tilt1DataHourly <- HourlyTilt_Data_fun(Tilt1Data)
+Tilt2DataHourly <- HourlyTilt_Data_fun(Tilt2Data)
+Tilt3DataHourly <- HourlyTilt_Data_fun(Tilt3Data)
+Tilt4DataHourly <- HourlyTilt_Data_fun(Tilt4Data)
+Tilt5DataHourly <- HourlyTilt_Data_fun(Tilt5Data)
+Tilt6DataHourly <- HourlyTilt_Data_fun(Tilt6Data)
+Tilt7DataHourly <- HourlyTilt_Data_fun(Tilt7Data)
+Tilt8DataHourly <- HourlyTilt_Data_fun(Tilt8Data)
+
+```
+
+### Temperature Data
+
+```{r}
+Tilt_Temp_fun <- function(df){ 
+df %>%
+    
+separate(col = DateTime, #Choose the column that you want separated
+         into = c("Date", "Time"), # Separate it into two columns "Data" and "Time"
+         sep = " ", #What are the two separated by 
+         remove = FALSE) %>% #Keep the orginial DateTime Column    
+  mutate(DateTime = lubridate::ymd_hms(DateTime), #Set datetime
+         Date = lubridate::ymd(Date), #Set Date
+         Time = lubridate::hms(Time))
+}
+
+Tilt1TempData <- Tilt_Temp_fun(Tilt1Temp)
+Tilt2TempData <- Tilt_Temp_fun(Tilt2Temp)
+Tilt3TempData <- Tilt_Temp_fun(Tilt3Temp)
+Tilt4TempData <- Tilt_Temp_fun(Tilt4Temp)
+Tilt5TempData <- Tilt_Temp_fun(Tilt5Temp)
+Tilt6TempData <- Tilt_Temp_fun(Tilt6Temp)
+Tilt7TempData <- Tilt_Temp_fun(Tilt7Temp)
+Tilt8TempData <- Tilt_Temp_fun(Tilt8Temp)
+```
+
+### Tide Data
+
+```{r}
+ TideDataHourly <- TideData %>%
+   mutate(DateTime = ymd_hms(paste(Date, Hour, "00:00")), #Combining Data and time into one column 
+          Sealevel_m = Sealevel_mm / 1000) %>%
+    select(DateTime, everything())
+
+```
+
+# Plotting the Data
+
+We are going to make a big function to make a plot of the following
+
+-   Feather Plot. \| Wind Rose Plot
+
+-   Temperature Plot \| Elipses Plot?
+
+-   Tide Plot \| Photo of Tilt Meter?
+
+```{r}
+Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, WindrosePlotname, combinedplot) {
+  
+time_limits <- range(Tiltdf$DateTime, na.rm = TRUE)
+
+FeatherPlot <- ggplot(Tiltdf) +
+ 
+  geom_segment(aes( x = DateTime, y = 0, 
+                    xend = DateTime, 
+                    yend = Velocity_N #Makes the arrows point up/down
+                    ), 
+               color = "blue",
+               arrow = arrow(length = unit(0.2, "cm")),
+               linewidth = 0.5,
+               alpha = 0.5) +
+  
+  geom_segment(aes( x = DateTime, y = 0, 
+                    xend = DateTime  , #Makes the arrows lean left/right
+                    yend = Velocity_E #Makes the arrows point up/down
+                    ), 
+               color = "red",
+               arrow = arrow(length = unit(0.2, "cm")),
+               linewidth = 0.5, 
+               alpha = 0.5)+
+  
+  scale_x_datetime(limits =  time_limits) +
+  labs(
+     
+    x = "Time", 
+    y = "Velocity (cm/s)") +
+  theme_minimal()  
+ 
+ ggsave(here("Output","TiltMeterData",FeatherPlotname))
+ 
+ 
+ TempPlot <- ggplot(Tempdf, aes(DateTime, Temperature)) +
+  geom_point()
+  
+ggsave(here("Output", "TiltMeterData", TempPlotname))
+ 
+
+
+TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
+   geom_line(color = "steelblue") +
+   scale_x_datetime(limits = time_limits) 
+   
+  
+ 
+ WindrosePlot <- ggwindrose(
+    speed = Tiltdf2$Speed, 
+    direction = Tiltdf2$Heading,
+    n_directions = 8,
+    speed_cuts = seq(0, 25, 5), Inf) +
+    #stack_revers = TRUE) + #If we want the higher speeds on the outside of the plot
+  
+
+    scale_fill_manual(
+      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred"),
+      drop = FALSE
+    ) +
+    
+    labs(fill = "Current Speed (cm/s)") +
+      theme_minimal() +
+    theme(axis.title = element_blank(), 
+          text = element_text(face = "bold"))
+     
+  
+  ggsave(here("Output","TiltMeterData",WindrosePlotname))
+ 
+combined <- plot_grid(FeatherPlot, TempPlot, TidePlot, WindrosePlot, ncol = 1, align = "v", rel_heights =  c(2,1))
+
+   ggsave(here::here("Output", "TiltMeterData", combinedplot))
+ }
+
+
+
+Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, WindrosePlotname = "Windrose1.jpeg", combinedplot = "Tilt1TideCombo.png")
+
+Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, WindrosePlotname = "Windrose2.jpeg", combinedplot = "Tilt2TideCombo.png")
+
+Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, WindrosePlotname = "Windrose3.jpeg", combinedplot = "Tilt3TideCombo.png")
+
+Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, WindrosePlotname = "Windrose4.jpeg", combinedplot = "Tilt4TideCombo.png")
+
+Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, WindrosePlotname = "Windrose5.jpeg", combinedplot = "Tilt5TideCombo.png")
+```
+
