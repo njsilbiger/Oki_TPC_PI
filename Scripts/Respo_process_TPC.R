@@ -512,22 +512,28 @@ topt_df <- topt_df %>%
 write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 
+
+####Topt and other parameter graphs####
 #read in dataframes and generate prediction dfs for each metric to graph
-PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
-BioSp <- BioData %>% dplyr::select(frag_ID, full_species)
-PnR_clean <-  PnR_clean %>% left_join(BioSp, by = "frag_ID")
-PnR_clean <- PnR_clean %>% filter(species %in% sp_keep)
-write_csv(PnR_clean, here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
-preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
-preds_all <- preds_all %>% filter(species %in% sp_keep)
-write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv")) #P and R rate data cleaned 7sp only
+# PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+# BioSp <- BioData %>% dplyr::select(frag_ID, full_species)
+# PnR_clean <-  PnR_clean %>% left_join(BioSp, by = "frag_ID")
+# sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
+# PnR_clean <- PnR_clean %>% filter(species %in% sp_keep)
+# write_csv(PnR_clean, here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
+# preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
+# preds_all <- preds_all %>% filter(species %in% sp_keep)
+# write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv")) #P and R rate data cleaned 7sp only
+PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv"))
+preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv"))
 preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
 #and topt data
-topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
-topt_df <- topt_df %>% filter(species %in% sp_keep)
-write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
+#topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+#topt_df <- topt_df %>% filter(species %in% sp_keep)
+#write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
 topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
 topt_np <- topt_df %>% filter(PR == "NetPhoto")
 topt_resp <- topt_df %>% filter(PR == "Respiration")
@@ -650,8 +656,21 @@ library(emmeans)
 library(performance)
 library(DHARMa)
 
+sp_cols <- c(
+  "Acropora hyacinthus" = '#ba7999',
+  "Echinopora lamellosa" = '#dd4124',
+  "Favites complanata"   = '#ed8b00',
+  "Montipora aequituberculata" = '#edd746',
+  "Montipora vietnamensis" = '#89689d',
+  "Pachyseris rugosa" = '#d0e2af',
+  "Pocillopora eydouxi" = '#45681e',
+  "Porites cylindrica" = '#f2af4a',
+  "Porites rus" = '#7bbcd5',
+  "Turbinaria frondens" = '#00496f'
+)
+
 #read in data
-topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
 
 #convert to long so you can plot everything at once
 metrics <- c("topt", "rmax", "e", "breadth") #select metrics
@@ -671,7 +690,7 @@ se_fun <- function(x) {
 }
 
 topt_summary <- topt_long %>%
-  group_by(species,PR, metric) %>%
+  group_by(full_species,PR, metric) %>%
   summarise(
     n    = sum(!is.na(value)),
     mean = mean(value, na.rm = TRUE),
@@ -682,7 +701,7 @@ topt_summary <- topt_long %>%
 topt_plot <- ggplot() +
   geom_jitter(data = topt_long,
               aes(x = species, y = value, color = full_species),
-              width = 0.15, alpha = 0.5) +
+              width = 0.15, alpha = 0.8) +
   geom_errorbar(data = topt_summary,
                 aes(x = species,
                     ymin = mean - se, ymax = mean + se),
@@ -692,12 +711,137 @@ topt_plot <- ggplot() +
              size = 2) +
   facet_wrap(PR ~ metric, scales = "free_y") +
   theme_bw(base_size = 12) +
-  scale_color_discrete(labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))
   #labs(x = )
 topt_plot
 
 ggsave(here("Output", "TPC", "Graphs","Topt_allparams_clean_no4.pdf"),
        device = "pdf", height = 8, width = 8, topt_plot)
+
+#individual dataframes to put in individual plots so they can be ordered (live laugh love i guess)
+rmax_mean_gp <- topt_summary %>% filter(PR == "GrossPhoto") %>% filter(metric == "rmax")
+topt_rmax_gp <- topt_long %>% 
+  filter(PR == "GrossPhoto") %>% 
+  filter(metric == "rmax") %>%
+  left_join(rmax_mean_gp, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+rmax_mean_np <- topt_summary %>% filter(PR == "NetPhoto") %>% filter(metric == "rmax")
+topt_rmax_np <- topt_long %>% 
+  filter(PR == "NetPhoto") %>% 
+  filter(metric == "rmax") %>%
+  left_join(rmax_mean_np, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+topt_mean_gp <- topt_summary %>% filter(PR == "GrossPhoto") %>% filter(metric == "topt")
+topt_topt_gp <- topt_long %>% 
+  filter(PR == "GrossPhoto") %>% 
+  filter(metric == "topt") %>%
+  left_join(topt_mean_gp, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+topt_mean_np <- topt_summary %>% filter(PR == "NetPhoto") %>% filter(metric == "topt")
+topt_topt_np <- topt_long %>% 
+  filter(PR == "NetPhoto") %>% 
+  filter(metric == "topt") %>%
+  left_join(topt_mean_np, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+e_mean_gp <- topt_summary %>% filter(PR == "GrossPhoto") %>% filter(metric == "e")
+topt_e_gp <- topt_long %>% 
+  filter(PR == "GrossPhoto") %>% 
+  filter(metric == "e") %>%
+  left_join(e_mean_gp, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+e_mean_np <- topt_summary %>% filter(PR == "NetPhoto") %>% filter(metric == "e")
+topt_e_np <- topt_long %>% 
+  filter(PR == "NetPhoto") %>% 
+  filter(metric == "e") %>%
+  left_join(e_mean_np, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+breadth_mean_gp <- topt_summary %>% filter(PR == "GrossPhoto") %>% filter(metric == "breadth")
+topt_breadth_gp <- topt_long %>% 
+  filter(PR == "GrossPhoto") %>% 
+  filter(metric == "breadth") %>%
+  left_join(breadth_mean_gp, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+breadth_mean_np <- topt_summary %>% filter(PR == "NetPhoto") %>% filter(metric == "breadth")
+topt_breadth_np <- topt_long %>% 
+  filter(PR == "NetPhoto") %>% 
+  filter(metric == "breadth") %>%
+  left_join(breadth_mean_np, by = "full_species") %>% 
+  mutate(full_species = fct_reorder(full_species, mean))
+
+topt_breadth_plot <- ggplot() +
+  geom_jitter(data = topt_breadth_np, aes(x = full_species, y = value, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = breadth_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = breadth_mean_np, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(x = "Species", y = "Breadth (°C)", color = "Species")
+
+topt_e_plot <- ggplot() +
+  geom_jitter(data = topt_e_np, aes(x = full_species, y = value, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = e_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = e_mean_np, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), , legend.position = "none", axis.title.y = element_text(face = "italic"))+
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(x = "Species", y = "E (eV)", color = "Species")
+
+topt_topt_plot <- ggplot() +
+  geom_jitter(data = topt_topt_np, aes(x = full_species, y = value, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = topt_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = topt_mean_np, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(), legend.position = "right")+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(x = "Species", y = "Thermal optimum (°C)", color = "Species")
+
+topt_rmax_plot <- ggplot() +
+  geom_jitter(data = topt_rmax_np, aes(x = full_species, y = value, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = rmax_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = rmax_mean_np, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(x = "Species", y = expression("Rmax" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), , color = "Species")
+
+library(ggpubr)
+np_topt_plots <- ggarrange(topt_rmax_plot, topt_topt_plot, topt_e_plot, topt_breadth_plot, 
+                           nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
+np_topt_plots
+
+ggsave(here("Output","TPC","Graphs","np_topt_plots.pdf"), np_topt_plots, h = 8, w = 12)
+
+
+#topt plot all together
+topt_plot <- ggplot() +
+  geom_jitter(data = topt_long,
+              aes(x = species, y = value, color = full_species),
+              width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = topt_summary,
+                aes(x = species,
+                    ymin = mean - se, ymax = mean + se),
+                width = 0.2, linewidth = 0.6) +
+  geom_point(data = topt_summary,
+             aes(x = species, y = mean),
+             size = 2) +
+  facet_wrap(PR ~ metric, scales = "free_y") +
+  theme_bw(base_size = 12) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))
+#labs(x = )
+topt_plot
+
+
 
 #check distributions of data as well
 ggplot(topt_long, aes(value)) +
@@ -712,6 +856,7 @@ resp_metrics <- c("rmax", "topt", "e", "breadth")
 
 #data lists
 emm_list   <- list()
+emm_pair_list <- list()
 anova_list <- list()
 
 for (pr in PR_levels) {
@@ -729,15 +874,20 @@ for (pr in PR_levels) {
     
     # EMMs per species (+ CIs) -> tibble
     emm_obj <- emmeans::emmeans(fit, ~ species)
+    emm_pairs <- pairs(emm_obj)
+    emm_pair_tbl <- as_tibble(summary(emm_pairs, infer = TRUE)) %>%
+      mutate(PR = pr, metric = resp, .before = 1)
     emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>%
       mutate(PR = pr, metric = resp, .before = 1)
     emm_list[[paste(pr, resp, sep = "__")]] <- emm_tbl
+    emm_pair_list[[paste(pr, resp, sep = "__")]] <- emm_pair_tbl
   }
 }
 
 #add values to table
 emm_all   <- bind_rows(emm_list)
 anova_all <- bind_rows(anova_list)
+emm_pair_set <- bind_rows(emm_pair_list)
 
 write_csv(emm_all, here("Data","RespoFiles","TPC","emmeans_all_PR_metrics.csv"))
 write_csv(anova_all, here("Data","RespoFiles","TPC","anova_all_PR_metrics.csv"))

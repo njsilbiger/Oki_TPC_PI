@@ -104,10 +104,11 @@ dw_plot <- ggplot() +
   geom_errorbar(data = dw_summary, aes(x = species_long, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = dw_summary, aes(x = species_long, y = mean), size = 2) +
   theme_bw(base_size = 22) +
-  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
-  scale_color_manual(values = sp_cols) + 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   ylim(25,325)+
-  labs(x = "Species", 
+  labs(x = "Species", color = "Species",
        y = expression("Dry weight" ~ (mg ~ cm^{-2})))
 dw_plot
 
@@ -126,8 +127,8 @@ DW.mod.spp <- lm(dw_mg_cm2~species_long, data = avg_DW)
 Anova(DW.mod.spp)
 summary(DW.mod.spp)
 
-emm_pairs <- pairs(emm_obj)
 emm_obj <- emmeans::emmeans(DW.mod.spp, ~ species_long)
+emm_pairs <- pairs(emm_obj)
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(species_long = fct_reorder(species_long, emmean))
 
 emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = species_long, color = species_long)) +
@@ -204,13 +205,22 @@ chla_plot <- ggplot() +
   geom_errorbar(data = chla_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22)+
-  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
-  scale_color_manual(values = sp_cols) +
-  labs(x = "Species", 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(x = "Species", color = "Species",
        y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})))
 chla_plot
 
 ggsave(here("Output", "Physiology", "chla_species_jitter.pdf"), chla_plot, h = 8, w = 6)
+
+library(ggpubr)
+physio_plots <- ggarrange(dw_plot, chla_plot,
+                           nrow = 2, ncol = 1, legend = "right", common.legend = TRUE)
+physio_plots
+
+ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 8, w = 8)
+
 
 #summarize mean, sd, se
 chla_avg_7sp_spp <- chla_avg_7sp %>% 

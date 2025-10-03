@@ -66,6 +66,15 @@ dw_topt_scatter <- dw_topt_scatter +
               method = "lm", se = FALSE, color = "black",
               linetype = "longdash", linewidth = 1.1)
 
+by(DW_topt, DW_topt$PR, function(d) summary(lm(topt ~ dw_mg_cm2, data = d)))
+by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(topt ~ dw_mg_cm2, data = d)))
+
+#topt
+#DW_topt$PR: NetPhoto
+#dw_mg_cm2    0.006035   0.002387   2.528   0.0172 *  significant
+#none individual sig dif
+
 ggsave(here("Output", "Physiology", "dryweight_topt_scatter_reglines.pdf"), dw_topt_scatter, h = 4, w = 12)
 
 #rmax
@@ -90,6 +99,11 @@ dw_rmax_scatter <- dw_rmax_scatter +
 
 ggsave(here("Output", "Physiology", "dryweight_rmax_scatter_reg.pdf"), dw_rmax_scatter, h = 4, w = 12)
 
+by(DW_topt, DW_topt$PR, function(d) summary(lm(rmax ~ dw_mg_cm2, data = d))) #ns
+by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(rmax ~ dw_mg_cm2, data = d)))
+#none sig
+
 #e
 dw_e_scatter <- ggplot(DW_topt) +
   geom_point(aes(y = e, x = dw_mg_cm2, color = full_species)) +
@@ -111,6 +125,16 @@ dw_e_scatter <- dw_e_scatter +
               linetype = "longdash", linewidth = 1.1)
 
 ggsave(here("Output", "Physiology", "dryweight_e_scatter_reglines.pdf"), dw_e_scatter, h = 4, w = 12)
+
+by(DW_topt, DW_topt$PR, function(d) summary(lm(e ~ dw_mg_cm2, data = d)))
+by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(e ~ dw_mg_cm2, data = d)))
+
+#e
+#DW_topt$PR: GrossPhoto
+#dw_mg_cm2   -0.0019061  0.0007072  -2.695   0.0136 *  
+#none significant
+
 
 #breadth
 dw_breadth_scatter <- ggplot(DW_topt) +
@@ -134,6 +158,18 @@ dw_breadth_scatter <- dw_breadth_scatter +
 
 ggsave(here("Output", "Physiology", "dryweight_breadth_scatter_reglines.pdf"), dw_breadth_scatter, h = 8, w = 10)
 
+by(DW_topt, DW_topt$PR, function(d) summary(lm(breadth ~ dw_mg_cm2, data = d))) #ns
+by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(breadth ~ dw_mg_cm2, data = d)))
+
+#breadth
+#DW_topt$PR: NetPhoto
+#dw_mg_cm2   0.005614   0.002442   2.299   0.0289 * 
+
+#breadth
+#NetPhoto
+#Turbinaria frondens
+#dw_mg_cm2   0.035475   0.008652    4.10   0.0262 *
 
 ##### chlorophyll a #####
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
@@ -166,6 +202,10 @@ chla_topt_scatter <- chla_topt_scatter +
 
 ggsave(here("Output", "Physiology", "chla_topt_scatter_reg.pdf"), chla_topt_scatter, h = 4, w = 12)
 
+by(chla_topt, chla_topt$PR, function(d) summary(lm(topt ~ chla_ug_cm2_mean, data = d))) #ns
+by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(topt ~ chla_ug_cm2_mean, data = d))) #ns
+
 #rmax
 chla_rmax_scatter <- ggplot(chla_topt) +
   geom_point(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species)) +
@@ -187,6 +227,14 @@ chla_rmax_scatter <- chla_rmax_scatter +
               linetype = "longdash", linewidth = 1.1)
 
 ggsave(here("Output", "Physiology", "chla_rmax_scatter_reglines.pdf"), chla_rmax_scatter, h = 4, w = 12)
+
+by(chla_topt, chla_topt$PR, function(d) summary(lm(rmax ~ chla_ug_cm2_mean, data = d))) #ns
+by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(rmax ~ chla_ug_cm2_mean, data = d)))
+
+#rmax chla
+#NetPhoto Echinopora lamellosa
+#chla_ug_cm2_mean  0.13595    0.01915   7.098  0.00575 **
 
 #e
 chla_e_scatter <- ggplot(chla_topt) +
@@ -210,6 +258,11 @@ chla_e_scatter <- chla_e_scatter +
 
 ggsave(here("Output", "Physiology", "chla_e_scatter_reglines.pdf"), chla_e_scatter, h = 4, w = 12)
 
+by(chla_topt, chla_topt$PR, function(d) summary(lm(e ~ chla_ug_cm2_mean, data = d))) #ns
+by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(e ~ chla_ug_cm2_mean, data = d))) #ns
+
+
 #breadth
 chla_breadth_scatter <- ggplot(chla_topt) +
   geom_point(aes(y = breadth, x = chla_ug_cm2_mean, color = full_species)) +
@@ -220,6 +273,7 @@ chla_breadth_scatter <- ggplot(chla_topt) +
        y = expression("Thermal performance breadth (°C)"), 
        color = "Species")
 chla_breadth_scatter
+
 
 chla_breadth_scatter <- chla_breadth_scatter +
   #species-specific regression lines
@@ -232,3 +286,6 @@ chla_breadth_scatter <- chla_breadth_scatter +
 
 ggsave(here("Output", "Physiology", "chla_breadth_scatter_reglines.pdf"), chla_breadth_scatter, h = 4, w = 12)
 
+by(chla_topt, chla_topt$PR, function(d) summary(lm(breadth ~ chla_ug_cm2_mean, data = d))) #ns
+by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
+   function(d) if(nrow(d) > 1) summary(lm(breadth ~ chla_ug_cm2_mean, data = d))) #ns
