@@ -1,4 +1,5 @@
 ######Making a map of Okinawa ####
+##Also then added temperature data
 #Maya Powell
 #October 2nd, 2025
 

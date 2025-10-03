@@ -1,10 +1,6 @@
 ###### Code for TPC and Physiology comparisons ####### 
 ### Created by: Maya Powell
-#### Last updated on: 2025-07-26
-
-############## Introduction to code/script ####################
-## this script will help us process the raw data gathered during respirometry runs. 
-## need to change for specific project/experimental variables 
+#### Last updated on: Oct 2 2025
 
 ### Install Packages #####
 ## if these packages are not yet installed, install them 
