@@ -10,6 +10,12 @@ editor: visual
 ```{r}
 library(tidyverse)
 library(here)
+library(climaemet)
+library(patchwork)
+library(ggplotify)
+library(magick)
+library(grid)
+
 ```
 
 ## Ignore: Creating New CSV Files
@@ -202,45 +208,19 @@ Tilt8Temp <- read_csv(here("Data/TiltMeterData/Tilt8_Temperature.csv"))
 
 TideData <- read_csv(here("Data/TiltMeterData/TideData_2025.08.csv"))
 
+#Read in Pictures
 
-```
+Tilt1Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt1jpg.jpg"))
+Tilt2Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt2.jpg"))
+Tilt3Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt3.jpg"))
+Tilt4Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt4.jpg"))
+Tilt5Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt5.jpg"))
+Tilt6Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt6.jpg"))
+Tilt7Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt7.jpg"))
+Tilt8Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt8.jpg"))
 
-# Summary Stats 
 
-First, join all the Current Data
 
-```{r}
-JoinedData <- rbind(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean)
-
-```
-
-Visualize Summary stats to see where to filter data from **Don't Need to Run Everytime**
-
-```{r}
-summary(JoinedData$Speed)
-lower_bound <- quantile(JoinedData$Speed, 0.001)
-Upper_bound <- quantile(JoinedData$Speed, 0.999)
-Upper_bound#Upper bound is 25.01416 we will filter data from this number 
-
-boxplot.stats(JoinedData$Speed_m)
-
-sum(JoinedData$Speed >= .5) #Counting the number of points above .5
-# = 5
-
-sum(JoinedData$Speed> 25.01416) #Number of points above the upper bound, 0.25, 145 points
-
-table(cut(JoinedData$Speed_m , seq(0, .25,.05), include.lowest = TRUE)) ##Showing me the different bins and how many data points I have in each one
-
-Means <- JoinedData %>%
-  group_by(TiltMeter) %>%
-  summarise(mean(Speed_m))
-Means #Giving the average speed m/s of each tilt meter
-
-#Visualize the data 
-
-ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
-  geom_point() +
-   facet_wrap(~TiltMeter)
 ```
 
 # Organizing the data
@@ -285,6 +265,45 @@ Tilt5DataClean <- Tilt_Data_fun(Tilt5Data, "Tilt5")
 Tilt6DataClean <- Tilt_Data_fun(Tilt6Data, "Tilt6")
 Tilt7DataClean <- Tilt_Data_fun(Tilt7Data, "Tilt7")
 Tilt8DataClean <- Tilt_Data_fun(Tilt8Data, "Tilt8")
+```
+
+#### Summary Stats 
+
+First, join all the Current Data
+
+```{r}
+JoinedData <- rbind(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean)
+
+```
+
+Visualize Summary stats to see where to filter data from **Don't Need to Run Everytime**
+
+```{r}
+summary(JoinedData$Speed)
+lower_bound <- quantile(JoinedData$Speed, 0.001)
+Upper_bound <- quantile(JoinedData$Speed, 0.999)
+Upper_bound#Upper bound is 25.01416 we will filter data from this number 
+
+boxplot.stats(JoinedData$Speed_m)
+
+sum(JoinedData$Speed >= .5) #Counting the number of points above .5
+# = 5
+
+sum(JoinedData$Speed> 25.01416) #Number of points above the upper bound, 0.25, 145 points
+
+table(cut(JoinedData$Speed_m , seq(0, .25,.05), include.lowest = TRUE)) ##Showing me the different bins and how many data points I have in each one
+
+Means <- JoinedData %>%
+  group_by(TiltMeter) %>%
+  filter(Speed <=  25.01416) %>%
+  summarise(mean(Speed))
+Means #Giving the average speed m/s of each tilt meter
+max(JoinedData$Speed)
+#Visualize the data 
+
+ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
+  geom_point() +
+   facet_wrap(~TiltMeter)
 ```
 
 Now we will average everything by hour and create a new data frame **hourly**
@@ -337,6 +356,11 @@ Tilt5TempData <- Tilt_Temp_fun(Tilt5Temp)
 Tilt6TempData <- Tilt_Temp_fun(Tilt6Temp)
 Tilt7TempData <- Tilt_Temp_fun(Tilt7Temp)
 Tilt8TempData <- Tilt_Temp_fun(Tilt8Temp)
+
+bad_dates <- Tilt7TempData %>%
+  filter(is.na(lubridate::ymd_hms(DateTime)))
+bad_dates2 <- Tilt7DataClean %>%
+  filter(is.na(lubridate::ymd_hms(DateTime)))
 ```
 
 ### Tide Data
@@ -360,42 +384,63 @@ We are going to make a big function to make a plot of the following
 -   Tide Plot \| Photo of Tilt Meter?
 
 ```{r}
-Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, WindrosePlotname, combinedplot) {
+Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename) {
   
 time_limits <- range(Tiltdf$DateTime, na.rm = TRUE)
 
-FeatherPlot <- ggplot(Tiltdf) +
+FeatherPlot <- ggplot(Tiltdf, aes( DatetTime, y = 0)) +
  
   geom_segment(aes( x = DateTime, y = 0, 
                     xend = DateTime, 
-                    yend = Velocity_N #Makes the arrows point up/down
-                    ), 
-               color = "blue",
-               arrow = arrow(length = unit(0.2, "cm")),
-               linewidth = 0.5,
+                    yend = Velocity_N, #Makes the arrows point up/down
+                    color = "Velocity North"), 
+               
+               lineend = "round" ,
+               linewidth = 1,
                alpha = 0.5) +
   
-  geom_segment(aes( x = DateTime, y = 0, 
-                    xend = DateTime  , #Makes the arrows lean left/right
-                    yend = Velocity_E #Makes the arrows point up/down
-                    ), 
-               color = "red",
-               arrow = arrow(length = unit(0.2, "cm")),
-               linewidth = 0.5, 
-               alpha = 0.5)+
+  geom_segment(aes( x = DateTime, y = 0,
+                    xend = DateTime, #Makes the arrows lean left/right
+                    yend = Velocity_E, #Makes the arrows point up/down
+                    color = "Velocity East"), 
+               #arrow = arrow(length = unit(0.2, "cm")),
+               linewidth = 1, 
+               alpha = 0.25) +
+  geom_point(aes(x = DateTime, y = Velocity_N), color = "blue4", size = 0.5) +
+  geom_point(aes(x = DateTime, y = Velocity_E), color = "coral2", size = 0.5) +
   
-  scale_x_datetime(limits =  time_limits) +
-  labs(
-     
-    x = "Time", 
+  scale_color_manual(name = "Velocity Direction", 
+                     values = c("Velocity North" = "blue4", "Velocity East" = "coral2")) +
+  
+   scale_x_datetime(limits = time_limits, 
+                   date_breaks = "2 day", 
+                   minor_breaks = "1 day", 
+                   date_labels = ("%b %d")) +
+ 
+  labs( x = "Date",
     y = "Velocity (cm/s)") +
-  theme_minimal()  
+  theme_minimal() +
+   theme( #axis.text.x = element_text(angle = 45, hjust =1) +
+        #legend.position = c(0.5, 0.95), 
+        legend.box.background = element_rect(color = "black"), 
+        #legend.key.size = unit(0.1, "cm"), 
+           axis.text.x = element_text(angle = 45, hjust =1))
+       
  
  ggsave(here("Output","TiltMeterData",FeatherPlotname))
  
  
  TempPlot <- ggplot(Tempdf, aes(DateTime, Temperature)) +
-  geom_point()
+  geom_line(color = "pink3") +
+    scale_x_datetime(limits = time_limits, 
+                   date_breaks = "2 day", 
+                   minor_breaks = "1 day", 
+                   date_labels = ("%b %d")) +
+     labs(y = "Temperature (°C)") + 
+   
+     theme_minimal() +
+   theme( axis.title.x = element_blank(), 
+          axis.text.x = element_text(angle = 45, hjust =1))
   
 ggsave(here("Output", "TiltMeterData", TempPlotname))
  
@@ -403,7 +448,17 @@ ggsave(here("Output", "TiltMeterData", TempPlotname))
 
 TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
    geom_line(color = "steelblue") +
-   scale_x_datetime(limits = time_limits) 
+   scale_x_datetime(limits = time_limits, 
+                   date_breaks = "2 day", 
+                   minor_breaks = "1 day", 
+                   date_labels = ("%b %d")) +
+  labs( y = "Sealevel (m) ", 
+        x = " Date") +
+  
+  
+       theme_minimal() +
+   theme( axis.text.x = element_blank())
+  
    
   
  
@@ -419,30 +474,90 @@ TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
       values = c( "skyblue","orange" ,"green2", "blue","red", "darkred"),
       drop = FALSE
     ) +
-    
-    labs(fill = "Current Speed (cm/s)") +
+
+   
       theme_minimal() +
-    theme(axis.title = element_blank(), 
-          text = element_text(face = "bold"))
+   labs(subtitle = AverageSpeed, fill = "Current Speed\n (cm/s)", 
+        title = Sitename1) +
+    theme(
+      axis.title =  element_blank(),
+      text = element_text(face = "bold"),
+      legend.title = element_text(size = 9), 
+      plot.subtitle = element_text(hjust = 1))
      
   
   ggsave(here("Output","TiltMeterData",WindrosePlotname))
+  
  
-combined <- plot_grid(FeatherPlot, TempPlot, TidePlot, WindrosePlot, ncol = 1, align = "v", rel_heights =  c(2,1))
+   
+  #TiltPhotoPlot <- as.ggplot(TiltPhoto)
+  TiltPhotoPlot <- wrap_elements(
+  panel = rasterGrob(as.raster(TiltPhoto),
+                     width = unit(1, "npc"),
+                     height = unit(0.5, "npc"))
+)
+  # TiltPhotoPlot <- wrap_elements(panel = rasterGrob(TiltPhoto, 
+  #                                                   x = unit(1, "npc"), 
+  #                                                   y = unit(1, "npc")))
+  
+  
+ FeatherPlot2 <- FeatherPlot + theme(axis.title.x =  element_blank(), 
+         axis.text.x = element_blank(), 
+         axis.ticks.x = element_blank(), 
+         legend.position = "none")
+ WindrosePlot2 <- WindrosePlot + theme(plot.title = element_blank())
+
+left_side  <- (FeatherPlot2 / TempPlot / TidePlot) + 
+                plot_layout(axes = "collect")
+
+right_side <- (WindrosePlot2 / plot_spacer()  / TiltPhotoPlot) 
+  # plot_layout(heights = c(1,2), 
+  #             widths = c(1,2))
+
+combined <- (left_side | right_side) +
+  plot_layout(widths = c(2,1)) +   # control relative widths
+  plot_annotation(
+    title = Sitename, 
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 16))
+  ) &
+  theme(text = element_text(face = "bold"))
+  
+  
+  
+  
+  
+ 
+# combined <- (FeatherPlot/TempPlot/TidePlot + plot_layout(width = 4, axes = "collect")) |
+#   (WindrosePlot/TiltPhotoPlot +
+# #combined <- (FeatherPlot + TempPlot + TidePlot + WindrosePlot + TiltPhotoPlot) +
+#   plot_layout(width = 1)) +
+#   plot_annotation(title = Sitename, 
+#                   theme = theme(plot.title = element_text(size = 16))) &
+#   
+#   theme(text = element_text (face = "bold")) 
+  
 
    ggsave(here::here("Output", "TiltMeterData", combinedplot))
  }
 
 
 
-Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, WindrosePlotname = "Windrose1.jpeg", combinedplot = "Tilt1TideCombo.png")
+Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, Sitename1 = "Site: Oki 2", AverageSpeed = "Average Speed: 1.74 cm/s", WindrosePlotname = "Windrose1.jpeg", Tilt1Photo, combinedplot = "Tilt1TideCombo.png", Sitename = "Site: Oki 2")
 
-Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, WindrosePlotname = "Windrose2.jpeg", combinedplot = "Tilt2TideCombo.png")
+Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, Sitename1 = "Site: Oki 3", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose2.jpeg", Tilt2Photo, combinedplot = "Tilt2TideCombo.png", Sitename = "Site: Oki 3")
 
-Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, WindrosePlotname = "Windrose3.jpeg", combinedplot = "Tilt3TideCombo.png")
+Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, Sitename1 = "Site: Oki 4", AverageSpeed = "Average Speed: 3.53 cm/s", WindrosePlotname = "Windrose3.jpeg", Tilt3Photo, combinedplot = "Tilt3TideCombo.png", Sitename = "Site: Oki 4")
 
-Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, WindrosePlotname = "Windrose4.jpeg", combinedplot = "Tilt4TideCombo.png")
+Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, Sitename1 = "Site: Oki 7", AverageSpeed = "Average Speed: 6.27 cm/s", WindrosePlotname = "Windrose4.jpeg", Tilt4Photo, combinedplot = "Tilt4TideCombo.png", Sitename = "Site: Oki 7")
 
-Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, WindrosePlotname = "Windrose5.jpeg", combinedplot = "Tilt5TideCombo.png")
+Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, Sitename1 = "Site: Oki 9", AverageSpeed = "Average Speed: 2.28 cm/s", WindrosePlotname = "Windrose5.jpeg", Tilt5Photo, combinedplot = "Tilt5TideCombo.png", Sitename = "Site: Oki 9")
+
+Velocity_TidePlot_fun(Tilt6DataHourly, FeatherPlotname = "Tilt6Velocity.png", Tilt6Temp, TempPlotname = "Tilt6Temp.png", Tilt6DataHourly, Sitename1 = "Site: Oki 11", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose6.jpeg", Tilt6Photo, combinedplot = "Tilt6TideCombo.png", Sitename = "Site: Oki 11")
+
+Velocity_TidePlot_fun(Tilt7DataHourly, FeatherPlotname = "Tilt7Velocity.png", Tilt7Temp, TempPlotname = "Tilt7Temp.png", Tilt7DataHourly, Sitename1 = "Site: Oki 15", AverageSpeed = "Average Speed: 1.45 cm/s", WindrosePlotname = "Windrose7.jpeg", Tilt7Photo, combinedplot = "Tilt7TideCombo.png", Sitename = "Site: Oki 15")
+
+Velocity_TidePlot_fun(Tilt8DataHourly, FeatherPlotname = "Tilt8Velocity.png", Tilt8Temp, TempPlotname = "Tilt8Temp.png", Tilt8DataHourly, Sitename1 = "Site: Oki 14", AverageSpeed = "Average Speed: 5.43 cm/s", WindrosePlotname = "Windrose8.jpeg", Tilt8Photo, combinedplot = "Tilt8TideCombo.png", Sitename = "Site: Oki 14")
+
+
 ```
 
