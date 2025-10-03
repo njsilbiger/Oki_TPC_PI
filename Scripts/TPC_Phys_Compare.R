@@ -38,6 +38,30 @@ sp_cols <- c(
 )
 
 
+#DW chla scatter
+avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
+avg_DW <- avg_DW %>% rename_at('species_long', ~'full_species')
+avg_DW <- avg_DW %>% mutate(dw_log = log(dw_mg_cm2))
+
+chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
+chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean))
+
+chla_dw <- power_full_join(chla_avg, avg_DW, by = "frag_ID", conflict = coalesce_xy) %>% 
+  drop_na()
+
+dw_chla_scat <- ggplot(chla_dw) +
+  geom_point(aes(x = dw_mg_cm2, y = chla_ug_cm2_mean, color = full_species)) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
+       y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       color = "Species") +
+  geom_smooth(aes(x = dw_mg_cm2, y = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
+dw_chla_scat
+
+ggsave(here("Output", "Physiology", "dryweight_chla_scatter.pdf"), dw_chla_scat, h = 6, w = 10)
+
 ##### dry weight #####
 avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
 avg_DW <- avg_DW %>% rename_at('species_long', ~'full_species')
@@ -49,42 +73,46 @@ DW_topt <- power_full_join(avg_DW, topt_df, by = "frag_ID", conflict = coalesce_
 #scatterplot of dw and topt params
 
 #topt
-dw_topt_scatter <- ggplot(DW_topt) +
-  geom_point(aes(y = topt, x = dw_mg_cm2, color = full_species)) +
+dw_topt_scatter <- ggplot(filter(DW_topt, PR == "NetPhoto")) +
+  geom_point(aes(x = dw_log, y = topt, color = full_species)) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free_y")+
-  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), y = "Thermal optimum (°C)", color = "Species")
+  #facet_wrap(~PR, scales = "free_y")+
+  labs(x = expression("log(Dry weight" ~ (mg ~ cm^{-2})~")"), y = "Thermal optimum (°C)", color = "Species")
 dw_topt_scatter
 
 dw_topt_scatter <- dw_topt_scatter +
   #species-specific regression lines
-  geom_smooth(aes(y = topt, x = dw_mg_cm2, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
+  #geom_smooth(aes(y = topt, x = dw_log, color = full_species),
+  #            method = "lm", se = FALSE, linewidth = 1) +
   #overall regression line within each facet
-  geom_smooth(aes(y = topt, x = dw_mg_cm2, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
+  geom_smooth(aes(y = topt, x = dw_log, group = 1),
+              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
 
-by(DW_topt, DW_topt$PR, function(d) summary(lm(topt ~ dw_mg_cm2, data = d)))
+by(DW_topt, DW_topt$PR, function(d) summary(lm(topt ~ dw_log, data = d))) #*
+library(performance)
+check_model(lm(topt ~ dw_log, data = filter(DW_topt, PR == "NetPhoto")))
 by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
    function(d) if(nrow(d) > 1) summary(lm(topt ~ dw_mg_cm2, data = d)))
+
+#topt net photo
+#dw_log        0.5526     0.2563   2.156   0.0395 * 
 
 #topt
 #DW_topt$PR: NetPhoto
 #dw_mg_cm2    0.006035   0.002387   2.528   0.0172 *  significant
 #none individual sig dif
 
-ggsave(here("Output", "Physiology", "dryweight_topt_scatter_reglines.pdf"), dw_topt_scatter, h = 4, w = 12)
+ggsave(here("Output", "Physiology", "dryweight_topt_log_np.pdf"), dw_topt_scatter, h = 6, w = 10)
 
 #rmax
-dw_rmax_scatter <- ggplot(DW_topt) +
-  geom_point(aes(y = rmax, x = dw_mg_cm2, color = full_species)) +
+dw_rmax_scatter <- ggplot(filter(DW_topt, PR == "NetPhoto")) +
+  geom_point(aes(y = rmax, x = dw_log, color = full_species)) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       x = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
+  #facet_wrap(~PR, scales = "free")+
+  labs(x = expression("log(Dry weight" ~ (mg ~ cm^{-2})~")"), 
+       y = expression("Rmax" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
        color = "Species")
 dw_rmax_scatter
 
@@ -93,42 +121,43 @@ dw_rmax_scatter <- dw_rmax_scatter +
   # geom_smooth(aes(y = rmax, x = dw_mg_cm2, color = full_species),
   #             method = "lm", se = FALSE, linewidth = 1) +
   #overall regression line within each facet
-  geom_smooth(aes(y = rmax, x = dw_mg_cm2, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
+  geom_smooth(aes(y = rmax, x = dw_log, group = 1),
+              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
 
-ggsave(here("Output", "Physiology", "dryweight_rmax_scatter_reg.pdf"), dw_rmax_scatter, h = 4, w = 12)
+ggsave(here("Output", "Physiology", "dryweight_rmax_log.pdf"), dw_rmax_scatter, h = 4, w = 12)
 
-by(DW_topt, DW_topt$PR, function(d) summary(lm(rmax ~ dw_mg_cm2, data = d))) #ns
+by(DW_topt, DW_topt$PR, function(d) summary(lm(rmax ~ dw_log, data = d))) #ns
 by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
    function(d) if(nrow(d) > 1) summary(lm(rmax ~ dw_mg_cm2, data = d)))
 #none sig
 
 #e
-dw_e_scatter <- ggplot(DW_topt) +
-  geom_point(aes(y = e, x = dw_mg_cm2, color = full_species)) +
+dw_e_scatter <- ggplot(filter(DW_topt, PR == "NetPhoto")) +
+  geom_point(aes(y = e, x = dw_log, color = full_species)) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       x = ("Activation energy (eV)"), 
+  #facet_wrap(~PR, scales = "free")+
+  labs(x = expression("log(Dry weight" ~ (mg ~ cm^{-2})~")"), 
+       y = ("E (eV)"), 
        color = "Species")
 dw_e_scatter
 
 dw_e_scatter <- dw_e_scatter +
   #species-specific regression lines
-  geom_smooth(aes(y = e, x = dw_mg_cm2, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
+  #geom_smooth(aes(y = e, x = dw_mg_cm2, color = full_species),
+  #            method = "lm", se = FALSE, linewidth = 1) +
   #overall regression line within each facet
-  geom_smooth(aes(y = e, x = dw_mg_cm2, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
+  geom_smooth(aes(y = e, x = dw_log, group = 1),
+              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
 
-ggsave(here("Output", "Physiology", "dryweight_e_scatter_reglines.pdf"), dw_e_scatter, h = 4, w = 12)
+ggsave(here("Output", "Physiology", "dryweight_e_log.pdf"), dw_e_scatter, h = 4, w = 12)
 
-by(DW_topt, DW_topt$PR, function(d) summary(lm(e ~ dw_mg_cm2, data = d)))
+by(DW_topt, DW_topt$PR, function(d) summary(lm(e ~ dw_log, data = d)))
 by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
    function(d) if(nrow(d) > 1) summary(lm(e ~ dw_mg_cm2, data = d)))
+
+#e DW_topt$PR: GrossPhoto
+#dw_log      -0.16421    0.07198  -2.281  0.03307 * 
 
 #e
 #DW_topt$PR: GrossPhoto
@@ -137,30 +166,35 @@ by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
 
 
 #breadth
-dw_breadth_scatter <- ggplot(DW_topt) +
-  geom_point(aes(y = breadth, x = dw_mg_cm2, color = full_species)) +
+dw_breadth_scatter <- ggplot(filter(DW_topt, PR == "NetPhoto")) +
+  geom_point(aes(y = breadth, x = dw_mg_cm2, color = full_species), alpha = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(y = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       x = expression("Thermal performance breadth (°C)"), 
+  coord_transform(x = "log")+
+  #facet_wrap(~PR, scales = "free")+
+  geom_smooth(aes(y = breadth, x = dw_mg_cm2, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
+  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
+       y = expression("Breadth (°C)"), 
        color = "Species")
 dw_breadth_scatter
 
 dw_breadth_scatter <- dw_breadth_scatter +
   #species-specific regression lines
-  geom_smooth(aes(y = breadth, x = dw_mg_cm2, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
+  #geom_smooth(aes(y = breadth, x = dw_mg_cm2, color = full_species),
+  #            method = "lm", se = FALSE, linewidth = 1) +
   #overall regression line within each facet
-  geom_smooth(aes(y = breadth, x = dw_mg_cm2, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
+  geom_smooth(aes(y = breadth, x = dw_log, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)
 
-ggsave(here("Output", "Physiology", "dryweight_breadth_scatter_reglines.pdf"), dw_breadth_scatter, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "dryweight_breadth_log.pdf"), dw_breadth_scatter, h = 4, w = 12)
 
-by(DW_topt, DW_topt$PR, function(d) summary(lm(breadth ~ dw_mg_cm2, data = d))) #ns
+by(DW_topt, DW_topt$PR, function(d) summary(lm(breadth ~ dw_log, data = d))) #ns
 by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
    function(d) if(nrow(d) > 1) summary(lm(breadth ~ dw_mg_cm2, data = d)))
+
+#breadth DW_topt$PR: NetPhoto
+#dw_log        0.6504     0.2504   2.598   0.0146 *  
 
 #breadth
 #DW_topt$PR: NetPhoto
@@ -170,6 +204,15 @@ by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
 #NetPhoto
 #Turbinaria frondens
 #dw_mg_cm2   0.035475   0.008652    4.10   0.0262 *
+
+
+library(ggpubr)
+dw_topt_log <- ggarrange(dw_topt_scatter, dw_rmax_scatter, dw_e_scatter, dw_breadth_scatter, 
+                           nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
+dw_topt_log
+
+ggsave(here("Output","TPC","Graphs","np_topt_plots.pdf"), dw_topt_log, h = 8, w = 12)
+
 
 ##### chlorophyll a #####
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))

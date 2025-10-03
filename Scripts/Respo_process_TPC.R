@@ -515,24 +515,24 @@ write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 
 ####Topt and other parameter graphs####
 #read in dataframes and generate prediction dfs for each metric to graph
-# PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
-# BioSp <- BioData %>% dplyr::select(frag_ID, full_species)
-# PnR_clean <-  PnR_clean %>% left_join(BioSp, by = "frag_ID")
-# sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
-# PnR_clean <- PnR_clean %>% filter(species %in% sp_keep)
-# write_csv(PnR_clean, here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
-# preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
-# preds_all <- preds_all %>% filter(species %in% sp_keep)
-# write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv")) #P and R rate data cleaned 7sp only
+PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+BioSp <- BioData %>% dplyr::select(frag_ID, full_species)
+PnR_clean <-  PnR_clean %>% left_join(BioSp, by = "frag_ID")
+sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
+PnR_clean <- PnR_clean %>% filter(species %in% sp_keep)
+write_csv(PnR_clean, here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv")) #P and R rate data cleaned
+preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
+preds_all <- preds_all %>% filter(species %in% sp_keep)
+write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv")) #P and R rate data cleaned 7sp only
 PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4_7sp.csv"))
 preds_all <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4_7sp.csv"))
 preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
 #and topt data
-#topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
-#topt_df <- topt_df %>% filter(species %in% sp_keep)
-#write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_df <- topt_df %>% filter(species %in% sp_keep)
+write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
 topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
 topt_np <- topt_df %>% filter(PR == "NetPhoto")
@@ -572,6 +572,7 @@ np_pred_plot <- PnR_clean %>% filter(PR == "NetPhoto") %>% ggplot(aes(temp_c_val
   #geom_hline(data = topt_np,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
   theme_bw(base_size = 12) +
   theme(strip.text = element_text(face = "italic")) +
+  ylim(0,1.6) +
   labs(x = "Temperature (ºC)",
        y = expression("Net Photosynthesis" ~ (mu*mol ~ cm^{-2} ~ h^{-1})),
        title = "Thermal performance: net photosynthesis by species")

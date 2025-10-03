@@ -50,6 +50,7 @@ sp_cols <- c(
 
 #load data
 avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
+avg_DW <- avg_DW %>% rename(full_species = species_long)
 
 #code to calculate average dry weight per fragment
 #needed initially but not after writing average dry weight datasheet
@@ -86,7 +87,7 @@ se_fun <- function(x) {
 }
 
 dw_summary <- avg_DW %>%
-  group_by(species_long) %>%
+  group_by(full_species) %>%
   summarise(
     n    = sum(!is.na(dw_mg_cm2)),
     mean = mean(dw_mg_cm2, na.rm = TRUE),
@@ -97,12 +98,12 @@ dw_summary <- avg_DW %>%
 #reorder based on mean values
 means <- avg_DW %>% group_by(species) %>% summarize(m = mean(dw_mg_cm2, na.rm = TRUE), .groups = "drop")
 
-avg_DW_ordered <- avg_DW %>% left_join(dw_summary, by = "species_long") %>% mutate(species_long = fct_reorder(species_long, mean))  # ascending by mean
+avg_DW_ordered <- avg_DW %>% left_join(dw_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
 
 dw_plot <- ggplot() +
-  geom_jitter(data = avg_DW_ordered, aes(x = species_long, y = dw_mg_cm2, color = species_long), width = 0.15, alpha = 0.8) +
-  geom_errorbar(data = dw_summary, aes(x = species_long, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
-  geom_point(data = dw_summary, aes(x = species_long, y = mean), size = 2) +
+  geom_jitter(data = avg_DW_ordered, aes(x = full_species, y = dw_mg_cm2, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = dw_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = dw_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
@@ -123,15 +124,16 @@ avg_DW_spp <- avg_DW %>%
   )
 
 #quickly see if there is a dif between species
-DW.mod.spp <- lm(dw_mg_cm2~species_long, data = avg_DW)
+DW.mod.spp <- lm(dw_mg_cm2~full_species, data = avg_DW)
 Anova(DW.mod.spp)
 summary(DW.mod.spp)
+check_model(DW.mod.spp) #looks ok? infl obs still weird
 
-emm_obj <- emmeans::emmeans(DW.mod.spp, ~ species_long)
+emm_obj <- emmeans::emmeans(DW.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(species_long = fct_reorder(species_long, emmean))
+emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = species_long, color = species_long)) +
+emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
@@ -174,7 +176,7 @@ ggsave(here("Output", "TPC", "Graphs","dw_emmeans.pdf"),
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 sp_keep <- c("Acropora hyacinthus","Echinopora lamellosa", "Favites complanata","Montipora aequituberculata","Pocillopora eydouxi","Porites rus","Turbinaria frondens")
 
-chla_avg_7sp <- chla_avg %>% filter(full_species %in% sp_keep)
+chla_avg_7sp <- chla_avg %>% filter(full_species %in% sp_keep) %>% filter(frag_ID != "C07")
 
 
 #now generate mean and se dataframe of chla
@@ -219,7 +221,7 @@ physio_plots <- ggarrange(dw_plot, chla_plot,
                            nrow = 2, ncol = 1, legend = "right", common.legend = TRUE)
 physio_plots
 
-ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 8, w = 8)
+ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 9, w = 8)
 
 
 #summarize mean, sd, se
@@ -232,8 +234,10 @@ chla_avg_7sp_spp <- chla_avg_7sp %>%
 
 #quickly see if there is a dif between species
 chla.mod.spp <- lm(chla_ug_cm2_mean~full_species, data = chla_avg_7sp)
+Anova(aov(chla_ug_cm2_mean~full_species, data = chla_avg_7sp))
 Anova(chla.mod.spp)
 summary(chla.mod.spp)
+check_model(chla.mod.spp) #influential observations look bad probs from prus
 
 emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
