@@ -8,6 +8,7 @@ library(tidyverse)
 library(ggplot2)
 library(sf)
 library(lubridate)
+library(dplyr)
 
 #map using shape file from this link:
 #https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_3.html
@@ -120,3 +121,118 @@ temp_topt_gp
 
 ggsave(here("Output", "Okinawa_map", "temp_topt_gp.pdf"), temp_topt_gp, h = 8, w = 10)
 
+
+#topt fake curve schematic
+
+# Thermal performance curve schematic (fake data + annotations)
+library(grid)  # for arrow()
+
+set.seed(1)
+
+# Thermal performance curve (bounded Beta shape) + full annotations
+library(ggplot2)
+library(dplyr)
+library(grid)   # for unit() in arrows
+
+# ---- Parameters ----
+CTmin <- 20
+CTmax <- 35
+Topt  <- 29
+Rmax  <- 1.5
+
+temp <- seq(CTmin, CTmax, by = 0.1)
+s    <- (temp - CTmin) / (CTmax - CTmin)             # map temperature to [0, 1]
+s    <- pmin(pmax(s, 0), 1)
+s0   <- (Topt - CTmin) / (CTmax - CTmin)             # desired mode location in [0,1]
+
+# Choose skew (left-skew = longer cold tail) by setting shape2 > shape1
+shape2 <- 3
+shape1 <- (s0*shape2 - 2*s0 + 1) / (1 - s0)          # ensure mode = s0; requires shape1, shape2 > 1
+while (shape1 <= 1) {
+  shape2 <- shape2 + 1
+  shape1 <- (s0*shape2 - 2*s0 + 1) / (1 - s0)
+}
+
+# Beta-shaped curve; scale to peak at Rmax
+curve_beta <- dbeta(s, shape1 = shape1, shape2 = shape2)
+rate_mean  <- Rmax * curve_beta / max(curve_beta)
+
+df <- tibble(temp, rate_mean)
+
+# ---- Peak (use discrete max for exact plotting coords) ----
+i_peak <- which.max(rate_mean)
+Topt_eff <- temp[i_peak]          # should be ~ Topt
+Rmax_eff <- rate_mean[i_peak]     # should be ~ Rmax
+
+#breadth
+half_height <- 0.5 * Rmax_eff
+
+left_idx  <- which(temp <= Topt_eff)
+right_idx <- which(temp >= Topt_eff)
+
+T_low  <- temp[left_idx][  which.min(abs(rate_mean[left_idx]  - half_height)) ]
+T_high <- temp[right_idx][ which.min(abs(rate_mean[right_idx] - half_height)) ]
+breadth <- T_high - T_low
+
+
+# ---- E (activation energy) schematic: a rising-limb segment ----
+E_x1 <- max(CTmin, Topt - 7)
+E_x2 <- max(CTmin + 0.1, Topt - 3)
+E_y1 <- approx(temp, rate_mean, xout = E_x1)$y
+E_y2 <- approx(temp, rate_mean, xout = E_x2)$y
+
+# ---- Plot ----
+p <- ggplot(df, aes(x = temp, y = rate_mean)) +
+  # curve + points
+  geom_line(aes(y = rate_mean), linewidth = 1.2) +
+  
+  # Rmax: mark peak, arrow, and label
+  annotate("point", x = Topt_eff, y = Rmax_eff, size = 3) +
+  annotate("segment",
+           x = Topt_eff, xend = Topt_eff + 2,
+           y = Rmax_eff, yend = Rmax_eff,
+           arrow = arrow(length = unit(6, "pt"))) +
+  annotate("text",
+           x = Topt_eff + 2.3, y = Rmax_eff, hjust = 0, vjust = 0,
+           label = "R['max']",
+           parse = TRUE, size = 8) +
+  
+  # Topt: vertical dashed line + parsed label near x-axis
+  geom_vline(xintercept = Topt, linetype = 2) +
+  annotate("text",
+           x = Topt, y = 0, vjust = 0.5, hjust = 2,
+           label = "T['opt']",
+           parse = TRUE, size = 8) +
+  
+  # Breadth (FWHM): double-headed arrow at half height + ticks + label
+  annotate("segment",
+           x = T_low, xend = T_high,
+           y = half_height, yend = half_height,
+           arrow = arrow(ends = "both", length = unit(6, "pt"))) +
+  annotate("text",
+           x = (T_low + T_high)/2, y = half_height + 0.08*Rmax_eff,
+           label = "breadth",
+           parse = TRUE, hjust = 1, vjust = 1, size = 8) +
+  
+  # E (activation energy) schematic on rising limb + label
+  annotate("segment",
+           x = E_x1, xend = E_x2,
+           y = E_y1, yend = E_y2,
+           linewidth = 1.1, arrow = arrow(length = unit(6, "pt"))) +
+  annotate("text",
+           x = E_x1 - 0.2, y = (E_y1 + E_y2)/2,
+           label = "italic('E')",
+           parse = TRUE, hjust = -0.5, vjust = 0.5, size = 8) +
+  annotate("text", x = CTmin, y = 0.2, vjust = 1.6, hjust = -0.05,
+           label = "CT['min']", parse = TRUE, size = 8, color = "slategray4") +
+  annotate("text", x = CTmax, y = 0.2, vjust = 1.6, hjust = -0.01,
+           label = "CT['max']", parse = TRUE, size = 8, color = "slategray4") +
+  labs(x = expression("Temperature ("*degree*C*")"),
+       y = expression("Physiological Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
+  coord_cartesian(ylim = c(0, Rmax*1.15)) +
+  theme_classic(base_size = 22)+
+  xlim(20,36)
+
+p
+
+ggsave(here("Output","Okinawa_Map","tpc_schematic.pdf"), p, h = 8, w = 10)
