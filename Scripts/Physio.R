@@ -110,7 +110,7 @@ dw_plot <- ggplot() +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   ylim(25,325)+
   labs(x = "Species", color = "Species",
-       y = expression("Dry weight" ~ (mg ~ cm^{-2})))
+       y = expression("Tissue biomass" ~ (mg ~ cm^{-2})))
 dw_plot
 
 ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 8, w = 6)
@@ -221,7 +221,7 @@ physio_plots <- ggarrange(dw_plot, chla_plot,
                            nrow = 2, ncol = 1, legend = "right", common.legend = TRUE)
 physio_plots
 
-ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 9, w = 8)
+ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 9, w = 8, dpi = 300)
 
 
 #summarize mean, sd, se

@@ -821,7 +821,7 @@ np_topt_plots <- ggarrange(topt_rmax_plot, topt_topt_plot, topt_e_plot, topt_bre
                            nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
 np_topt_plots
 
-ggsave(here("Output","TPC","Graphs","np_topt_plots.pdf"), np_topt_plots, h = 8, w = 12)
+ggsave(here("Output","TPC","Graphs","np_topt_plots.pdf"), np_topt_plots, h = 8, w = 12, dpi = 300)
 
 
 #topt plot all together
