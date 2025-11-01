@@ -732,6 +732,8 @@ p <- ggplot(TiltEllipses, aes( x = x, y = y, color = TiltMeter)) +
 
 # Display the plot
 print(p)
+ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),
+         width = 10, height = 5)
 
 # p + 
 #   geom_point(aes(x = mean(u), y = mean(v)), color = "red", size = 2) +
