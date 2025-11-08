@@ -255,3 +255,121 @@ emm_plot
 ggsave(here("Output", "TPC", "Graphs","chla_emmeans.pdf"),
        device = "pdf", height = 8, width = 8, emm_plot)
 
+##### Symbiont Density#####
+
+#load data
+avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
+
+#code to calculate average Symbiont Density per fragment
+#needed initially but not after writing average Symbiont Density datasheet
+# phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta.csv"))
+# 
+# #read in sym photo id sheet and sym counts
+# counts <- read.csv(here("Data", "Physiology", "sym_counts_all.csv"))
+# photos <- read.csv(here("Data", "Physiology", "sym_photos_all.csv"))
+# 
+# #combine
+# sym_raw <- photos %>% left_join(counts, by = "image_id")
+# 
+# #add together counts from photos from 2 focus settings for photos
+# img_rm <- c("P8184974","P8184975","P8184976","P8174396","P8174397","P8174662","P8174663","P8174668","P8174669")
+# sym_add <- sym_raw %>%
+#   group_by(frag_ID,rep) %>% mutate(count_2 = sum(count)) %>%
+#   filter(image_no == 1) %>% #keep only 1 row of data for each
+#   filter(!image_id %in% img_rm) #filter out images to remove based on SE >15% of mean (as calculated below)
+# 
+# #average sym counts across 6 reps for each id
+# #and calculate SE
+# sym_avg <- sym_add %>%
+#   group_by(frag_ID) %>% mutate(count_avg = mean(count_2)) %>%
+#   mutate(count_se = sd(count_2)/sqrt(length(count_2))) %>%
+#   #check to see which have highest error and look at add data for those >15%
+#   mutate(count_var = count_se/count_avg) %>%
+#   filter(rep == 6) #keep only one row of data for each
+# 
+# #error >0.15 = C02, E04, H08
+# #C02 - one data point is 6 while the others are >50, likely remove - check photos
+# #E04 - two counts of 9 and 6, all others >30, likely remove - check photos
+# #H08 - two counts in the 300s while all others in the 100s, likely remove - check photos
+# 
+# #now calculate actual symbiont density
+# #the 1x1mm grid should be 0.1uL
+# #we want cells/mL so 10,000 x our counts (1000uL in a mL/0.1uL = x 10,000)
+# #homogenate volume for all is 50mL
+# #SA is calculated as well here
+# #combine with metadata for calculations
+# 
+# sym <- sym_avg %>%
+#   select(frag_ID, count_avg) %>% #keep only relevant columns
+#   left_join(phys_meta, by = "frag_ID") %>% #add metadata
+#   mutate(sym_mL = count_avg*10000) %>%
+#   mutate(sym_total = sym_mL*blastate_vol_mL) %>%
+#   mutate(sym_cm2 = sym_total/SA_cm2)
+# 
+# write.csv(sym, here("Data", "Physiology", "Average_Sym_Density.csv"), row.names = FALSE)
+
+#now generate mean and se dataframe of sym
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+sym_summary <- avg_sym %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(sym_cm2)),
+    mean = mean(sym_cm2, na.rm = TRUE),
+    se   = se_fun(sym_cm2),
+    .groups = "drop")
+
+
+#reorder based on mean values
+means <- avg_sym %>% group_by(species) %>% summarize(m = mean(sym_cm2, na.rm = TRUE), .groups = "drop")
+
+avg_sym_ordered <- avg_sym %>% left_join(sym_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+sym_plot <- ggplot() +
+  geom_jitter(data = avg_sym_ordered, aes(x = full_species, y = sym_cm2, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = sym_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = sym_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(25,325)+
+  labs(x = "Species", color = "Species",
+       y = expression("Symbiont Density" ~ (cells ~ cm^{-2})))
+sym_plot
+
+ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 8, w = 6)
+
+#summarize mean, sd, se
+avg_sym_spp <- avg_sym %>% 
+  group_by(species) %>% 
+  summarise(avg_sym_cm2 = mean(sym_cm2),
+            sd_sym_cm2 = sd(sym_cm2),
+            se_sym_cm2 = sd(sym_cm2)/sqrt(n())
+  )
+
+#quickly see if there is a dif between species
+sym.mod.spp <- lm(sym_cm2~full_species, data = avg_sym)
+Anova(sym.mod.spp)
+summary(sym.mod.spp)
+check_model(sym.mod.spp) #looks ok? infl obs still weird
+
+emm_obj <- emmeans::emmeans(sym.mod.spp, ~ full_species)
+emm_pairs <- pairs(emm_obj)
+emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
+
+emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
+  scale_color_manual(values = sp_cols, ) + 
+  labs(x = "Emmean", y = "Species")
+emm_plot
+
+ggsave(here("Output", "TPC", "Graphs","sym_emmeans.pdf"),
+       device = "pdf", height = 8, width = 8, emm_plot)
