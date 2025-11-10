@@ -1,10 +1,9 @@
-######################################
-##### Coral physiology Okinawa 2025###
-######################################
+#####Coral physiology Okinawa 2025####
 #Maya Powell
 #Created August 2025
-#Last edited October 1 2025
+#Last edited November 9th 2025
 
+##### SETUP #####
 #load libraries
 library(tidyverse)
 library(here)
@@ -372,4 +371,84 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
 emm_plot
 
 ggsave(here("Output", "TPC", "Graphs","sym_emmeans.pdf"),
+       device = "pdf", height = 8, width = 8, emm_plot)
+
+
+##### Host Proteins #####
+
+#load data
+prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv"))
+
+#join with metadata - only need to do this once initially for setup then good to go!
+#join with metadata - make sure to use Physio_meta_all because it has all species
+# prot <- read.csv(here("Data", "Physiology", "protein_all_summary_raw.csv"))
+# phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
+# prot <- prot %>% rename_at("Sample.Name", ~"frag_ID") %>% select(-"SA_cm2") #remove duplicate SA so you don't have to deal with it during merge
+# prot <- prot %>% left_join(phys_meta, by = "frag_ID")
+# write.csv(prot, here("Data", "Physiology", "protein_all_summary.csv"), row.names = F)
+
+#now generate mean and se dataframe of prot
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+prot_summary <- prot %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(prot_ug_cm2)),
+    mean = mean(prot_ug_cm2, na.rm = TRUE),
+    se   = se_fun(prot_ug_cm2),
+    .groups = "drop")
+
+
+#reorder based on mean values
+means <- prot %>% group_by(species) %>% summarize(m = mean(prot_ug_cm2, na.rm = TRUE), .groups = "drop")
+
+prot_ordered <- prot %>% left_join(prot_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+prot_plot <- ggplot() +
+  geom_jitter(data = prot_ordered, aes(x = full_species, y = prot_ug_cm2, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = prot_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = prot_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(25,325)+
+  labs(x = "Species", color = "Species",
+       y = expression("Protein Conten" ~ (mu*g ~ cm^{-2})))
+prot_plot
+
+ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 8, w = 6)
+
+#summarize mean, sd, se
+prot_spp <- prot %>% 
+  group_by(species) %>% 
+  summarise(prot_ug_cm2 = mean(prot_ug_cm2),
+            sd_prot_ug_cm2 = sd(prot_ug_cm2),
+            se_prot_ug_cm2 = sd(prot_ug_cm2)/sqrt(n())
+  )
+
+#quickly see if there is a dif between species
+prot.mod.spp <- lm(prot_ug_cm2~full_species, data = prot)
+Anova(prot.mod.spp)
+summary(prot.mod.spp)
+check_model(prot.mod.spp)
+
+emm_obj <- emmeans::emmeans(prot.mod.spp, ~ full_species)
+emm_pairs <- pairs(emm_obj)
+emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
+
+emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+  geom_point() +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
+  scale_color_manual(values = sp_cols, ) + 
+  labs(x = "Emmean", y = "Species")
+emm_plot
+
+ggsave(here("Output", "TPC", "Graphs","prot_emmeans.pdf"),
        device = "pdf", height = 8, width = 8, emm_plot)
