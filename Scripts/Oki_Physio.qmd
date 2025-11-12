@@ -1,10 +1,21 @@
-#####Coral physiology Okinawa 2025####
-#Maya Powell
-#Created August 2025
-#Last edited November 9th 2025
+---
+title: "Okinawa Bulk Coral Physiology 2025"
+author: "Maya Powell"
+date-created: "November 11th 2025"
+date-modified: today
+format:
+  html:
+    toc: true
+#    theme: darkly
+editor: visual
+warning: false
+---
 
-##### SETUP #####
-#load libraries
+## Setup
+
+Load libraries
+
+```{r}
 library(tidyverse)
 library(here)
 library(dplyr)
@@ -12,8 +23,11 @@ library(car)
 library(PNWColors)
 library(performance)
 library(ggpubr)
+```
 
-#assign colors to species for all plots
+Assign species colors for all plots
+
+```{r}
 sp_cols <- c(
   "Acropora hyacinthus" = '#d8aedd',
   "Echinopora lamellosa" = '#ba7999',
@@ -26,13 +40,28 @@ sp_cols <- c(
   "Porites rus" = '#7bbcd5',
   "Turbinaria frondens" = '#00496f'
 )
+```
 
-##### Dry weight#####
+Function to calculate SE throughout
 
-#load data
+```{r}
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+```
+
+## Dry weight
+
+Load data
+
+```{r}
 avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
 avg_DW <- avg_DW %>% rename(full_species = species_long)
+```
 
+```{r}
 #code to calculate average dry weight per fragment
 #needed initially but not after writing average dry weight datasheet
 # #read in metadata
@@ -59,14 +88,11 @@ avg_DW <- avg_DW %>% rename(full_species = species_long)
 #   left_join(phys_meta, by = "frag_ID")
 # 
 # write.csv(avg_DW, here("Data", "Physiology", "Average_Dry_Weight.csv"), row.names = FALSE)
+```
 
-#now generate mean and se dataframe of dw
-se_fun <- function(x) {
-  n <- sum(!is.na(x))
-  if (n <= 1) return(NA_real_)
-  sd(x, na.rm = TRUE) / sqrt(n)
-}
+Generate dry weight summary data
 
+```{r}
 dw_summary <- avg_DW %>%
   group_by(full_species) %>%
   summarise(
@@ -74,13 +100,20 @@ dw_summary <- avg_DW %>%
     mean = mean(dw_mg_cm2, na.rm = TRUE),
     se   = se_fun(dw_mg_cm2),
     .groups = "drop")
+```
 
-#see if there is a dif between species
+See if there is a difference between species
+
+```{r}
 DW.mod.spp <- lm(dw_mg_cm2~full_species, data = avg_DW)
 Anova(DW.mod.spp)
 summary(DW.mod.spp)
 check_model(DW.mod.spp)
+```
 
+Emmeans comparisons
+
+```{r}
 emm_obj <- emmeans::emmeans(DW.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 #a, a, a, a, ab, ab, b, b
@@ -95,9 +128,12 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-ggsave(here("Output", "Physiology","dw_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+#ggsave(here("Output", "Physiology","dw_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+```
 
-#reorder based on mean values
+Reorder based on mean values and then plot dry weight
+
+```{r}
 means <- avg_DW %>% group_by(species) %>% summarize(m = mean(dw_mg_cm2, na.rm = TRUE), .groups = "drop")
 
 avg_DW_ordered <- avg_DW %>% left_join(dw_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
@@ -117,11 +153,14 @@ dw_plot <- ggplot() +
        y = expression("Tissue biomass" ~ (mg ~ cm^{-2})))
 dw_plot
 
-ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 8, w = 10)
+#ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 8, w = 10)
+```
 
+## Chlorophyll a
 
-##### Chlorophyll a #####
+Initial processing - only needed once
 
+```{r}
 #read in data
 #data is corrected for blank rates and surface area and blanks are removed
 #uncomment this section if you need to redo prep for chla dataframe
@@ -148,8 +187,11 @@ ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h 
 # 
 # #save data
 # write_csv(chla_data, here("Data", "Physiology", "Chla_avg.csv"))
+```
 
-#read in updated chla data
+Read in data
+
+```{r}
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 
 chla_avg <- chla_avg %>% 
@@ -158,13 +200,13 @@ chla_avg <- chla_avg %>%
   mutate(chla_ug_total = (chla_mean*50)) %>% #multiply by slurry volume to get total chla
   mutate(chla_pg_sym = (chla_ug_total/sym_total)*1000000) #divide by total symbionts and multiply by 1000000 to get pg
 
-#now generate mean and se dataframe of chla
-se_fun <- function(x) {
-  n <- sum(!is.na(x))
-  if (n <= 1) return(NA_real_)
-  sd(x, na.rm = TRUE) / sqrt(n)
-}
+```
 
+#### Chla/cm2
+
+Make chla summary data
+
+```{r}
 #summarize chla/cm2 by species
 chla_summary <- chla_avg %>%
   group_by(full_species) %>%
@@ -172,13 +214,20 @@ chla_summary <- chla_avg %>%
             mean = mean(chla_ug_cm2_mean, na.rm = TRUE),
             se = se_fun(chla_ug_cm2_mean),
             .groups = "drop")
+```
 
-#see if there is a dif between species for chla/cm2
+See if there's a difference between species for chla
+
+```{r}
 chla.mod.spp <- lm(chla_ug_cm2_mean~full_species, data = chla_avg)
 Anova(chla.mod.spp)
 summary(chla.mod.spp)
-check_model(chla.mod.spp) #influential observations look bad probs from prus
+check_model(chla.mod.spp)
+```
 
+Generate emmeans comparisons and plot
+
+```{r}
 emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 #a, a, a, a, a, a, ab, ab, b, b
@@ -193,8 +242,12 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-ggsave(here("Output", "Physiology","chla_cm2_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+#ggsave(here("Output", "Physiology","chla_cm2_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+```
 
+Order and plot data by species
+
+```{r}
 #reorder based on mean values
 means <- chla_avg %>% group_by(species) %>% summarize(m = mean(chla_ug_cm2_mean, na.rm = TRUE), .groups = "drop")
 
@@ -216,26 +269,42 @@ chla_plot <- ggplot() +
   ylim(0,22)
 chla_plot
 
-ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 8, w = 10)
+#ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 8, w = 10)
+```
 
-##Chla per symbiont
+#### Chla/symbiont
+
+Only seven species for sym data for now so edit dataframe accordingly
+
+```{r}
 sp_keep <- c("Acropora hyacinthus","Echinopora lamellosa", "Favites complanata","Montipora aequituberculata","Pocillopora eydouxi","Porites rus","Turbinaria frondens")
 chla_7sp <- chla_avg %>% filter(full_species %in% sp_keep)
 
-#summarize chla/cm2 by species
+```
+
+Summarize
+
+```{r}
 chla_sym_summary <- chla_7sp %>%
   group_by(full_species) %>%
   summarise(n = sum(!is.na(chla_pg_sym)),
             mean = mean(chla_pg_sym, na.rm = TRUE),
             se = se_fun(chla_pg_sym),
             .groups = "drop")
+```
 
-#see if there is a dif between species for chla/cm2
+See if there's a difference between species
+
+```{r}
 chla.sym.spp <- lm(chla_pg_sym~full_species, data = chla_7sp)
 Anova(chla.sym.spp)
 summary(chla.sym.spp)
 check_model(chla.sym.spp)
+```
 
+Emmeans comparison and plot
+
+```{r}
 emm_obj <- emmeans::emmeans(chla.sym.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 #a, ab, ab, abc, abc, bc, c
@@ -250,8 +319,12 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-ggsave(here("Output", "Physiology","chla_sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+#ggsave(here("Output", "Physiology","chla_sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+```
 
+Reorder and plot by species
+
+```{r}
 #reorder based on mean values
 means <- chla_7sp %>% group_by(species) %>% summarize(m = mean(chla_pg_sym, na.rm = TRUE), .groups = "drop")
 
@@ -274,16 +347,22 @@ chla_sym_plot <- ggplot() +
 chla_sym_plot
 
 ggsave(here("Output", "Physiology", "chla_sym_species_jitter.pdf"), chla_sym_plot, h = 8, w = 10)
+```
 
+## Symbiont density
 
-##### Symbiont Density#####
+Load data
 
-#load data
+```{r}
 avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
 avg_sym <- avg_sym %>% 
   filter(frag_ID != "C07") %>% 
   filter(frag_ID != "D10") #remove crazy outliers!
+```
 
+Needed initially to calculate avg per frag sym density
+
+```{r}
 #code to calculate average Symbiont Density per fragment
 #needed initially but not after writing average Symbiont Density datasheet
 # phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta.csv"))
@@ -331,14 +410,11 @@ avg_sym <- avg_sym %>%
 #   mutate(sym_cm2 = sym_total/SA_cm2)
 # 
 # write.csv(sym, here("Data", "Physiology", "Average_Sym_Density.csv"), row.names = FALSE)
+```
 
-#now generate mean and se dataframe of sym
-se_fun <- function(x) {
-  n <- sum(!is.na(x))
-  if (n <= 1) return(NA_real_)
-  sd(x, na.rm = TRUE) / sqrt(n)
-}
+Summary data
 
+```{r}
 sym_summary <- avg_sym %>%
   group_by(full_species) %>%
   summarise(
@@ -347,12 +423,20 @@ sym_summary <- avg_sym %>%
     se   = se_fun(sym_cm2),
     .groups = "drop")
 
-#quickly see if there is a dif between species
+```
+
+See if there's a difference between species
+
+```{r}
 sym.mod.spp <- lm(sym_cm2~full_species, data = avg_sym)
 Anova(sym.mod.spp)
 summary(sym.mod.spp)
 check_model(sym.mod.spp)
+```
 
+Emmeans comparison and plot
+
+```{r}
 emm_obj <- emmeans::emmeans(sym.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 #a, ab, ab, b, b, bc, c
@@ -367,8 +451,12 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-ggsave(here("Output", "Physiology","sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+#ggsave(here("Output", "Physiology","sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+```
 
+Reorder and plot by species
+
+```{r}
 #reorder based on mean values
 means <- avg_sym %>% group_by(species) %>% summarize(m = mean(sym_cm2, na.rm = TRUE), .groups = "drop")
 
@@ -390,21 +478,19 @@ sym_plot <- ggplot() +
 sym_plot
 
 ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 8, w = 10)
+```
 
-##### Host Proteins #####
+## Protein
 
-#load data
+Load data
+
+```{r}
 prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv"))
+```
 
-#join with metadata - only need to do this once initially for setup then good to go!
-#join with metadata - make sure to use Physio_meta_all because it has all species
-# prot <- read.csv(here("Data", "Physiology", "protein_all_summary_raw.csv"))
-# phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
-# prot <- prot %>% rename_at("Sample.Name", ~"frag_ID") %>% select(-"SA_cm2") #remove duplicate SA so you don't have to deal with it during merge
-# prot <- prot %>% left_join(phys_meta, by = "frag_ID")
-# write.csv(prot, here("Data", "Physiology", "protein_all_summary.csv"), row.names = F)
+Protein summary data
 
-#now generate mean and se dataframe of prot
+```{r}
 prot_summary <- prot %>%
   group_by(full_species) %>%
   summarise(
@@ -412,13 +498,20 @@ prot_summary <- prot %>%
     mean = mean(prot_ug_cm2, na.rm = TRUE),
     se   = se_fun(prot_ug_cm2),
     .groups = "drop")
+```
 
-#quickly see if there is a dif between species
+See if there's a difference between species
+
+```{r}
 prot.mod.spp <- lm(prot_ug_cm2~full_species, data = prot)
 Anova(prot.mod.spp)
 summary(prot.mod.spp)
 check_model(prot.mod.spp)
+```
 
+Emmeans comparisons and plot
+
+```{r}
 emm_obj <- emmeans::emmeans(prot.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
@@ -432,8 +525,12 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-ggsave(here("Output","Physiology","prot_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+#ggsave(here("Output","Physiology","prot_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+```
 
+Reorder and plot species comparisons
+
+```{r}
 #reorder based on mean values
 means <- prot %>% group_by(species) %>% summarize(m = mean(prot_ug_cm2, na.rm = TRUE), .groups = "drop")
 
@@ -453,10 +550,17 @@ prot_plot <- ggplot() +
        y = expression("Protein Content" ~ (mu*g ~ cm^{-2})))
 prot_plot
 
-ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 8, w = 10)
+#ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 8, w = 10)
 
-###All physiology plots together####
+```
+
+## All plots together
+
+Put all physio plots together
+
+```{r}
 physio_plots <- ggarrange(chla_plot, sym_plot, dw_plot, prot_plot, nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
 physio_plots
 
-ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)
+#ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)
+```
