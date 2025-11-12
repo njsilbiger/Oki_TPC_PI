@@ -134,6 +134,8 @@ emm_plot
 Reorder based on mean values and then plot dry weight
 
 ```{r}
+#| fig.width: 10
+#| fig.height: 8
 means <- avg_DW %>% group_by(species) %>% summarize(m = mean(dw_mg_cm2, na.rm = TRUE), .groups = "drop")
 
 avg_DW_ordered <- avg_DW %>% left_join(dw_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
@@ -248,6 +250,8 @@ emm_plot
 Order and plot data by species
 
 ```{r}
+#| fig.width: 10
+#| fig.height: 8
 #reorder based on mean values
 means <- chla_avg %>% group_by(species) %>% summarize(m = mean(chla_ug_cm2_mean, na.rm = TRUE), .groups = "drop")
 
@@ -325,6 +329,8 @@ emm_plot
 Reorder and plot by species
 
 ```{r}
+#| fig.width: 10
+#| fig.height: 8
 #reorder based on mean values
 means <- chla_7sp %>% group_by(species) %>% summarize(m = mean(chla_pg_sym, na.rm = TRUE), .groups = "drop")
 
@@ -457,6 +463,8 @@ emm_plot
 Reorder and plot by species
 
 ```{r}
+#| fig.width: 10
+#| fig.height: 8
 #reorder based on mean values
 means <- avg_sym %>% group_by(species) %>% summarize(m = mean(sym_cm2, na.rm = TRUE), .groups = "drop")
 
@@ -472,9 +480,8 @@ sym_plot <- ggplot() +
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  #ylim(25,325)+
-  labs(x = "Species", color = "Species",
-       y = expression("Symbiont Density" ~ (cells ~ cm^{-2})))
+  ylim(0,4800000)+
+  labs(x = "Species", color = "Species", y = expression("Symbiont Density" ~ (cells ~ cm^{-2})))
 sym_plot
 
 ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 8, w = 10)
@@ -531,6 +538,8 @@ emm_plot
 Reorder and plot species comparisons
 
 ```{r}
+#| fig.width: 10
+#| fig.height: 8
 #reorder based on mean values
 means <- prot %>% group_by(species) %>% summarize(m = mean(prot_ug_cm2, na.rm = TRUE), .groups = "drop")
 
@@ -559,8 +568,10 @@ prot_plot
 Put all physio plots together
 
 ```{r}
+#| fig.width: 15
+#| fig.height: 10
 physio_plots <- ggarrange(chla_plot, sym_plot, dw_plot, prot_plot, nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
-physio_plots
 
+plot(physio_plots)
 #ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)
 ```

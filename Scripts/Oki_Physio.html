@@ -287,7 +287,7 @@ F-statistic: 5.721 on 6 and 63 DF,  p-value: 8.497e-05</code></pre>
 <span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="st">"Tissue biomass"</span> <span class="sc">~</span> (mg <span class="sc">~</span> cm<span class="sc">^</span>{<span class="sc">-</span><span class="dv">2</span>})))</span>
 <span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>dw_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="960"></p>
 </div>
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 8, w = 10)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -436,7 +436,7 @@ F-statistic: 6.296 on 9 and 89 DF,  p-value: 7.501e-07</code></pre>
 <span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">22</span>)</span>
 <span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>chla_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid" width="960"></p>
 </div>
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 8, w = 10)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -545,7 +545,7 @@ F-statistic: 3.994 on 6 and 62 DF,  p-value: 0.001921</code></pre>
 <span id="cb37-19"><a href="#cb37-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">11</span>)</span>
 <span id="cb37-20"><a href="#cb37-20" aria-hidden="true" tabindex="-1"></a>chla_sym_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid" width="960"></p>
 </div>
 <div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"Physiology"</span>, <span class="st">"chla_sym_species_jitter.pdf"</span>), chla_sym_plot, <span class="at">h =</span> <span class="dv">8</span>, <span class="at">w =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -702,12 +702,11 @@ F-statistic: 7.819 on 6 and 61 DF,  p-value: 2.916e-06</code></pre>
 <span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"right"</span>, <span class="at">axis.text.x =</span> <span class="fu">element_blank</span>(), <span class="at">axis.title.x =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
 <span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">#theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +</span></span>
 <span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> sp_cols, <span class="at">labels =</span> <span class="cf">function</span>(x) <span class="fu">parse</span>(<span class="at">text =</span> <span class="fu">paste0</span>(<span class="st">"italic('"</span>, <span class="fu">gsub</span>(<span class="st">"'"</span>, <span class="st">"</span><span class="sc">\\\\</span><span class="st">'"</span>, x), <span class="st">"')"</span>)))<span class="sc">+</span></span>
-<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#ylim(25,325)+</span></span>
-<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Species"</span>, <span class="at">color =</span> <span class="st">"Species"</span>,</span>
-<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="st">"Symbiont Density"</span> <span class="sc">~</span> (cells <span class="sc">~</span> cm<span class="sc">^</span>{<span class="sc">-</span><span class="dv">2</span>})))</span>
-<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>sym_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">4800000</span>)<span class="sc">+</span></span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Species"</span>, <span class="at">color =</span> <span class="st">"Species"</span>, <span class="at">y =</span> <span class="fu">expression</span>(<span class="st">"Symbiont Density"</span> <span class="sc">~</span> (cells <span class="sc">~</span> cm<span class="sc">^</span>{<span class="sc">-</span><span class="dv">2</span>})))</span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>sym_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid" width="960"></p>
 </div>
 <div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"Physiology"</span>, <span class="st">"sym_species_jitter.pdf"</span>), sym_plot, <span class="at">h =</span> <span class="dv">8</span>, <span class="at">w =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -816,7 +815,7 @@ F-statistic: 4.961 on 9 and 85 DF,  p-value: 2.332e-05</code></pre>
 <span id="cb60-17"><a href="#cb60-17" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="st">"Protein Content"</span> <span class="sc">~</span> (mu<span class="sc">*</span>g <span class="sc">~</span> cm<span class="sc">^</span>{<span class="sc">-</span><span class="dv">2</span>})))</span>
 <span id="cb60-18"><a href="#cb60-18" aria-hidden="true" tabindex="-1"></a>prot_plot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid" width="960"></p>
 </div>
 <div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 8, w = 10)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -825,10 +824,11 @@ F-statistic: 4.961 on 9 and 85 DF,  p-value: 2.332e-05</code></pre>
 <h2 class="anchored" data-anchor-id="all-plots-together">All plots together</h2>
 <p>Put all physio plots together</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>physio_plots <span class="ot">&lt;-</span> <span class="fu">ggarrange</span>(chla_plot, sym_plot, dw_plot, prot_plot, <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">legend =</span> <span class="st">"bottom"</span>, <span class="at">common.legend =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>physio_plots</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>physio_plots <span class="ot">&lt;-</span> <span class="fu">ggarrange</span>(chla_plot, sym_plot, dw_plot, prot_plot, <span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">ncol =</span> <span class="dv">2</span>, <span class="at">legend =</span> <span class="st">"right"</span>, <span class="at">common.legend =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(physio_plots)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
-<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid" width="672"></p>
+<p><img src="Oki_Physio_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid" width="1440"></p>
 </div>
 <div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
