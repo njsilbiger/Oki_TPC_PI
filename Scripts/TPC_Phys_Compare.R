@@ -25,14 +25,14 @@ topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"
 
 #additional setup
 sp_cols <- c(
-  "Acropora hyacinthus" = '#ba7999',
-  "Echinopora lamellosa" = '#dd4124',
-  "Favites complanata"   = '#ed8b00',
-  "Montipora aequituberculata" = '#edd746',
-  "Montipora vietnamensis" = '#89689d',
-  "Pachyseris rugosa" = '#d0e2af',
-  "Pocillopora eydouxi" = '#45681e',
-  "Porites cylindrica" = '#f2af4a',
+  "Acropora hyacinthus" = '#d8aedd',
+  "Echinopora lamellosa" = '#ba7999',
+  "Favites complanata"   = '#dd4124',
+  "Montipora aequituberculata" = '#ed8b00',
+  "Montipora vietnamensis" = '#efbc82',
+  "Pachyseris rugosa" = '#edd746',
+  "Pocillopora eydouxi" = '#d0e2af',
+  "Porites cylindrica" = '#45681e',
   "Porites rus" = '#7bbcd5',
   "Turbinaria frondens" = '#00496f'
 )

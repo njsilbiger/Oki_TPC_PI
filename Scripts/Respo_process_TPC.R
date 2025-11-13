@@ -512,7 +512,6 @@ topt_df <- topt_df %>%
 write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
 
-
 ####Topt and other parameter graphs####
 #read in dataframes and generate prediction dfs for each metric to graph
 PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
@@ -658,14 +657,14 @@ library(performance)
 library(DHARMa)
 
 sp_cols <- c(
-  "Acropora hyacinthus" = '#ba7999',
-  "Echinopora lamellosa" = '#dd4124',
-  "Favites complanata"   = '#ed8b00',
-  "Montipora aequituberculata" = '#edd746',
-  "Montipora vietnamensis" = '#89689d',
-  "Pachyseris rugosa" = '#d0e2af',
-  "Pocillopora eydouxi" = '#45681e',
-  "Porites cylindrica" = '#f2af4a',
+  "Acropora hyacinthus" = '#d8aedd',
+  "Echinopora lamellosa" = '#ba7999',
+  "Favites complanata"   = '#dd4124',
+  "Montipora aequituberculata" = '#ed8b00',
+  "Montipora vietnamensis" = '#efbc82',
+  "Pachyseris rugosa" = '#edd746',
+  "Pocillopora eydouxi" = '#d0e2af',
+  "Porites cylindrica" = '#45681e',
   "Porites rus" = '#7bbcd5',
   "Turbinaria frondens" = '#00496f'
 )
@@ -904,3 +903,122 @@ emm_plot
 ggsave(here("Output", "TPC", "Graphs","Emmeans_allparams_clean_no4.pdf"),
        device = "pdf", height = 8, width = 8, emm_plot)
 
+### Compare with Danielle's Data ###
+PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
+
+species_cols <- c(
+  "Ahya" = '#d8aedd',
+  "Elam" = '#ba7999',
+  "Fcom"   = '#dd4124',
+  "Maeq" = '#ed8b00',
+  "Mvie" = '#efbc82',
+  "Prug" = '#edd746',
+  "Peyd" = '#d0e2af',
+  "Pcyl" = '#45681e',
+  "Prus" = '#7bbcd5',
+  "Tfro" = '#00496f'
+)
+
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+PnR_28 <- PnR_clean %>% filter(temp_c_value == 28)
+PnR_28_summary <- PnR_28 %>%
+  group_by(species, PR) %>%
+  summarise(n = sum(!is.na(Values)),
+            mean = mean(Values, na.rm = TRUE),
+            se = se_fun(Values),
+            .groups = "drop")
+
+GP_28 <- PnR_28 %>% filter(PR == "GrossPhoto")
+NP_28 <- PnR_28 %>% filter(PR == "NetPhoto")
+R_28 <- PnR_28 %>% filter(PR == "Respiration")
+
+GP_31 <- PnR_31 %>% filter(PR == "GrossPhoto")
+NP_31 <- PnR_31 %>% filter(PR == "NetPhoto")
+R_31 <- PnR_31 %>% filter(PR == "Respiration")
+
+sp_mod <- lm(Values~species, data = GP_31)
+Anova(sp_mod)
+#summary(sp_mod)
+#check_model(sp_mod)
+
+emm_obj <- emmeans::emmeans(sp_mod, ~ species)
+emm_pairs <- pairs(emm_obj)
+emm_pairs
+
+#GP 28 - Maeq lower than Elam, Fcom, Pcyl, and Prus
+#Elam - Maeq  0.60595 0.174 40   3.482  0.0358
+#Fcom - Maeq  0.65241 0.174 40   3.749  0.0178
+#Maeq - Pcyl -0.59749 0.174 40  -3.433  0.0405
+#Maeq - Prus -0.67170 0.174 40  -3.860  0.0132
+
+#R 28 - Maeq lower than Prus and Pcyl
+# Maeq - Prus -0.23000 0.0637 40  -3.612  0.0256
+# Maeq - Pcyl -0.24705 0.0637 40  -3.880  0.0125
+
+#GP 31 - 
+# Fcom - Maeq  7.64e-01 0.184 40   4.150  0.0058
+# Maeq - Pcyl -6.18e-01 0.184 40  -3.358  0.0488
+# Maeq - Prug -6.18e-01 0.184 40  -3.358  0.0488
+#Maeq - Prus -7.32e-01 0.184 40  -3.979  0.0095
+
+
+#R 31 - Maeq only lower than Prus (almost Pcyl)
+# Maeq - Prus -0.28185 0.0718 40  -3.927  0.0109
+# Maeq - Pcyl -0.23840 0.0718 40  -3.322  0.0533
+
+PnR_28_ordered <- PnR_28 %>% 
+  left_join(PnR_28_summary) %>% 
+  group_by(PR) %>%
+  mutate(species = fct_reorder(species, mean))  # ascending by mean
+
+PnR_28_plot <- ggplot() +
+  geom_jitter(data = PnR_28_ordered, aes(x = species, y = Values, color = species), width = 0.15, alpha = 0.8) +
+  facet_wrap(.~PR)+
+  #stat_summary(data = PnR_28_ordered, aes(x = species, y = Values), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "a", "a", "a", "ab", "ab", "b"))+
+  geom_errorbar(data = PnR_28_summary, aes(x = species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = PnR_28_summary, aes(x = species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = species_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(25,325)+
+  labs(x = "Species", color = "Species", y = expression("28 °C Metabolic Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1})))
+PnR_28_plot
+
+ggsave(here("Output", "TPC", "Graphs","PnR_means_28C.pdf"), device = "pdf", height = 8, width = 12, PnR_28_plot)
+
+PnR_31 <- PnR_clean %>% filter(temp_c_value == 31)
+PnR_31_summary <- PnR_31 %>%
+  group_by(species, PR) %>%
+  summarise(n = sum(!is.na(Values)),
+            mean = mean(Values, na.rm = TRUE),
+            se = se_fun(Values),
+            .groups = "drop")
+
+PnR_31_ordered <- PnR_31 %>% 
+  left_join(PnR_31_summary) %>% 
+  group_by(PR)%>%
+  mutate(species = fct_reorder(species, mean))  # ascending by mean
+
+PnR_31_plot <- ggplot() +
+  geom_jitter(data = PnR_31_ordered, aes(x = species, y = Values, color = species), width = 0.15, alpha = 0.8) +
+  facet_wrap(.~PR)+
+  #stat_summary(data = PnR_31_ordered, aes(x = species, y = Values), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "a", "a", "a", "ab", "ab", "b"))+
+  geom_errorbar(data = PnR_31_summary, aes(x = species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = PnR_31_summary, aes(x = species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = species_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(25,325)+
+  labs(x = "Species", color = "Species", y = expression("31 °C Metabolic Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1})))
+PnR_31_plot
+
+ggsave(here("Output", "TPC", "Graphs","PnR_means_31C.pdf"), device = "pdf", height = 8, width = 12, PnR_31_plot)
