@@ -22,6 +22,9 @@ library(ggplotify)
 library(magick)
 library(grid)
 library(kableExtra)
+library(ggmap)
+library(ggspatial)
+library(ggrepel)
 ```
 
 # Creating New CSV Files {.hidden .unumbered .unlisted}
@@ -230,7 +233,7 @@ Tilt8Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt8.jpg"))
 
 #Load Meta Data
 TiltMetaData <- read_csv(here("Data/TiltMeterData/MetaData.csv"))
-LatLong <- TiltMetaData %>% select(Site, Lat, Long)
+LatLong <- TiltMetaData %>% select(Site, Long, Lat)
 
 ```
 
@@ -294,8 +297,7 @@ JoinedData <- JoinedData %>%
     str_detect(TiltMeter, "Tilt6") ~ "Oki 11", 
     str_detect(TiltMeter, "Tilt7") ~ "Oki 15", 
     str_detect(TiltMeter, "Tilt8") ~ "Oki 14" )) %>%
-      relocate(Site, .after = TiltMeter) #Move new site column to after the Tilt Meter
-  
+      relocate(Site, .after = TiltMeter) #Move new site column to after the Tilt Meter 
 
 ```
 
@@ -400,15 +402,11 @@ bad_dates2 <- Tilt7DataClean %>%
 
 #### Summary Temperature Stats
 
-Means\<- JoinedData %\>% group_by(Site) %\>% filter(Speed \<= 25.01416) %\>% summarise(MeanSpeed = mean(Speed, na.rm = TRUE)) %\>% arrange(MeanSpeed) #Reorder so that the means are from lowest ot highest speed
-
-kbl(Means, col.names = c("Site", "Mean Speed (cm/s)")) %\>% #Giving the average speed m/s of each tilt meter kable_classic() %\>% kable_styling(full_width = FALSE)
-
 ```{r}
 JoinedTempData <- rbind(Tilt1TempData, Tilt2TempData, Tilt3TempData, Tilt4TempData, Tilt5TempData,  Tilt6TempData,  Tilt7TempData, Tilt8TempData)
 
 JoinedTempData <- JoinedTempData %>% 
-  mutate(Site = case_when(
+  mutate(Site = factor(case_when(
     str_detect(TiltMeter, "Tilt1") ~ "Oki2", 
     str_detect(TiltMeter, "Tilt2") ~ "Oki3", 
     str_detect(TiltMeter, "Tilt3") ~ "Oki4", 
@@ -416,9 +414,9 @@ JoinedTempData <- JoinedTempData %>%
     str_detect(TiltMeter, "Tilt5") ~ "Oki9", 
     str_detect(TiltMeter, "Tilt6") ~ "Oki11", 
     str_detect(TiltMeter, "Tilt7") ~ "Oki15", 
-    str_detect(TiltMeter, "Tilt8") ~ "Oki14" )) %>%
+    str_detect(TiltMeter, "Tilt8") ~ "Oki14" ))) %>%
       relocate(Site, .after = TiltMeter) %>% #Move new site column to after the Tilt Meter
- left_join(TiltMetaData, select(Lat, Long), by = "Site")
+ left_join(LatLong, by = "Site")
               
 
 TempMeans <- JoinedTempData %>%
@@ -549,7 +547,7 @@ as.numeric(JoinedData[[7]]) # northward
 # major_axis_angle <- (90 - rot * 180 / pi) %% 360
 
 TiltEllipses <- JoinedData %>% 
-  group_by(TiltMeter) %>% 
+  group_by(TiltMeter, Site) %>% 
   summarise( 
     ellipse = list({ results <- prax_ellipse_fct(Velocity_N, Velocity_E) 
     phi_deg <- 90 - (results$phi * 180 / pi) %% 360 
@@ -576,10 +574,11 @@ view(TiltEllipses)
 
 #Creating gg plot 
 
-p <- ggplot(TiltEllipses, aes( x = x, y = y, color = TiltMeter)) +
+p <- ggplot(TiltEllipses, aes( x = x, y = y, color = Site)) +
   geom_path() + #Have geom label, and have geom point next to it north 
   #facet_wrap(~ paste0(TiltMeter, "\n", angle_label, "˚ cw from north"), scales = "fixed") +
-
+  scale_color_manual(
+      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
   labs(
 
     x = 'u velocity (cm/s)',
@@ -592,11 +591,10 @@ p <- ggplot(TiltEllipses, aes( x = x, y = y, color = TiltMeter)) +
   ylim(-7, 7) +
   
   # Apply a clean theme
-  theme_bw() +
-  theme(legend.position = "none")
+  theme_bw() 
 
 # Display the plot
-print(p)
+p
 ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),
          width = 10, height = 5)
 
@@ -807,5 +805,43 @@ Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Ti
 
  Velocity_TidePlot_fun(Tilt8DataHourly, FeatherPlotname = "Tilt8Velocity.png", Tilt8Temp, TempPlotname = "Tilt8Temp.png", Tilt8DataHourly, Sitename1 = "Site: Oki 14", AverageSpeed = "Average Speed: 5.43 cm/s", WindrosePlotname = "Windrose8.jpeg", Tilt8Photo, combinedplot = "Tilt8TideCombo.jpeg", Sitename = "Site: Oki 14")
 
+
+```
+
+# Make A Map of the Sites
+
+```{r}
+Site7 <- LatLong %>% 
+  filter(Site == "Oki7") %>%
+  select(Long, Lat)
+
+SiteMap <- get_map(Site7, zoom = 11, maptype = "hybrid")
+MapBound <- c(127.65, 26.3, 128.2, 26.6) #Making a map bounding box, which centers the map better 
+#bounding box lowerleftlon, lowerleftlat, upperrightlon, upperrightlat
+SiteMap1 <- get_map(location = MapBound, maptype = "hybrid")
+
+ggmap(SiteMap1) +
+  geom_point(data = LatLong, 
+            aes(x = Long, y = Lat, color = fct_reorder(Site, Long)), 
+            size = 5) +
+  geom_label_repel(data = LatLong, aes(x = Long,y = Lat, label = Site), 
+       size = 4) +
+   scale_color_manual(
+      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
+  #annotate('rect', xmin = 127.73, ymin = 26.45, xmax = 127.75, ymax = 26.46, color = "red", fill = "white")+
+# annotate('text', x = 127.75 , y = 26.46, label = 'Oki 15', colour = "white", size = 4)+
+# annotate('segment', x = 127.74835, xend = 127.75, y = 26.4377, yend = 26.46,
+# color = 'white', arrow = arrow(length = unit (0.3,"cm")), size = 0.75) +
+
+  
+labs(x = 'Longitude', y = 'Latitude') + 
+  ggtitle('Site Map') +
+
+  annotation_scale( bar_cols = c("lightblue", "white"),
+                    location = "br")+ # put the bar on the bottom left and make the colors light blue and white
+  
+  annotation_north_arrow(location = "tl") + # add a north arrow
+  coord_sf(crs = 4326) +
+    theme(legend.position = "none")
 
 ```
