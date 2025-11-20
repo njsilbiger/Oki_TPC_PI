@@ -93,12 +93,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#temperature-data" id="toc-temperature-data" class="nav-link" data-scroll-target="#temperature-data">Temperature Data</a></li>
   <li><a href="#tide-data" id="toc-tide-data" class="nav-link" data-scroll-target="#tide-data">Tide Data</a></li>
   </ul></li>
-  <li><a href="#plotting-tidal-ellipses" id="toc-plotting-tidal-ellipses" class="nav-link" data-scroll-target="#plotting-tidal-ellipses">Plotting Tidal Ellipses</a>
+  <li><a href="#site-map" id="toc-site-map" class="nav-link" data-scroll-target="#site-map">Site Map</a></li>
+  <li><a href="#visualizing-data" id="toc-visualizing-data" class="nav-link" data-scroll-target="#visualizing-data">Visualizing Data</a>
   <ul class="collapse">
   <li><a href="#prax-ellipse-function" id="toc-prax-ellipse-function" class="nav-link" data-scroll-target="#prax-ellipse-function">Prax Ellipse Function</a></li>
-  <li><a href="#plotting-current-ellipses" id="toc-plotting-current-ellipses" class="nav-link" data-scroll-target="#plotting-current-ellipses">Plotting Current Ellipses</a></li>
+  <li><a href="#all-sites-current-ellipses" id="toc-all-sites-current-ellipses" class="nav-link" data-scroll-target="#all-sites-current-ellipses">All Sites Current Ellipses</a></li>
+  <li><a href="#individual-site-plots" id="toc-individual-site-plots" class="nav-link" data-scroll-target="#individual-site-plots">Individual Site Plots</a>
+  <ul class="collapse">
+  <li><a href="#current-ellipses" id="toc-current-ellipses" class="nav-link" data-scroll-target="#current-ellipses">Current Ellipses</a></li>
+  <li><a href="#flow-temperature-and-tide-data" id="toc-flow-temperature-and-tide-data" class="nav-link" data-scroll-target="#flow-temperature-and-tide-data">Flow, Temperature, and Tide Data</a></li>
   </ul></li>
-  <li><a href="#plotting-the-data" id="toc-plotting-the-data" class="nav-link" data-scroll-target="#plotting-the-data">Plotting the Data</a></li>
+  </ul></li>
+  <li><a href="#summmary-stats" id="toc-summmary-stats" class="nav-link" data-scroll-target="#summmary-stats">Summmary Stats</a></li>
   </ul>
 </nav>
 </div>
@@ -130,7 +136,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Modified</div>
     <div class="quarto-title-meta-contents">
-      <p class="date-modified">November 14, 2025</p>
+      <p class="date-modified">November 20, 2025</p>
     </div>
   </div>
     
@@ -144,6 +150,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="load-libraries" class="level1">
 <h1>Load Libraries</h1>
 <div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(here)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(climaemet)</span>
@@ -151,7 +159,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplotify)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(magick)</span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(grid)</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kableExtra)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kableExtra)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggmap)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggspatial)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggrepel)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 </section>
 <section id="creating-new-csv-files" class="level1 hidden unumbered unlisted">
@@ -167,467 +179,1042 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="load-data" class="level1">
 <h1>Load Data</h1>
-<p>Load current, temperature, and tide data from new csv files created.</p>
+<p>Most of the tilt meters were set to the <em>Typical</em> configuration:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 18%">
+<col style="width: 22%">
+<col style="width: 16%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Configuration</th>
+<th style="text-align: left;">Temperature</th>
+<th style="text-align: left;">Burst Interval</th>
+<th style="text-align: left;">Burst Rate</th>
+<th style="text-align: left;">Burst Duration</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Typical</td>
+<td style="text-align: left;">1(min)</td>
+<td style="text-align: left;">1(min)</td>
+<td style="text-align: left;">8(Hz)</td>
+<td style="text-align: left;">20(sec)</td>
+</tr>
+</tbody>
+</table>
+<p>For those tilt meters that were not configured this way, data was condensed to one minute intervals. All data was trimmed down to one hour after deployment time and one hour before retrieval time.</p>
+<p>Note that all data has been adjusted for the Magnetic Declination of -5.85 West within the Domino app.</p>
+<p>All data speed units are in cm/s</p>
+<p>Tide data was downloaded from the Geospatial Information Authority of Japan <a href="https://www.gsi.go.jp/kanshi/tide_data_21_e.html">Japan Okinawa Tide Station</a></p>
 </section>
 <section id="organizing-the-data" class="level1">
 <h1>Organizing the data</h1>
 <section id="tilt-meter-data" class="level3">
 <h3 class="anchored" data-anchor-id="tilt-meter-data">Tilt Meter Data</h3>
-<p>Creating a function to organize all the current data</p>
-<section id="summary-stats" class="level4">
-<h4 class="anchored" data-anchor-id="summary-stats">Summary Stats</h4>
-<p>First, join all the Current Data</p>
-<p>Visualize Summary stats to see where to filter data from</p>
+<p>Created a function <em>Tilt_Data_fun</em> to add a tilt meter name column, separate the data and time into two columns, and add a m/s unit column.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Means<span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Site) <span class="sc">%&gt;%</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Speed <span class="sc">&lt;=</span>  <span class="fl">25.01416</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">MeanSpeed =</span> <span class="fu">mean</span>(Speed, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(MeanSpeed) <span class="co">#Reorder so that the means are from lowest ot highest speed</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>   <span class="fu">kbl</span>(Means, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Site"</span>, <span class="st">"Mean Speed (cm/s)"</span>)) <span class="sc">%&gt;%</span> <span class="co">#Giving the average speed m/s of each tilt meter</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_classic</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>     <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<table class="lightable-classic table caption-top table-sm table-striped small" data-quarto-postprocess="true">
-<thead>
-<tr class="header">
-<th style="text-align: left;" data-quarto-table-cell-role="th">Site</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">Mean Speed (cm/s)</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">Oki 3</td>
-<td style="text-align: right;">0.7870483</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 11</td>
-<td style="text-align: right;">0.7952600</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 15</td>
-<td style="text-align: right;">1.4457367</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 2</td>
-<td style="text-align: right;">1.7425263</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 9</td>
-<td style="text-align: right;">2.2823792</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 4</td>
-<td style="text-align: right;">3.5266098</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 14</td>
-<td style="text-align: right;">5.4389806</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 7</td>
-<td style="text-align: right;">6.2779089</td>
-</tr>
-</tbody>
-</table>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Tilt_Data_fun <span class="ot">&lt;-</span> <span class="cf">function</span>(df, tilt_name){  <span class="co">#Function to add a tilt name column and separate data and time column </span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>df <span class="sc">%&gt;%</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">separate</span>(<span class="at">col =</span> DateTime, <span class="co">#Choose the column that you want separated</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">into =</span> <span class="fu">c</span>(<span class="st">"Date"</span>, <span class="st">"Time"</span>), <span class="co"># Separate it into two columns "Data" and "Time"</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">sep =</span> <span class="st">" "</span>, <span class="co">#What are the two separated by </span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">remove =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> <span class="co">#Keep the orginial DateTime Column    </span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">mutate</span>( <span class="co">#Set datetime,a dding in the UTC timezone so wer are removing taht</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">Date =</span> lubridate<span class="sc">::</span><span class="fu">ymd</span>(Date), <span class="co">#Set Date</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">Time =</span> lubridate<span class="sc">::</span><span class="fu">hms</span>(Time), <span class="co">#Set Time</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">Speed_m =</span> Speed <span class="sc">*</span> <span class="fl">0.01</span>, <span class="co">#Change cm/s -&gt; m/s</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>       <span class="at">VelocityN_m =</span> Velocity_N <span class="sc">*</span> <span class="fl">0.01</span>, <span class="co">#Change cm/s -&gt; m/s</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>       <span class="at">VelocityE_m =</span> Velocity_E<span class="sc">*</span> <span class="fl">0.01</span>, <span class="co">#Change cm/s -&gt; m/s</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>       <span class="co">#Double check that there are no negative headings, can do 360 + negative</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>       </span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>       <span class="at">TiltMeter =</span> tilt_name) <span class="sc">%&gt;%</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(TiltMeter, <span class="fu">everything</span>()) <span class="co">#Moving TiltMeter# Column to be the first column</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>Tilt1DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt1Data, <span class="st">"Tilt1"</span>)</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>Tilt2DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt2Data, <span class="st">"Tilt2"</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>Tilt3DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt3Data, <span class="st">"Tilt3"</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>Tilt4DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt4Data, <span class="st">"Tilt4"</span>)</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>Tilt5DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt5Data, <span class="st">"Tilt5"</span>)</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>Tilt6DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt6Data, <span class="st">"Tilt6"</span>)</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>Tilt7DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt7Data, <span class="st">"Tilt7"</span>)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>Tilt8DataClean <span class="ot">&lt;-</span> <span class="fu">Tilt_Data_fun</span>(Tilt8Data, <span class="st">"Tilt8"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
-</div>
+<p>We then join the data to combine all 8 Tilt Meter, Longitude and Latitude data, and add a <em>Site</em> column</p>
 <div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>JoinedData <span class="ot">&lt;-</span> <span class="fu">rbind</span>(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean) </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>JoinedData <span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Site =</span> <span class="fu">case_when</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt1"</span>) <span class="sc">~</span> <span class="st">"Oki02"</span>, </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt2"</span>) <span class="sc">~</span> <span class="st">"Oki03"</span>, </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt3"</span>) <span class="sc">~</span> <span class="st">"Oki04"</span>, </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt4"</span>) <span class="sc">~</span> <span class="st">"Oki07"</span>, </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt5"</span>) <span class="sc">~</span> <span class="st">"Oki09"</span>, </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt6"</span>) <span class="sc">~</span> <span class="st">"Oki11"</span>, </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt7"</span>) <span class="sc">~</span> <span class="st">"Oki15"</span>, </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt8"</span>) <span class="sc">~</span> <span class="st">"Oki14"</span> )) <span class="sc">%&gt;%</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">relocate</span>(Site, <span class="at">.after =</span> TiltMeter) <span class="sc">%&gt;%</span><span class="co">#Move new site column to after the Tilt Meter </span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>   <span class="fu">left_join</span>(LatLong, <span class="at">by =</span> <span class="st">"Site"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
-</div>
-</div>
-<p>Now we will average everything by hour and create a new data frame <strong>hourly</strong></p>
-<p>This dataframe is in cm/s</p>
-<p>Filtering out the 99.9% upper bound which is anything above 25.01416 cm/s</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>HourlyTilt_Data_fun <span class="ot">&lt;-</span> <span class="cf">function</span>(df){  <span class="co">#Function to add a tilt name column and separate data and time column </span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a> df <span class="sc">%&gt;%</span> </span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(<span class="at">DateTime =</span> <span class="fu">floor_date</span>(DateTime, <span class="st">"hour"</span>)) <span class="sc">%&gt;%</span> <span class="co">#New datetime that is rounded to the start of each hour</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">where</span>(is.numeric), mean, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(Speed <span class="sc">&lt;=</span>  <span class="fl">25.01416</span>) </span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>Tilt1DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt1Data)</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>Tilt2DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt2Data)</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>Tilt3DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt3Data)</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>Tilt4DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt4Data)</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>Tilt5DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt5Data)</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>Tilt6DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt6Data)</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>Tilt7DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt7Data)</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>Tilt8DataHourly <span class="ot">&lt;-</span> <span class="fu">HourlyTilt_Data_fun</span>(Tilt8Data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
+<p>After we join the data we can view the upper (99.9%) and lower bounds (0.1%) to filter the data</p>
+<p>For our time series plots we want to average the speed, heading, Velocity_N, and Velocity_E columns per hour. Filtering out the 99.9% upper bound which is anything above <strong>25.01416</strong> cm/s. We will make new <em>hourly</em> data frames. We will do the same for the JoinedData so that we are analyzing everything on an hourly</p>
 </section>
 <section id="temperature-data" class="level3">
 <h3 class="anchored" data-anchor-id="temperature-data">Temperature Data</h3>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Tilt_Temp_fun <span class="ot">&lt;-</span> <span class="cf">function</span>(df, tilt_name){ </span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>df <span class="sc">%&gt;%</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">separate</span>(<span class="at">col =</span> DateTime, <span class="co">#Choose the column that you want separated</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">into =</span> <span class="fu">c</span>(<span class="st">"Date"</span>, <span class="st">"Time"</span>), <span class="co"># Separate it into two columns "Data" and "Time"</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">sep =</span> <span class="st">" "</span>, <span class="co">#What are the two separated by </span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">remove =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span> <span class="co">#Keep the orginial DateTime Column    </span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">DateTime =</span> lubridate<span class="sc">::</span><span class="fu">ymd_hms</span>(DateTime), <span class="co">#Set datetime</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">Date =</span> lubridate<span class="sc">::</span><span class="fu">ymd</span>(Date), <span class="co">#Set Date</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>         <span class="at">Time =</span> lubridate<span class="sc">::</span><span class="fu">hms</span>(Time), </span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>   <span class="at">TiltMeter =</span> tilt_name) <span class="sc">%&gt;%</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(TiltMeter, <span class="fu">everything</span>()) </span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>Tilt1TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt1Temp, <span class="st">"Tilt1"</span>)</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>Tilt2TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt2Temp, <span class="st">"Tilt2"</span>)</span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>Tilt3TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt3Temp, <span class="st">"Tilt3"</span>)</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>Tilt4TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt4Temp, <span class="st">"Tilt4"</span>)</span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>Tilt5TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt5Temp, <span class="st">"Tilt5"</span>)</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>Tilt6TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt6Temp, <span class="st">"Tilt6"</span>)</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>Tilt7TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt7Temp, <span class="st">"Tilt7"</span>)</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>Tilt8TempData <span class="ot">&lt;-</span> <span class="fu">Tilt_Temp_fun</span>(Tilt8Temp, <span class="st">"Tilt8"</span>)</span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>bad_dates <span class="ot">&lt;-</span> Tilt7Temp <span class="sc">%&gt;%</span></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">is.na</span>(lubridate<span class="sc">::</span><span class="fu">ymd_hms</span>(DateTime)))</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>bad_dates2 <span class="ot">&lt;-</span> Tilt7DataClean <span class="sc">%&gt;%</span></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">is.na</span>(lubridate<span class="sc">::</span><span class="fu">ymd_hms</span>(DateTime)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<section id="summary-temperature-stats" class="level4">
-<h4 class="anchored" data-anchor-id="summary-temperature-stats">Summary Temperature Stats</h4>
-<p>Means&lt;- JoinedData %&gt;% group_by(Site) %&gt;% filter(Speed &lt;= 25.01416) %&gt;% summarise(MeanSpeed = mean(Speed, na.rm = TRUE)) %&gt;% arrange(MeanSpeed) #Reorder so that the means are from lowest ot highest speed</p>
-<p>kbl(Means, col.names = c(“Site”, “Mean Speed (cm/s)”)) %&gt;% #Giving the average speed m/s of each tilt meter kable_classic() %&gt;% kable_styling(full_width = FALSE)</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>JoinedTempData <span class="ot">&lt;-</span> <span class="fu">rbind</span>(Tilt1TempData, Tilt2TempData, Tilt3TempData, Tilt4TempData, Tilt5TempData,  Tilt6TempData,  Tilt7TempData, Tilt8TempData)</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>JoinedTempData <span class="ot">&lt;-</span> JoinedTempData <span class="sc">%&gt;%</span> </span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Site =</span> <span class="fu">case_when</span>(</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt1"</span>) <span class="sc">~</span> <span class="st">"Oki 2"</span>, </span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt2"</span>) <span class="sc">~</span> <span class="st">"Oki 3"</span>, </span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt3"</span>) <span class="sc">~</span> <span class="st">"Oki 4"</span>, </span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt4"</span>) <span class="sc">~</span> <span class="st">"Oki 7"</span>, </span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt5"</span>) <span class="sc">~</span> <span class="st">"Oki 9"</span>, </span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt6"</span>) <span class="sc">~</span> <span class="st">"Oki 11"</span>, </span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt7"</span>) <span class="sc">~</span> <span class="st">"Oki 15"</span>, </span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">str_detect</span>(TiltMeter, <span class="st">"Tilt8"</span>) <span class="sc">~</span> <span class="st">"Oki 14"</span> )) <span class="sc">%&gt;%</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>      <span class="fu">relocate</span>(Site, <span class="at">.after =</span> TiltMeter) <span class="co">#Move new site column to after the Tilt Meter</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>TempMeans <span class="ot">&lt;-</span> JoinedTempData <span class="sc">%&gt;%</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Site) <span class="sc">%&gt;%</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">min</span>(Temperature), <span class="fu">max</span>(Temperature), <span class="fu">mean</span>(Temperature))</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(TempMeans, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Site"</span>, <span class="st">"Min Temperature"</span>, <span class="st">"Max Temperature"</span>, <span class="st">"Mean Temperature"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_classic</span>()  <span class="sc">%&gt;%</span></span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<table class="lightable-classic table caption-top table-sm table-striped small" data-quarto-postprocess="true">
-<thead>
-<tr class="header">
-<th style="text-align: left;" data-quarto-table-cell-role="th">Site</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">Min Temperature</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">Max Temperature</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">Mean Temperature</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">Oki 11</td>
-<td style="text-align: right;">27.43260</td>
-<td style="text-align: right;">30.30240</td>
-<td style="text-align: right;">29.17017</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 14</td>
-<td style="text-align: right;">26.64250</td>
-<td style="text-align: right;">30.25740</td>
-<td style="text-align: right;">29.26042</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 15</td>
-<td style="text-align: right;">27.97268</td>
-<td style="text-align: right;">30.42441</td>
-<td style="text-align: right;">29.36497</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 2</td>
-<td style="text-align: right;">27.05390</td>
-<td style="text-align: right;">30.05270</td>
-<td style="text-align: right;">29.23178</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 3</td>
-<td style="text-align: right;">27.05810</td>
-<td style="text-align: right;">29.98890</td>
-<td style="text-align: right;">29.16272</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 4</td>
-<td style="text-align: right;">27.89620</td>
-<td style="text-align: right;">30.12810</td>
-<td style="text-align: right;">29.34922</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Oki 7</td>
-<td style="text-align: right;">27.36470</td>
-<td style="text-align: right;">30.34610</td>
-<td style="text-align: right;">29.25382</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Oki 9</td>
-<td style="text-align: right;">26.64250</td>
-<td style="text-align: right;">30.31700</td>
-<td style="text-align: right;">29.10574</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
+<p>Created a function <em>Tilt_Temp_fun</em> to add a tilt meter name column, and separate the data and time into two columns.</p>
+<p>Joining all the temperature data together, the lat long data, and creating a <em>Site</em> column. We don’t make an hourly temperature datframe because we can easily plot this as continuous data.</p>
 </section>
 <section id="tide-data" class="level3">
 <h3 class="anchored" data-anchor-id="tide-data">Tide Data</h3>
+<p>Making a new tide dataframe and calling it <em>TideDataHourly</em> the tide data is already hourly but we are combing the date and time into one column to match the other dataframes. We are also changing the sealevel from mm to meters in a new column <em>Sealevel_m</em></p>
+</section>
+</section>
+<section id="site-map" class="level1">
+<h1>Site Map</h1>
+<p>Map of the sites, points represent the locations the Tilt Meters were placed.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a> TideDataHourly <span class="ot">&lt;-</span> TideData <span class="sc">%&gt;%</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>   <span class="fu">mutate</span>(<span class="at">DateTime =</span> <span class="fu">ymd_hms</span>(<span class="fu">paste</span>(Date, Hour, <span class="st">"00:00"</span>)), <span class="co">#Combining Data and time into one column </span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">Sealevel_m =</span> Sealevel_mm <span class="sc">/</span> <span class="dv">1000</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(DateTime, <span class="fu">everything</span>())</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>MapBound <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">127.65</span>, <span class="fl">26.3</span>, <span class="fl">128.2</span>, <span class="fl">26.6</span>) <span class="co">#Making a map bounding box, which centers the map better </span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">#bounding box lowerleftlon, lowerleftlat, upperrightlon, upperrightlat</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>SiteMap1 <span class="ot">&lt;-</span> <span class="fu">get_map</span>(<span class="at">location =</span> MapBound, <span class="at">maptype =</span> <span class="st">"hybrid"</span>)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>SitesMap <span class="ot">&lt;-</span> <span class="fu">ggmap</span>(SiteMap1) <span class="sc">+</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">data =</span> LatLong, </span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>            <span class="fu">aes</span>(<span class="at">x =</span> Long, <span class="at">y =</span> Lat, <span class="at">color =</span> Site), </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>            <span class="at">size =</span> <span class="dv">5</span>) <span class="sc">+</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_label_repel</span>(<span class="at">data =</span> LatLong, <span class="fu">aes</span>(<span class="at">x =</span> Long, <span class="at">y =</span> Lat, <span class="at">label =</span> Site), </span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_color_manual</span>(</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">values =</span> <span class="fu">c</span>( <span class="st">"skyblue"</span>,<span class="st">"orange"</span> ,<span class="st">"green2"</span>, <span class="st">"blue"</span>,<span class="st">"red"</span>, <span class="st">"darkred"</span>, <span class="st">"magenta"</span>, <span class="st">"purple"</span>)) <span class="sc">+</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">#annotate('rect', xmin = 127.73, ymin = 26.45, xmax = 127.75, ymax = 26.46, color = "red", fill = "white")+</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co"># annotate('text', x = 127.75 , y = 26.46, label = 'Oki 15', colour = "white", size = 4)+</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co"># annotate('segment', x = 127.74835, xend = 127.75, y = 26.4377, yend = 26.46,</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co"># color = 'white', arrow = arrow(length = unit (0.3,"cm")), size = 0.75) +</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Longitude'</span>, <span class="at">y =</span> <span class="st">'Latitude'</span>) <span class="sc">+</span> </span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">'Site Map'</span>) <span class="sc">+</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotation_scale</span>( <span class="at">bar_cols =</span> <span class="fu">c</span>(<span class="st">"lightblue"</span>, <span class="st">"white"</span>),</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>                    <span class="at">location =</span> <span class="st">"br"</span>)<span class="sc">+</span> <span class="co"># put the bar on the bottom left and make the colors light blue and white</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotation_north_arrow</span>(<span class="at">location =</span> <span class="st">"tl"</span>) <span class="sc">+</span> <span class="co"># add a north arrow</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">crs =</span> <span class="dv">4326</span>) <span class="sc">+</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>, </span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>          <span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span><span class="dv">12</span>)) </span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>         </span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>SitesMap</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="1152"></p>
+</figure>
+</div>
+</div>
 </div>
 </section>
-</section>
-<section id="plotting-tidal-ellipses" class="level1">
-<h1>Plotting Tidal Ellipses</h1>
+<section id="visualizing-data" class="level1">
+<h1>Visualizing Data</h1>
 <section id="prax-ellipse-function" class="level3">
 <h3 class="anchored" data-anchor-id="prax-ellipse-function">Prax Ellipse Function</h3>
-<p>This code is converted from Matlab Katie Smith Via Christina Comfort First thing we have to do is make a function for the prax_ellipse</p>
+<p>This code is converted from Matlab Katie Smith Via Christina Comfort.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>prax_ellipse_fct <span class="ot">&lt;-</span> <span class="cf">function</span>(u, v) {</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> <span class="fu">length</span>(u)</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">#Remove the mean over time, to leave jut the "pertubations"</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  meanu <span class="ot">&lt;-</span> <span class="fu">mean</span>(u)</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  meanv <span class="ot">&lt;-</span> <span class="fu">mean</span>(v)</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  up <span class="ot">&lt;-</span> u <span class="sc">-</span> meanu</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  vp <span class="ot">&lt;-</span> v <span class="sc">-</span> meanv</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#This has to do with the mean variance (covariance matrix elements)</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># (1/N) * sum(vector * vector) is equivalent to N * var() but using N</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Instead of N-1 fo rthe divisor in the variance/covariance calculation </span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's var() and cov() use N-1, so we calculate it manually as in Matlab. </span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  c11 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(up <span class="sc">*</span> up)</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  c22 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(vp <span class="sc">*</span>vp)</span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  c12 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(up <span class="sc">*</span> vp)</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># This is the angle to rotate the vecotrs (in radians)</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's atan2 is the same as Matlab's</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>   phi <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">atan2</span>(<span class="dv">2</span> <span class="sc">*</span>c12, c22 <span class="sc">-</span> c11) <span class="co">#+ pi/2</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># phi_Deg &lt;- (90 - phi * 180/pi) %% 360</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># major_axis_angle &lt;- phi_Deg</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Eignevalues of a matrix of those values calculated above</span></span>
-<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's eigen function returns a list with "values" (eigenvalues) and "vectors" (eigenvectors)</span></span>
-<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>  cov_matrix <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(c11, c12, c12, c22), <span class="at">nrow=</span><span class="dv">2</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>  eig_result <span class="ot">&lt;-</span> <span class="fu">eigen</span>(cov_matrix)</span>
-<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Extract eigenvalues</span></span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The **values** vector in the eig_result is already sorted in decreasing order by </span></span>
-<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>  lambda1 <span class="ot">&lt;-</span> eig_result<span class="sc">$</span>values[<span class="dv">1</span>] <span class="co">#Major axis variance (largest eigenvalue)</span></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>  lambda2 <span class="ot">&lt;-</span> eig_result<span class="sc">$</span>values[<span class="dv">2</span>] <span class="co"># Minor axis variance (smallest eigenvalue)</span></span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Here we turn the eigenvalues (which represetn the variance along the major and minor axes into varaiables which will make tidal ellipses)</span></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lambda1) <span class="co">#Major axis semi-length</span></span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>  b <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lambda2) <span class="co"># Minor axis semi-length</span></span>
-<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Create the parameter 't"</span></span>
-<span id="cb7-44"><a href="#cb7-44" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-45"><a href="#cb7-45" aria-hidden="true" tabindex="-1"></a>  t <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">2</span> <span class="sc">*</span> pi, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
-<span id="cb7-46"><a href="#cb7-46" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-47"><a href="#cb7-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate the ellipse coordinates (rotated and not centered/mean -subtracted yet)</span></span>
-<span id="cb7-48"><a href="#cb7-48" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Note: The orginal Matlab script has commented out adding 'meanu' to 'meanv', which would typically center teh ellipse on the mean velocity</span></span>
-<span id="cb7-49"><a href="#cb7-49" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Matlab's 'phi(1)' is used because 'phi' is an array of size4 1. In R, 'phi' is a scalar</span></span>
-<span id="cb7-50"><a href="#cb7-50" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-51"><a href="#cb7-51" aria-hidden="true" tabindex="-1"></a>  x_base <span class="ot">&lt;-</span> a <span class="sc">*</span> <span class="fu">cos</span>(t)</span>
-<span id="cb7-52"><a href="#cb7-52" aria-hidden="true" tabindex="-1"></a>  y_base <span class="ot">&lt;-</span> b <span class="sc">*</span> <span class="fu">sin</span>(t)</span>
-<span id="cb7-53"><a href="#cb7-53" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-54"><a href="#cb7-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-55"><a href="#cb7-55" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-56"><a href="#cb7-56" aria-hidden="true" tabindex="-1"></a> <span class="co"># x_rot &lt;- a * cos(t) * cos(pi/2 - phi) - b * sin(t) * sin(pi/2 - phi)</span></span>
-<span id="cb7-57"><a href="#cb7-57" aria-hidden="true" tabindex="-1"></a> <span class="co">#y_rot &lt;- a * cos(t) * sin(pi/2 - phi) + b * sin(t) * cos(pi/2 - phi)</span></span>
-<span id="cb7-58"><a href="#cb7-58" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-59"><a href="#cb7-59" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add the mean back to center the ellipse (if desired, based on the commented out Matlab line)</span></span>
-<span id="cb7-60"><a href="#cb7-60" aria-hidden="true" tabindex="-1"></a>  <span class="co"># For consistency with the original script's output variable names, we'll use x_rot and y_rot</span></span>
-<span id="cb7-61"><a href="#cb7-61" aria-hidden="true" tabindex="-1"></a>  <span class="co"># as 'x' and 'y', and include the mean adjustment as an option in the comments.</span></span>
-<span id="cb7-62"><a href="#cb7-62" aria-hidden="true" tabindex="-1"></a>  <span class="co"># If you want the ellipse centered at the mean velocity:</span></span>
-<span id="cb7-63"><a href="#cb7-63" aria-hidden="true" tabindex="-1"></a>  <span class="co"># x &lt;- x_rot + meanu</span></span>
-<span id="cb7-64"><a href="#cb7-64" aria-hidden="true" tabindex="-1"></a>  <span class="co"># y &lt;- y_rot + meanv</span></span>
-<span id="cb7-65"><a href="#cb7-65" aria-hidden="true" tabindex="-1"></a>   x_rot <span class="ot">&lt;-</span> x_base <span class="sc">*</span> <span class="fu">cos</span>(phi) <span class="sc">-</span> y_base <span class="sc">*</span> <span class="fu">sin</span>(phi)</span>
-<span id="cb7-66"><a href="#cb7-66" aria-hidden="true" tabindex="-1"></a>   y_rot <span class="ot">&lt;-</span> x_base <span class="sc">*</span> <span class="fu">sin</span>(phi) <span class="sc">+</span> y_base <span class="sc">*</span> <span class="fu">cos</span>(phi)</span>
-<span id="cb7-67"><a href="#cb7-67" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-68"><a href="#cb7-68" aria-hidden="true" tabindex="-1"></a>  <span class="co">#The function will return the angle phi, and the coordinates x and y </span></span>
-<span id="cb7-69"><a href="#cb7-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">phi =</span> phi, <span class="at">x =</span> x_rot, <span class="at">y =</span> y_rot)) </span>
-<span id="cb7-70"><a href="#cb7-70" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb7-71"><a href="#cb7-71" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>prax_ellipse_fct <span class="ot">&lt;-</span> <span class="cf">function</span>(u, v) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  N <span class="ot">&lt;-</span> <span class="fu">length</span>(u)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">#Remove the mean over time, to leave jut the "pertubations"</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  meanu <span class="ot">&lt;-</span> <span class="fu">mean</span>(u)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  meanv <span class="ot">&lt;-</span> <span class="fu">mean</span>(v)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  up <span class="ot">&lt;-</span> u <span class="sc">-</span> meanu</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  vp <span class="ot">&lt;-</span> v <span class="sc">-</span> meanv</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co">#This has to do with the mean variance (covariance matrix elements)</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># (1/N) * sum(vector * vector) is equivalent to N * var() but using N</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Instead of N-1 fo rthe divisor in the variance/covariance calculation </span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's var() and cov() use N-1, so we calculate it manually as in Matlab. </span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  c11 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(up <span class="sc">*</span> up)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  c22 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(vp <span class="sc">*</span>vp)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  c12 <span class="ot">&lt;-</span> (<span class="dv">1</span><span class="sc">/</span>N) <span class="sc">*</span> <span class="fu">sum</span>(up <span class="sc">*</span> vp)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># This is the angle to rotate the vecotrs (in radians)</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's atan2 is the same as Matlab's</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>   phi <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">atan2</span>(<span class="dv">2</span> <span class="sc">*</span>c12, c22 <span class="sc">-</span> c11) <span class="co">#+ pi/2</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># phi_Deg &lt;- (90 - phi * 180/pi) %% 360</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="co"># major_axis_angle &lt;- phi_Deg</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Eignevalues of a matrix of those values calculated above</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># R's eigen function returns a list with "values" (eigenvalues) and "vectors" (eigenvectors)</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  cov_matrix <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(c11, c12, c12, c22), <span class="at">nrow=</span><span class="dv">2</span>, <span class="at">byrow =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  eig_result <span class="ot">&lt;-</span> <span class="fu">eigen</span>(cov_matrix)</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Extract eigenvalues</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The **values** vector in the eig_result is already sorted in decreasing order by </span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  lambda1 <span class="ot">&lt;-</span> eig_result<span class="sc">$</span>values[<span class="dv">1</span>] <span class="co">#Major axis variance (largest eigenvalue)</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>  lambda2 <span class="ot">&lt;-</span> eig_result<span class="sc">$</span>values[<span class="dv">2</span>] <span class="co"># Minor axis variance (smallest eigenvalue)</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Here we turn the eigenvalues (which represetn the variance along the major and minor axes into varaiables which will make tidal ellipses)</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  a <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lambda1) <span class="co">#Major axis semi-length</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  b <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(lambda2) <span class="co"># Minor axis semi-length</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Create the parameter 't"</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>  t <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">2</span> <span class="sc">*</span> pi, <span class="at">length.out =</span> <span class="dv">100</span>)</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Calculate the ellipse coordinates (rotated and not centered/mean -subtracted yet)</span></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Note: The orginal Matlab script has commented out adding 'meanu' to 'meanv', which would typically center teh ellipse on the mean velocity</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Matlab's 'phi(1)' is used because 'phi' is an array of size4 1. In R, 'phi' is a scalar</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>  x_base <span class="ot">&lt;-</span> a <span class="sc">*</span> <span class="fu">cos</span>(t)</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>  y_base <span class="ot">&lt;-</span> b <span class="sc">*</span> <span class="fu">sin</span>(t)</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a> <span class="co"># x_rot &lt;- a * cos(t) * cos(pi/2 - phi) - b * sin(t) * sin(pi/2 - phi)</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a> <span class="co">#y_rot &lt;- a * cos(t) * sin(pi/2 - phi) + b * sin(t) * cos(pi/2 - phi)</span></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add the mean back to center the ellipse (if desired, based on the commented out Matlab line)</span></span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>  <span class="co"># For consistency with the original script's output variable names, we'll use x_rot and y_rot</span></span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>  <span class="co"># as 'x' and 'y', and include the mean adjustment as an option in the comments.</span></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>  <span class="co"># If you want the ellipse centered at the mean velocity:</span></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>  <span class="co"># x &lt;- x_rot + meanu</span></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>  <span class="co"># y &lt;- y_rot + meanv</span></span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>   x_rot <span class="ot">&lt;-</span> x_base <span class="sc">*</span> <span class="fu">cos</span>(phi) <span class="sc">-</span> y_base <span class="sc">*</span> <span class="fu">sin</span>(phi)</span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>   y_rot <span class="ot">&lt;-</span> x_base <span class="sc">*</span> <span class="fu">sin</span>(phi) <span class="sc">+</span> y_base <span class="sc">*</span> <span class="fu">cos</span>(phi)</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>  <span class="co">#The function will return the angle phi, and the coordinates x and y </span></span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">phi =</span> phi, <span class="at">x =</span> x_rot, <span class="at">y =</span> y_rot)) </span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 </section>
-<section id="plotting-current-ellipses" class="level2">
-<h2 class="anchored" data-anchor-id="plotting-current-ellipses">Plotting Current Ellipses</h2>
+<section id="all-sites-current-ellipses" class="level2">
+<h2 class="anchored" data-anchor-id="all-sites-current-ellipses">All Sites Current Ellipses</h2>
 <p>We are again converting the matlab script and we are going to use the joined data to facet plot all the current ellipses together</p>
-<p>Able to facet all the graphs into one, but now</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract the velocity components</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">as.numeric</span>(JoinedData[[<span class="dv">8</span>]]) <span class="co">#eastward</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">as.numeric</span>(JoinedData[[<span class="dv">7</span>]]) <span class="co"># northward</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">#Run the Ellipse Funciton </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span> </span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter, Site, Long) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">ellipse =</span> <span class="fu">list</span>({ results <span class="ot">&lt;-</span> <span class="fu">prax_ellipse_fct</span>(Velocity_N, Velocity_E) </span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    phi_deg <span class="ot">&lt;-</span> (<span class="dv">90</span> <span class="sc">-</span> (results<span class="sc">$</span>phi <span class="sc">*</span> <span class="dv">180</span> <span class="sc">/</span> pi))  <span class="co">#alls us to wrap angles into a 0-360 range</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    phi_deg <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(phi_deg <span class="sc">&gt;</span> <span class="dv">90</span>, phi_deg <span class="sc">-</span> <span class="dv">180</span>, phi_deg)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( <span class="at">x =</span> results<span class="sc">$</span>x, <span class="at">y =</span> results<span class="sc">$</span>y, <span class="at">phi_deg =</span> phi_deg ) }),</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span> ) <span class="sc">%&gt;%</span> </span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>(ellipse) </span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> TiltEllipses <span class="sc">%&gt;%</span> </span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter) <span class="sc">%&gt;%</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">angle_label =</span> <span class="fu">round</span>(<span class="fu">unique</span>(phi_deg), <span class="dv">1</span>)) </span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">#Make a table so we can put all the tilt meter data together</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># tibble(</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">#   Site = JoinedData$TiltMeter, </span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#   x = results$x, </span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">#   y = results$y</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating a dataframe to plot the ellipse coodinates </span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co"># ellipse_data &lt;- data.frame(x = xx, y = yy)</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating gg plot </span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>AllEllipsesPlot <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(TiltEllipses, <span class="fu">aes</span>( <span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">color =</span> Site, Lon)) <span class="sc">+</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_path</span>() <span class="sc">+</span> <span class="co">#Have geom label, and have geom point next to it north </span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">#facet_wrap(~ paste0(TiltMeter, "\n", angle_label, "˚ cw from north"), scales = "fixed") +</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a>      <span class="at">values =</span> <span class="fu">c</span>( <span class="st">"lightblue"</span>,<span class="st">"orange"</span> ,<span class="st">"green2"</span>, <span class="st">"blue"</span>,<span class="st">"red"</span>, <span class="st">"darkred"</span>, <span class="st">"magenta"</span>, <span class="st">"purple"</span>)) <span class="sc">+</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">'u velocity (cm/s)'</span>,</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">'v velocity (cm/s)'</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Enforce equal scale (axis equal equivalent)</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_fixed</span>(<span class="at">ratio =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Set the defined limits</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Site"</span>) <span class="sc">+</span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Apply a clean theme</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"bottom"</span>,</span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>      <span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span><span class="dv">12</span>),</span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>), </span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">1</span>))</span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the plot</span></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>AllEllipsesPlot</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        <span class="co"># width = 10, height = 5)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># JoinedData %&gt;% mutate(results = prax_ellipse_fct(Velocity_N, Velocity_E))</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># rot &lt;- results$phi</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># xx &lt;- results$x</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="co"># yy &lt;- results$y</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="co"># major_axis_angle &lt;- (90 - rot * 180 / pi) %% 360</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span> </span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">ellipse =</span> <span class="fu">list</span>({ results <span class="ot">&lt;-</span> <span class="fu">prax_ellipse_fct</span>(Velocity_N, Velocity_E) </span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    phi_deg <span class="ot">&lt;-</span> <span class="dv">90</span> <span class="sc">-</span> (results<span class="sc">$</span>phi <span class="sc">*</span> <span class="dv">180</span> <span class="sc">/</span> pi) <span class="sc">%%</span> <span class="dv">360</span> </span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    phi_deg <span class="ot">&lt;-</span> ((phi_deg <span class="sc">+</span> <span class="dv">180</span>) <span class="sc">%%</span> <span class="dv">360</span>) <span class="sc">-</span><span class="dv">180</span> <span class="co">#Try to not to add 180 </span></span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( <span class="at">x =</span> results<span class="sc">$</span>x, <span class="at">y =</span> results<span class="sc">$</span>y, <span class="at">phi_deg =</span> phi_deg ) }),</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span> ) <span class="sc">%&gt;%</span> </span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>(ellipse) </span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> TiltEllipses <span class="sc">%&gt;%</span> </span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter) <span class="sc">%&gt;%</span></span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">angle_label =</span> <span class="fu">round</span>(<span class="fu">unique</span>(phi_deg), <span class="dv">1</span>)) </span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="fu">view</span>(TiltEllipses)</span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a><span class="co">#Make a table so we can put all the tilt meter data together</span></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a><span class="co"># tibble(</span></span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="co">#   Site = JoinedData$TiltMeter, </span></span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a><span class="co">#   x = results$x, </span></span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="co">#   y = results$y</span></span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a><span class="co"># )</span></span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating a dataframe to plot the ellipse coodinates </span></span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a><span class="co"># ellipse_data &lt;- data.frame(x = xx, y = yy)</span></span>
-<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating gg plot </span></span>
-<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(TiltEllipses, <span class="fu">aes</span>( <span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">color =</span> TiltMeter)) <span class="sc">+</span></span>
-<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_path</span>() <span class="sc">+</span> <span class="co">#Have geom label, and have geom point next to it north </span></span>
-<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>  <span class="co">#facet_wrap(~ paste0(TiltMeter, "\n", angle_label, "˚ cw from north"), scales = "fixed") +</span></span>
-<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">'u velocity (cm/s)'</span>,</span>
-<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">'v velocity (cm/s)'</span></span>
-<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Enforce equal scale (axis equal equivalent)</span></span>
-<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_fixed</span>(<span class="at">ratio =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a><span class="co"># Set the defined limits</span></span>
-<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
-<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
-<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Apply a clean theme</span></span>
-<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
-<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"none"</span>)</span>
-<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the plot</span></span>
-<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a> AllEllipsesPlot <span class="sc">|</span> SitesMap </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
-<div>
+<div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="1152"></p>
+<figcaption>Current Ellipses and Site Map, colors represent the sites. The larger the ellilpses represent higher flow rates and variability. The sites with the higher flow rates are Oki 7 and Oki 14 while the sites with the lowest flow rates are Oki 2, Oki 3, and Oki11. Our most west site, Oki 15 had the lowest flow rate and variability</figcaption>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"TiltMeterData"</span>, <span class="st">"CurrentVectors.png"</span>),</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>         <span class="at">width =</span> <span class="dv">10</span>, <span class="at">height =</span> <span class="dv">5</span>)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># p + </span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   geom_point(aes(x = mean(u), y = mean(v)), color = "red", size = 2) +</span></span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   geom_segment(aes(x = 0, y = 0, xend = mean(u), yend = mean(v)), </span></span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co">#                arrow = arrow(length = unit(0.2, "cm")), color = "red")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
+<section id="individual-site-plots" class="level2">
+<h2 class="anchored" data-anchor-id="individual-site-plots">Individual Site Plots</h2>
+<section id="current-ellipses" class="level3">
+<h3 class="anchored" data-anchor-id="current-ellipses">Current Ellipses</h3>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span> </span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter, Site, Long) <span class="sc">%&gt;%</span> </span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>( </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">ellipse =</span> <span class="fu">list</span>({ results <span class="ot">&lt;-</span> <span class="fu">prax_ellipse_fct</span>(Velocity_N, Velocity_E) </span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    phi_deg <span class="ot">&lt;-</span> (<span class="dv">90</span> <span class="sc">-</span> (results<span class="sc">$</span>phi <span class="sc">*</span> <span class="dv">180</span> <span class="sc">/</span> pi))  <span class="co">#alls us to wrap angles into a 0-360 range</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">#phi_deg &lt;- ifelse(phi_deg &gt; 90, phi_deg - 180, phi_deg)</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>( <span class="at">x =</span> results<span class="sc">$</span>x, <span class="at">y =</span> results<span class="sc">$</span>y, <span class="at">phi_deg =</span> phi_deg ) }),</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span> ) <span class="sc">%&gt;%</span> </span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">unnest</span>(ellipse) </span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>TiltEllipses <span class="ot">&lt;-</span> TiltEllipses <span class="sc">%&gt;%</span> </span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(TiltMeter) <span class="sc">%&gt;%</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">angle_label =</span> <span class="fu">round</span>(<span class="fu">unique</span>(phi_deg), <span class="dv">1</span>)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(TiltEllipses, <span class="fu">aes</span>( <span class="at">x =</span> x, <span class="at">y =</span> y, <span class="at">color =</span> Site, Long)) <span class="sc">+</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_path</span>() <span class="sc">+</span> <span class="co">#Have geom label, and have geom point next to it north </span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste0</span>(Site, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>, angle_label, <span class="st">"˚ cw from north"</span>), <span class="at">scales =</span> <span class="st">"fixed"</span>) <span class="sc">+</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">values =</span> <span class="fu">c</span>( <span class="st">"lightblue"</span>,<span class="st">"orange"</span> ,<span class="st">"green2"</span>, <span class="st">"blue"</span>,<span class="st">"red"</span>, <span class="st">"darkred"</span>, <span class="st">"magenta"</span>, <span class="st">"purple"</span>)) <span class="sc">+</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">'u velocity (cm/s)'</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">'v velocity (cm/s)'</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Enforce equal scale (axis equal equivalent)</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_fixed</span>(<span class="at">ratio =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Set the defined limits</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="sc">-</span><span class="dv">7</span>, <span class="dv">7</span>) <span class="sc">+</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">color =</span> <span class="st">"Site"</span>) <span class="sc">+</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Apply a clean theme</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>      <span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span><span class="dv">12</span>),</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"none"</span>, </span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="768"></p>
+<figcaption>Current ellipses by each site, the degrees clockwise from north represents the ellipse’s major axis relative to North</figcaption>
+</figure>
+</div>
+</div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Display the plot</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"TiltMeterData"</span>, <span class="st">"CurrentVectors.png"</span>),</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">width =</span> <span class="dv">6</span>, <span class="at">height =</span> <span class="dv">6</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
 </section>
-<section id="plotting-the-data" class="level1">
-<h1>Plotting the Data</h1>
-<p>We are going to make a big function to make a plot of the following</p>
+<section id="flow-temperature-and-tide-data" class="level3">
+<h3 class="anchored" data-anchor-id="flow-temperature-and-tide-data">Flow, Temperature, and Tide Data</h3>
+<p>The data can be viewed on an interactive map on <a href="https://earth.google.com/web/@26.48013127,127.82743887,-0.56086902a,35635.32918753d,30.0006467y,0.00441429h,0.02513031t,0r/data=CgRCAggBMikKJwolCiExdXZGM3BDQ295VHE0WTVFZTlaaURFdXdGamZKX0ZaamggAToDCgEwQgIIAEoHCPWM-SYQAQ">GoogleEarth</a></p>
 <ul>
-<li><p>Feather Plot. | Wind Rose Plot</p></li>
-<li><p>Temperature Plot | Elipses Plot?</p></li>
-<li><p>Tide Plot | Photo of Tilt Meter?</p></li>
+<li><p><strong>Feather Plot:</strong> Time series showing the average velocity in cm/s. A positive <em>Velocity North</em> (blue) indicates a north flow direction, a negative <em>Velocity North</em> (blue) is a south flow direction. A positive <em>Velocity East</em> (red) is a east flow direction, a negative <em>Velocity East</em> (red) is a west flow direction.</p></li>
+<li><p><strong>Windrose Plot:</strong> Represents the current speed and direction. The longer the pie cut is in a specific direction is the more dominant current direction. The colors represtent the current speeds in cm/s. The majority current speed at all sites was between 0-5 cm/s.</p></li>
+<li><p><strong>Temperature Plot:</strong> A line graph showing all temperature. All sites had an increase in temperature around August 5th and a decrease in temperature around August 12th. This may be due to nearby typhoons:</p></li>
+</ul>
+<p><img src="AugustCyclone.png" class="img-fluid" data-fig-cap="Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present"> Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present.</p>
+<p><strong>Source:</strong> NOAA National Centers for Environmental Information, Monthly Tropical Cyclones Report for August 2025, published online September 2025, retrieved on November 17, 2025 from <a href="https://www.ncei.noaa.gov/access/monitoring/monthly-report/tropical-cyclones/202508">here</a>. <a href="https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00775">DOI</a></p>
+<ul>
+<li><strong>Tide Plot:</strong> Continuous line graph of the sealevel in meters that was captured every hour at the Okinawa Tide station.</li>
 </ul>
 <div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>Velocity_TidePlot_fun <span class="ot">&lt;-</span> <span class="cf">function</span>(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename) {</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>time_limits <span class="ot">&lt;-</span> <span class="fu">range</span>(Tiltdf<span class="sc">$</span>DateTime, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>FeatherPlot <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(Tiltdf, <span class="fu">aes</span>( DatetTime, <span class="at">y =</span> <span class="dv">0</span>)) <span class="sc">+</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>( <span class="at">x =</span> DateTime, <span class="at">y =</span> <span class="dv">0</span>, </span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>                    <span class="at">xend =</span> DateTime, </span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>                    <span class="at">yend =</span> Velocity_N, <span class="co">#Makes the arrows point up/down</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>                    <span class="at">color =</span> <span class="st">"Velocity North"</span>), </span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>               </span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>               <span class="at">lineend =</span> <span class="st">"round"</span> ,</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>               <span class="at">linewidth =</span> <span class="dv">1</span>,</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>               <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="fu">aes</span>( <span class="at">x =</span> DateTime, <span class="at">y =</span> <span class="dv">0</span>,</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>                    <span class="at">xend =</span> DateTime, <span class="co">#Makes the arrows lean left/right</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>                    <span class="at">yend =</span> Velocity_E, <span class="co">#Makes the arrows point up/down</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>                    <span class="at">color =</span> <span class="st">"Velocity East"</span>), </span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>               <span class="co">#arrow = arrow(length = unit(0.2, "cm")),</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>               <span class="at">linewidth =</span> <span class="dv">1</span>, </span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>               <span class="at">alpha =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> DateTime, <span class="at">y =</span> Velocity_N), <span class="at">color =</span> <span class="st">"blue4"</span>, <span class="at">size =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> DateTime, <span class="at">y =</span> Velocity_E), <span class="at">color =</span> <span class="st">"coral2"</span>, <span class="at">size =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">name =</span> <span class="st">"Velocity Direction"</span>, </span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>                     <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"Velocity North"</span> <span class="ot">=</span> <span class="st">"blue4"</span>, <span class="st">"Velocity East"</span> <span class="ot">=</span> <span class="st">"coral2"</span>)) <span class="sc">+</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_x_datetime</span>(<span class="at">limits =</span> time_limits, </span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_breaks =</span> <span class="st">"2 day"</span>, </span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>                   <span class="at">minor_breaks =</span> <span class="st">"1 day"</span>, </span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_labels =</span> (<span class="st">"%b %d"</span>)) <span class="sc">+</span></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">x =</span> <span class="st">"Date"</span>,</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Velocity (cm/s)"</span>) <span class="sc">+</span></span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>   <span class="fu">theme</span>( <span class="at">legend.position =</span> <span class="st">"inside"</span>, <span class="co">#axis.text.x = element_text(angle = 45, hjust =1) +</span></span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position.inside =</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.0</span>), </span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.box.background =</span> <span class="fu">element_rect</span>(<span class="at">color =</span> <span class="st">"black"</span>), </span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>        <span class="co">#legend.key.size = unit(0.1, "cm"), </span></span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>           <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span><span class="dv">1</span>))</span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>       </span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a> <span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>,<span class="st">"TiltMeterData"</span>, <span class="st">"Feather Plots"</span>, FeatherPlotname))</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a> TempPlot <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(Tempdf, <span class="fu">aes</span>(DateTime, Temperature)) <span class="sc">+</span></span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">"pink3"</span>) <span class="sc">+</span></span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_datetime</span>(<span class="at">limits =</span> time_limits, </span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_breaks =</span> <span class="st">"2 day"</span>, </span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>                   <span class="at">minor_breaks =</span> <span class="st">"1 day"</span>, </span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_labels =</span> (<span class="st">"%b %d"</span>)) <span class="sc">+</span></span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>     <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"Temperature (°C)"</span>) <span class="sc">+</span> </span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>     <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>   <span class="fu">theme</span>( <span class="at">axis.title.x =</span> <span class="fu">element_blank</span>(), </span>
+<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a>          <span class="at">axis.text.x =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb12-58"><a href="#cb12-58" aria-hidden="true" tabindex="-1"></a>          </span>
+<span id="cb12-59"><a href="#cb12-59" aria-hidden="true" tabindex="-1"></a>     </span>
+<span id="cb12-60"><a href="#cb12-60" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"TiltMeterData"</span>, <span class="st">"Temperature"</span>, TempPlotname))</span>
+<span id="cb12-61"><a href="#cb12-61" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-62"><a href="#cb12-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-63"><a href="#cb12-63" aria-hidden="true" tabindex="-1"></a>TidePlot <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(TideDataHourly, <span class="fu">aes</span>(DateTime, Sealevel_m)) <span class="sc">+</span></span>
+<span id="cb12-64"><a href="#cb12-64" aria-hidden="true" tabindex="-1"></a>   <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">"steelblue"</span>) <span class="sc">+</span></span>
+<span id="cb12-65"><a href="#cb12-65" aria-hidden="true" tabindex="-1"></a>   <span class="fu">scale_x_datetime</span>(<span class="at">limits =</span> time_limits, </span>
+<span id="cb12-66"><a href="#cb12-66" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_breaks =</span> <span class="st">"2 day"</span>, </span>
+<span id="cb12-67"><a href="#cb12-67" aria-hidden="true" tabindex="-1"></a>                   <span class="at">minor_breaks =</span> <span class="st">"1 day"</span>, </span>
+<span id="cb12-68"><a href="#cb12-68" aria-hidden="true" tabindex="-1"></a>                   <span class="at">date_labels =</span> (<span class="st">"%b %d"</span>)) <span class="sc">+</span></span>
+<span id="cb12-69"><a href="#cb12-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>( <span class="at">y =</span> <span class="st">"Sealevel (m) "</span>, </span>
+<span id="cb12-70"><a href="#cb12-70" aria-hidden="true" tabindex="-1"></a>        <span class="at">x =</span> <span class="st">" Date"</span>) <span class="sc">+</span></span>
+<span id="cb12-71"><a href="#cb12-71" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-72"><a href="#cb12-72" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-73"><a href="#cb12-73" aria-hidden="true" tabindex="-1"></a>       <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb12-74"><a href="#cb12-74" aria-hidden="true" tabindex="-1"></a>      <span class="fu">theme</span>( <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span><span class="dv">1</span>))</span>
+<span id="cb12-75"><a href="#cb12-75" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-76"><a href="#cb12-76" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb12-77"><a href="#cb12-77" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-78"><a href="#cb12-78" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-79"><a href="#cb12-79" aria-hidden="true" tabindex="-1"></a> WindrosePlot <span class="ot">&lt;-</span> <span class="fu">ggwindrose</span>(</span>
+<span id="cb12-80"><a href="#cb12-80" aria-hidden="true" tabindex="-1"></a>    <span class="at">speed =</span> Tiltdf2<span class="sc">$</span>Speed, </span>
+<span id="cb12-81"><a href="#cb12-81" aria-hidden="true" tabindex="-1"></a>    <span class="at">direction =</span> Tiltdf2<span class="sc">$</span>Heading,</span>
+<span id="cb12-82"><a href="#cb12-82" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_directions =</span> <span class="dv">8</span>,</span>
+<span id="cb12-83"><a href="#cb12-83" aria-hidden="true" tabindex="-1"></a>    <span class="at">speed_cuts =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">25</span>, <span class="dv">5</span>), <span class="cn">Inf</span>) <span class="sc">+</span></span>
+<span id="cb12-84"><a href="#cb12-84" aria-hidden="true" tabindex="-1"></a>    <span class="co">#stack_revers = TRUE) + #If we want the higher speeds on the outside of the plot</span></span>
+<span id="cb12-85"><a href="#cb12-85" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-86"><a href="#cb12-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-87"><a href="#cb12-87" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_fill_manual</span>(</span>
+<span id="cb12-88"><a href="#cb12-88" aria-hidden="true" tabindex="-1"></a>      <span class="at">values =</span> <span class="fu">c</span>( <span class="st">"skyblue"</span>,<span class="st">"orange"</span> ,<span class="st">"green2"</span>, <span class="st">"blue"</span>,<span class="st">"red"</span>, <span class="st">"darkred"</span>),</span>
+<span id="cb12-89"><a href="#cb12-89" aria-hidden="true" tabindex="-1"></a>      <span class="at">drop =</span> <span class="cn">FALSE</span></span>
+<span id="cb12-90"><a href="#cb12-90" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">+</span></span>
+<span id="cb12-91"><a href="#cb12-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-92"><a href="#cb12-92" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb12-93"><a href="#cb12-93" aria-hidden="true" tabindex="-1"></a>      <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb12-94"><a href="#cb12-94" aria-hidden="true" tabindex="-1"></a>   <span class="fu">labs</span>(<span class="at">subtitle =</span> AverageSpeed, <span class="at">fill =</span> <span class="st">"Current Speed</span><span class="sc">\n</span><span class="st"> (cm/s)"</span>, </span>
+<span id="cb12-95"><a href="#cb12-95" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> Sitename1) <span class="sc">+</span></span>
+<span id="cb12-96"><a href="#cb12-96" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb12-97"><a href="#cb12-97" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.title =</span>  <span class="fu">element_blank</span>(),</span>
+<span id="cb12-98"><a href="#cb12-98" aria-hidden="true" tabindex="-1"></a>      <span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb12-99"><a href="#cb12-99" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">9</span>), </span>
+<span id="cb12-100"><a href="#cb12-100" aria-hidden="true" tabindex="-1"></a>      <span class="at">plot.subtitle =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">1</span>))</span>
+<span id="cb12-101"><a href="#cb12-101" aria-hidden="true" tabindex="-1"></a>     </span>
+<span id="cb12-102"><a href="#cb12-102" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-103"><a href="#cb12-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggsave</span>(<span class="fu">here</span>(<span class="st">"Output"</span>,<span class="st">"TiltMeterData"</span>, <span class="st">"Windrose"</span>, WindrosePlotname))</span>
+<span id="cb12-104"><a href="#cb12-104" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-105"><a href="#cb12-105" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-106"><a href="#cb12-106" aria-hidden="true" tabindex="-1"></a>  TiltPhotoPlot <span class="ot">&lt;-</span> <span class="fu">wrap_elements</span>(</span>
+<span id="cb12-107"><a href="#cb12-107" aria-hidden="true" tabindex="-1"></a>  <span class="at">panel =</span> <span class="fu">rasterGrob</span>(<span class="fu">as.raster</span>(TiltPhoto),</span>
+<span id="cb12-108"><a href="#cb12-108" aria-hidden="true" tabindex="-1"></a>                     <span class="at">width =</span> <span class="fu">unit</span>(<span class="dv">1</span>, <span class="st">"npc"</span>),</span>
+<span id="cb12-109"><a href="#cb12-109" aria-hidden="true" tabindex="-1"></a>                     <span class="at">height =</span> <span class="fu">unit</span>(<span class="fl">0.5</span>, <span class="st">"npc"</span>))</span>
+<span id="cb12-110"><a href="#cb12-110" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb12-111"><a href="#cb12-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-112"><a href="#cb12-112" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-113"><a href="#cb12-113" aria-hidden="true" tabindex="-1"></a> FeatherPlot2 <span class="ot">&lt;-</span> FeatherPlot <span class="sc">+</span> </span>
+<span id="cb12-114"><a href="#cb12-114" aria-hidden="true" tabindex="-1"></a>   <span class="fu">guides</span>(<span class="at">shape =</span> <span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">size =</span> <span class="fl">0.5</span>)), </span>
+<span id="cb12-115"><a href="#cb12-115" aria-hidden="true" tabindex="-1"></a>          <span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">size =</span> <span class="fl">0.5</span>))) <span class="sc">+</span></span>
+<span id="cb12-116"><a href="#cb12-116" aria-hidden="true" tabindex="-1"></a>   <span class="fu">theme</span>(<span class="at">legend.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">4</span>),</span>
+<span id="cb12-117"><a href="#cb12-117" aria-hidden="true" tabindex="-1"></a>         <span class="at">legend.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">4</span>), </span>
+<span id="cb12-118"><a href="#cb12-118" aria-hidden="true" tabindex="-1"></a>         <span class="at">legend.key.size =</span> <span class="fu">unit</span>(<span class="dv">1</span>, <span class="st">"mm"</span>),       <span class="co"># size of boxes</span></span>
+<span id="cb12-119"><a href="#cb12-119" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.height =</span> <span class="fu">unit</span>(<span class="dv">2</span>, <span class="st">"mm"</span>),     <span class="co"># height of each key row</span></span>
+<span id="cb12-120"><a href="#cb12-120" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.width =</span> <span class="fu">unit</span>(<span class="fl">1.5</span>, <span class="st">"mm"</span>),      <span class="co"># width of each key column</span></span>
+<span id="cb12-121"><a href="#cb12-121" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.spacing.y =</span> <span class="fu">unit</span>(<span class="fl">0.1</span>, <span class="st">"mm"</span>),    <span class="co"># vertical spacing between keys</span></span>
+<span id="cb12-122"><a href="#cb12-122" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.spacing.x =</span> <span class="fu">unit</span>(<span class="fl">0.1</span>, <span class="st">"mm"</span>),    <span class="co"># horizontal spacing</span></span>
+<span id="cb12-123"><a href="#cb12-123" aria-hidden="true" tabindex="-1"></a>          <span class="at">legend.box.background =</span> <span class="fu">element_rect</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">size =</span> <span class="fl">0.3</span>), </span>
+<span id="cb12-124"><a href="#cb12-124" aria-hidden="true" tabindex="-1"></a>         <span class="at">axis.title.x =</span>  <span class="fu">element_blank</span>(), </span>
+<span id="cb12-125"><a href="#cb12-125" aria-hidden="true" tabindex="-1"></a>         <span class="at">axis.text.x =</span> <span class="fu">element_blank</span>(), </span>
+<span id="cb12-126"><a href="#cb12-126" aria-hidden="true" tabindex="-1"></a>         <span class="at">axis.ticks.x =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb12-127"><a href="#cb12-127" aria-hidden="true" tabindex="-1"></a>         <span class="co">#legend.position = "none")</span></span>
+<span id="cb12-128"><a href="#cb12-128" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-129"><a href="#cb12-129" aria-hidden="true" tabindex="-1"></a> WindrosePlot2 <span class="ot">&lt;-</span> WindrosePlot <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb12-130"><a href="#cb12-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-131"><a href="#cb12-131" aria-hidden="true" tabindex="-1"></a>left_side  <span class="ot">&lt;-</span> (FeatherPlot2 <span class="sc">/</span> TempPlot <span class="sc">/</span> TidePlot) <span class="sc">+</span> </span>
+<span id="cb12-132"><a href="#cb12-132" aria-hidden="true" tabindex="-1"></a>                <span class="fu">plot_layout</span>(<span class="at">axes =</span> <span class="st">"collect"</span>)</span>
+<span id="cb12-133"><a href="#cb12-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-134"><a href="#cb12-134" aria-hidden="true" tabindex="-1"></a>right_side <span class="ot">&lt;-</span> (WindrosePlot2 <span class="sc">/</span> <span class="fu">plot_spacer</span>()  <span class="sc">/</span> TiltPhotoPlot) </span>
+<span id="cb12-135"><a href="#cb12-135" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-136"><a href="#cb12-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-137"><a href="#cb12-137" aria-hidden="true" tabindex="-1"></a>combined <span class="ot">&lt;-</span> (left_side <span class="sc">|</span> right_side) <span class="sc">+</span></span>
+<span id="cb12-138"><a href="#cb12-138" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">widths =</span> <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>)) <span class="sc">+</span>   <span class="co"># control relative widths</span></span>
+<span id="cb12-139"><a href="#cb12-139" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(</span>
+<span id="cb12-140"><a href="#cb12-140" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> Sitename, </span>
+<span id="cb12-141"><a href="#cb12-141" aria-hidden="true" tabindex="-1"></a>    <span class="at">theme =</span> <span class="fu">theme</span>(<span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">size =</span> <span class="dv">16</span>))</span>
+<span id="cb12-142"><a href="#cb12-142" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">&amp;</span></span>
+<span id="cb12-143"><a href="#cb12-143" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>))</span>
+<span id="cb12-144"><a href="#cb12-144" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb12-145"><a href="#cb12-145" aria-hidden="true" tabindex="-1"></a>   <span class="fu">ggsave</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"Output"</span>, <span class="st">"TiltMeterData"</span>, combinedplot))</span>
+<span id="cb12-146"><a href="#cb12-146" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb12-147"><a href="#cb12-147" aria-hidden="true" tabindex="-1"></a>   <span class="fu">return</span>(combined)</span>
+<span id="cb12-148"><a href="#cb12-148" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb12-149"><a href="#cb12-149" aria-hidden="true" tabindex="-1"></a> }</span>
+<span id="cb12-150"><a href="#cb12-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-151"><a href="#cb12-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-152"><a href="#cb12-152" aria-hidden="true" tabindex="-1"></a><span class="fu">Velocity_TidePlot_fun</span>(Tilt1DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt1Velocity.png"</span>, Tilt1Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt1Temp.png"</span>, Tilt1DataHourly, <span class="at">Sitename1 =</span> <span class="st">"Site: Oki 2"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 1.74 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose1.jpeg"</span>, Tilt1Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt1TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"Site: Oki 2"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt2DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt2Velocity.png"</span>, Tilt2Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt2Temp.png"</span>, Tilt2DataHourly, <span class="at">Sitename1 =</span> <span class="st">"*Site: Oki 3*"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 0.80 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose2.jpeg"</span>, Tilt2Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt2TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"*Site: Oki 3*"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-2.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt3DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt3Velocity.png"</span>, Tilt3Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt3Temp.png"</span>, Tilt3DataHourly, <span class="at">Sitename1 =</span> <span class="st">"Site: Oki 4"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 3.53 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose3.jpeg"</span>, Tilt3Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt3TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"Site: Oki 4"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-3.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-3.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt4DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt4Velocity.png"</span>, Tilt4Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt4Temp.png"</span>, Tilt4DataHourly, <span class="at">Sitename1 =</span> <span class="st">"*Site: Oki 7*"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 6.27 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose4.jpeg"</span>, Tilt4Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt4TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"*Site: Oki 7*"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-4.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-4.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt5DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt5Velocity.png"</span>, Tilt5Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt5Temp.png"</span>, Tilt5DataHourly, <span class="at">Sitename1 =</span> <span class="st">"Site: Oki 9"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 2.28 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose5.jpeg"</span>, Tilt5Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt5TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"Site: Oki 9"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-5.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-5.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt6DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt6Velocity.png"</span>, Tilt6Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt6Temp.png"</span>, Tilt6DataHourly, <span class="at">Sitename1 =</span> <span class="st">"*Site: Oki 11*"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 0.80 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose6.jpeg"</span>, Tilt6Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt6TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"*Site: Oki 11*"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-6.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-6.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt7DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt7Velocity.png"</span>, Tilt7Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt7Temp.png"</span>, Tilt7DataHourly, <span class="at">Sitename1 =</span> <span class="st">"Site: Oki 15"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 1.45 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose7.jpeg"</span>, Tilt7Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt7TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"Site: Oki 15"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-7.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-7.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a> <span class="fu">Velocity_TidePlot_fun</span>(Tilt8DataHourly, <span class="at">FeatherPlotname =</span> <span class="st">"Tilt8Velocity.png"</span>, Tilt8Temp, <span class="at">TempPlotname =</span> <span class="st">"Tilt8Temp.png"</span>, Tilt8DataHourly, <span class="at">Sitename1 =</span> <span class="st">"Site: Oki 14"</span>, <span class="at">AverageSpeed =</span> <span class="st">"Average Speed: 5.43 cm/s"</span>, <span class="at">WindrosePlotname =</span> <span class="st">"Windrose8.jpeg"</span>, Tilt8Photo, <span class="at">combinedplot =</span> <span class="st">"Tilt8TideCombo.jpeg"</span>, <span class="at">Sitename =</span> <span class="st">"Site: Oki 14"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-18-8.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="TiltMeterAnalysis_files/figure-html/unnamed-chunk-20-8.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
+</div>
+</div>
+</section>
+</section>
+</section>
+<section id="summmary-stats" class="level1">
+<h1>Summmary Stats</h1>
+<p>Degrees to compass heading function</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>degrees_to_compass <span class="ot">&lt;-</span> <span class="cf">function</span>(degrees) {</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Normalize degrees to be within 0-360</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  degrees <span class="ot">&lt;-</span> degrees <span class="sc">%%</span> <span class="dv">360</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Define compass directions and their corresponding degree ranges</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  directions <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"N"</span>, <span class="st">"NE"</span>, <span class="st">"E"</span>, <span class="st">"SE"</span>, <span class="st">"S"</span>, <span class="st">"SW"</span>, <span class="st">"W"</span>, <span class="st">"NW"</span>, <span class="st">"N"</span>)</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  breaks <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">22.5</span>, <span class="fl">67.5</span>, <span class="fl">112.5</span>, <span class="fl">157.5</span>, <span class="fl">202.5</span>, <span class="fl">247.5</span>, <span class="fl">292.5</span>, <span class="fl">337.5</span>, <span class="dv">360</span>)</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Find the correct direction based on the degree value</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The findInterval function returns the index of the interval containing each element of 'degrees'.</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># We subtract 1 from the index because the 'directions' vector has N at index 1 and 9, but we only need one N.</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># The last break (360) is effectively the same as 0 for N.</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  compass_heading <span class="ot">&lt;-</span> directions[<span class="fu">findInterval</span>(degrees, breaks)]</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(compass_heading)</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>}<span class="co"># Define compass directions and their corresponding degree ranges</span></span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>  directions <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"N"</span>, <span class="st">"NE"</span>, <span class="st">"E"</span>, <span class="st">"SE"</span>, <span class="st">"S"</span>, <span class="st">"SW"</span>, <span class="st">"W"</span>, <span class="st">"NW"</span>, <span class="st">"N"</span>)</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>  breaks <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="fl">22.5</span>, <span class="fl">67.5</span>, <span class="fl">112.5</span>, <span class="fl">157.5</span>, <span class="fl">202.5</span>, <span class="fl">247.5</span>, <span class="fl">292.5</span>, <span class="fl">337.5</span>, <span class="dv">360</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>Means<span class="ot">&lt;-</span> JoinedData <span class="sc">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Site) <span class="sc">%&gt;%</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Speed <span class="sc">&lt;=</span>  <span class="fl">25.01416</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">MinSpeed =</span> <span class="fu">min</span>(Speed, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>            <span class="at">MaxSpeed =</span> <span class="fu">max</span>(Speed, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>            <span class="at">MeanSpeed =</span> <span class="fu">mean</span>(Speed, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>            <span class="at">MeanFlowDir =</span> <span class="fu">mean</span>(Heading, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) ) <span class="sc">%&gt;%</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a> <span class="fu">mutate</span>(<span class="at">AverageDirection =</span> <span class="fu">degrees_to_compass</span>(MeanFlowDir)) <span class="sc">%&gt;%</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate_if</span>(is.numeric, round, <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">MeanFlowDir =</span> <span class="fu">paste0</span>(MeanFlowDir, <span class="st">"˚"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(Site) <span class="co">#Reorder so that the means are from lowest ot highest speed</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>   <span class="fu">kbl</span>(Means, <span class="at">format =</span> <span class="st">"html"</span>, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Site"</span>, <span class="st">"Min Speed (cm/s)"</span>, <span class="st">"Max Speed (cm/s)"</span>, <span class="st">"Mean Speed (cm/s)"</span>, <span class="st">"Mean Flow Direction ˚"</span>, <span class="st">"Mean Direction "</span>)) <span class="sc">%&gt;%</span> <span class="co">#Giving the average speed m/s of each tilt meter</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_classic</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>     <span class="fu">kable_styling</span>(<span class="at">full_width =</span> F, <span class="at">position =</span> <span class="st">"center"</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>      <span class="fu">row_spec</span>(<span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">6</span>), <span class="at">bold =</span> <span class="cn">TRUE</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">background =</span> <span class="st">"lightyellow"</span>) <span class="co">#Highlight oki3, 7, 11</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class=" lightable-classic table" style="font-family: &quot;Arial Narrow&quot;, &quot;Source Sans Pro&quot;, sans-serif; margin-left: auto; margin-right: auto; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Site
+</th>
+<th style="text-align:right;">
+Min Speed (cm/s)
+</th>
+<th style="text-align:right;">
+Max Speed (cm/s)
+</th>
+<th style="text-align:right;">
+Mean Speed (cm/s)
+</th>
+<th style="text-align:left;">
+Mean Flow Direction ˚
+</th>
+<th style="text-align:left;">
+Mean Direction
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Oki02
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+<td style="text-align:right;">
+14.46
+</td>
+<td style="text-align:right;">
+1.74
+</td>
+<td style="text-align:left;">
+132.02˚
+</td>
+<td style="text-align:left;">
+SE
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki03
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+0.01
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+24.61
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+0.79
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+139.18˚
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+SE
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki04
+</td>
+<td style="text-align:right;">
+0.08
+</td>
+<td style="text-align:right;">
+24.21
+</td>
+<td style="text-align:right;">
+3.53
+</td>
+<td style="text-align:left;">
+212.1˚
+</td>
+<td style="text-align:left;">
+SW
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki07
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+0.65
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+25.01
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+6.28
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+169.02˚
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+S
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki09
+</td>
+<td style="text-align:right;">
+0.01
+</td>
+<td style="text-align:right;">
+18.67
+</td>
+<td style="text-align:right;">
+2.28
+</td>
+<td style="text-align:left;">
+196.68˚
+</td>
+<td style="text-align:left;">
+S
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki11
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+0.00
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+14.94
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+0.80
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+215.22˚
+</td>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+SW
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki14
+</td>
+<td style="text-align:right;">
+0.20
+</td>
+<td style="text-align:right;">
+24.89
+</td>
+<td style="text-align:right;">
+5.44
+</td>
+<td style="text-align:left;">
+165.52˚
+</td>
+<td style="text-align:left;">
+S
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki15
+</td>
+<td style="text-align:right;">
+0.44
+</td>
+<td style="text-align:right;">
+6.13
+</td>
+<td style="text-align:right;">
+1.45
+</td>
+<td style="text-align:left;">
+190.49˚
+</td>
+<td style="text-align:left;">
+S
+</td>
+</tr>
+</tbody>
+</table>
+<p>Table of the minimum, maximum and average current speeds collected by each of the tilt meters by site. All sites had a souther current direction on average. Highlighted rows are the sites we are considering for long-term monitoring.</p>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>TempMeans <span class="ot">&lt;-</span> JoinedTempData <span class="sc">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Site) <span class="sc">%&gt;%</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">min</span>(Temperature), <span class="fu">max</span>(Temperature), <span class="fu">mean</span>(Temperature)) <span class="sc">%&gt;%</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate_if</span>(is.numeric, round, <span class="dv">2</span>)</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="fu">kbl</span>(TempMeans, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Site"</span>, <span class="st">"Min Temperature"</span>, <span class="st">"Max Temperature"</span>, <span class="st">"Mean Temperature"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_classic</span>()  <span class="sc">%&gt;%</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable_styling</span>(<span class="at">full_width =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">row_spec</span>(<span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">6</span>), <span class="at">bold =</span> <span class="cn">TRUE</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">background =</span> <span class="st">"lightyellow"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class=" lightable-classic table" style="font-family: &quot;Arial Narrow&quot;, &quot;Source Sans Pro&quot;, sans-serif; margin-left: auto; margin-right: auto; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+Site
+</th>
+<th style="text-align:right;">
+Min Temperature
+</th>
+<th style="text-align:right;">
+Max Temperature
+</th>
+<th style="text-align:right;">
+Mean Temperature
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Oki02
+</td>
+<td style="text-align:right;">
+27.05
+</td>
+<td style="text-align:right;">
+30.05
+</td>
+<td style="text-align:right;">
+29.23
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki03
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+27.06
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+29.99
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+29.16
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki04
+</td>
+<td style="text-align:right;">
+27.90
+</td>
+<td style="text-align:right;">
+30.13
+</td>
+<td style="text-align:right;">
+29.35
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki07
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+27.36
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+30.35
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+29.25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki09
+</td>
+<td style="text-align:right;">
+26.64
+</td>
+<td style="text-align:right;">
+30.32
+</td>
+<td style="text-align:right;">
+29.11
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+Oki11
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+27.43
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+30.30
+</td>
+<td style="text-align:right;font-weight: bold;color: black !important;background-color: lightyellow !important;">
+29.17
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki14
+</td>
+<td style="text-align:right;">
+26.64
+</td>
+<td style="text-align:right;">
+30.26
+</td>
+<td style="text-align:right;">
+29.26
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Oki15
+</td>
+<td style="text-align:right;">
+27.97
+</td>
+<td style="text-align:right;">
+30.42
+</td>
+<td style="text-align:right;">
+29.36
+</td>
+</tr>
+</tbody>
+</table>
+<p>Table of the minimum, maximum, and average temperatures collected by each of the tilt meters by site. All sites had an average temperature of 29˚C and experienced a 3˚C temperature fluctuation within the two weeks during deployment. Highlighted rows are the sites we are considering for long-term monitoring.</p>
 </div>
 </div>
 </section>

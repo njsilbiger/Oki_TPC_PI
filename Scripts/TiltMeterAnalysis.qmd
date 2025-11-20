@@ -1,19 +1,18 @@
 ---
 title: "Tilt Meter Analysis"
 author: "Ashley Carreiro"
+toc: true
 format: 
   html:
-    toc: true
     warning: false
     date: 2025-11-13
     date-modified: last-modified
-editor: visual
+    code-fold: true
 ---
 
 # Load Libraries
 
 ```{r}
-#| echo: false
 library(tidyverse)
 library(here)
 library(climaemet)
@@ -190,7 +189,19 @@ write_csv(here("Data/TiltMeterData/TideData_2025.08.csv"))
 
 # Load Data
 
-Load current, temperature, and tide data from new csv files created.
+Most of the tilt meters were set to the *Typical* configuration:
+
+| Configuration | Temperature | Burst Interval | Burst Rate | Burst Duration |
+|:--------------|:------------|:---------------|:-----------|:---------------|
+| Typical       | 1(min)      | 1(min)         | 8(Hz)      | 20(sec)        |
+
+For those tilt meters that were not configured this way, data was condensed to one minute intervals. All data was trimmed down to one hour after deployment time and one hour before retrieval time.
+
+Note that all data has been adjusted for the Magnetic Declination of -5.85 West within the Domino app.
+
+All data speed units are in cm/s
+
+Tide data was downloaded from the Geospatial Information Authority of Japan [Japan Okinawa Tide Station](https://www.gsi.go.jp/kanshi/tide_data_21_e.html)
 
 ```{r}
 #| message: false
@@ -241,10 +252,10 @@ LatLong <- TiltMetaData %>% select(Site, Long, Lat)
 
 ### Tilt Meter Data
 
-Creating a function to organize all the current data
+Created a function *Tilt_Data_fun* to add a tilt meter name column, separate the data and time into two columns, and add a m/s unit column.
 
 ```{r}
-#| echo: false
+
 #| warning: false
 Tilt_Data_fun <- function(df, tilt_name){  #Function to add a tilt name column and separate data and time column 
 df %>%
@@ -279,29 +290,27 @@ Tilt7DataClean <- Tilt_Data_fun(Tilt7Data, "Tilt7")
 Tilt8DataClean <- Tilt_Data_fun(Tilt8Data, "Tilt8")
 ```
 
-#### Summary Stats
-
-First, join all the Current Data
+We then join the data to combine all 8 Tilt Meter, Longitude and Latitude data, and add a *Site* column
 
 ```{r}
-#| echo: false
-JoinedData <- rbind(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean)
+
+JoinedData <- rbind(Tilt1DataClean, Tilt2DataClean, Tilt3DataClean, Tilt4DataClean, Tilt5DataClean,  Tilt6DataClean,  Tilt7DataClean, Tilt8DataClean) 
 
 JoinedData <- JoinedData %>% 
   mutate(Site = case_when(
-    str_detect(TiltMeter, "Tilt1") ~ "Oki 2", 
-    str_detect(TiltMeter, "Tilt2") ~ "Oki 3", 
-    str_detect(TiltMeter, "Tilt3") ~ "Oki 4", 
-    str_detect(TiltMeter, "Tilt4") ~ "Oki 7", 
-    str_detect(TiltMeter, "Tilt5") ~ "Oki 9", 
-    str_detect(TiltMeter, "Tilt6") ~ "Oki 11", 
-    str_detect(TiltMeter, "Tilt7") ~ "Oki 15", 
-    str_detect(TiltMeter, "Tilt8") ~ "Oki 14" )) %>%
-      relocate(Site, .after = TiltMeter) #Move new site column to after the Tilt Meter 
-
+    str_detect(TiltMeter, "Tilt1") ~ "Oki02", 
+    str_detect(TiltMeter, "Tilt2") ~ "Oki03", 
+    str_detect(TiltMeter, "Tilt3") ~ "Oki04", 
+    str_detect(TiltMeter, "Tilt4") ~ "Oki07", 
+    str_detect(TiltMeter, "Tilt5") ~ "Oki09", 
+    str_detect(TiltMeter, "Tilt6") ~ "Oki11", 
+    str_detect(TiltMeter, "Tilt7") ~ "Oki15", 
+    str_detect(TiltMeter, "Tilt8") ~ "Oki14" )) %>%
+      relocate(Site, .after = TiltMeter) %>%#Move new site column to after the Tilt Meter 
+   left_join(LatLong, by = "Site")
 ```
 
-Visualize Summary stats to see where to filter data from
+After we join the data we can view the upper (99.9%) and lower bounds (0.1%) to filter the data
 
 ```{r}
 #| echo: false
@@ -317,59 +326,39 @@ sum(JoinedData$Speed >= .5) #Counting the number of points above .5
 sum(JoinedData$Speed> 25.01416) #Number of points above the upper bound, 0.25, 145 points
 
 table(cut(JoinedData$Speed_m , seq(0, .25,.05), include.lowest = TRUE)) ##Showing me the different bins and how many data points I have in each one
-
 ```
 
-```{r}
-Means<- JoinedData %>%
-  group_by(Site) %>%
-  filter(Speed <=  25.01416) %>%
-  summarise(MeanSpeed = mean(Speed, na.rm = TRUE)) %>%
-  arrange(MeanSpeed) #Reorder so that the means are from lowest ot highest speed
-
-   kbl(Means, col.names = c("Site", "Mean Speed (cm/s)")) %>% #Giving the average speed m/s of each tilt meter
-  kable_classic() %>%
-     kable_styling(full_width = FALSE)
-```
+For our time series plots we want to average the speed, heading, Velocity_N, and Velocity_E columns per hour. Filtering out the 99.9% upper bound which is anything above **25.01416** cm/s. We will make new *hourly* data frames. We will do the same for the JoinedData so that we are analyzing everything on an hourly
 
 ```{r}
 #| echo: false
-#| results: false
-ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
-  geom_point() +
-   facet_wrap(~TiltMeter)
-```
 
-Now we will average everything by hour and create a new data frame **hourly**
-
-This dataframe is in cm/s
-
-Filtering out the 99.9% upper bound which is anything above 25.01416 cm/s
-
-```{r}
 HourlyTilt_Data_fun <- function(df){  #Function to add a tilt name column and separate data and time column 
  df %>% 
     
-    group_by(DateTime = floor_date(DateTime, "hour")) %>% #New datetime that is rounded to the start of each hour
+    group_by(DateTime = floor_date(DateTime, "hour"), TiltMeter) %>% #New datetime that is rounded to the start of each hour
   summarise(across(where(is.numeric), mean, na.rm = TRUE),
     .groups = "drop") %>%
     filter(Speed <=  25.01416) 
 }
 
-Tilt1DataHourly <- HourlyTilt_Data_fun(Tilt1Data)
-Tilt2DataHourly <- HourlyTilt_Data_fun(Tilt2Data)
-Tilt3DataHourly <- HourlyTilt_Data_fun(Tilt3Data)
-Tilt4DataHourly <- HourlyTilt_Data_fun(Tilt4Data)
-Tilt5DataHourly <- HourlyTilt_Data_fun(Tilt5Data)
-Tilt6DataHourly <- HourlyTilt_Data_fun(Tilt6Data)
-Tilt7DataHourly <- HourlyTilt_Data_fun(Tilt7Data)
-Tilt8DataHourly <- HourlyTilt_Data_fun(Tilt8Data)
-
+Tilt1DataHourly <- HourlyTilt_Data_fun(Tilt1DataClean)
+Tilt2DataHourly <- HourlyTilt_Data_fun(Tilt2DataClean)
+Tilt3DataHourly <- HourlyTilt_Data_fun(Tilt3DataClean)
+Tilt4DataHourly <- HourlyTilt_Data_fun(Tilt4DataClean)
+Tilt5DataHourly <- HourlyTilt_Data_fun(Tilt5DataClean)
+Tilt6DataHourly <- HourlyTilt_Data_fun(Tilt6DataClean)
+Tilt7DataHourly <- HourlyTilt_Data_fun(Tilt7DataClean)
+Tilt8DataHourly <- HourlyTilt_Data_fun(Tilt8DataClean)
+JoinedDataHourly <- HourlyTilt_Data_fun(JoinedData)
 ```
 
 ### Temperature Data
 
+Created a function *Tilt_Temp_fun* to add a tilt meter name column, and separate the data and time into two columns.
+
 ```{r}
+#| echo: false
 Tilt_Temp_fun <- function(df, tilt_name){ 
 df %>%
     
@@ -380,9 +369,10 @@ separate(col = DateTime, #Choose the column that you want separated
   mutate(DateTime = lubridate::ymd_hms(DateTime), #Set datetime
          Date = lubridate::ymd(Date), #Set Date
          Time = lubridate::hms(Time), 
-   TiltMeter = tilt_name) %>%
+   TiltMeter = tilt_name, na.rm = TRUE) %>%
 
     select(TiltMeter, everything()) 
+  
 }
 
 Tilt1TempData <- Tilt_Temp_fun(Tilt1Temp, "Tilt1")
@@ -400,50 +390,95 @@ bad_dates2 <- Tilt7DataClean %>%
   filter(is.na(lubridate::ymd_hms(DateTime)))
 ```
 
-#### Summary Temperature Stats
+Joining all the temperature data together, the lat long data, and creating a *Site* column. We don't make an hourly temperature datframe because we can easily plot this as continuous data.
 
 ```{r}
+#| echo: false
 JoinedTempData <- rbind(Tilt1TempData, Tilt2TempData, Tilt3TempData, Tilt4TempData, Tilt5TempData,  Tilt6TempData,  Tilt7TempData, Tilt8TempData)
 
 JoinedTempData <- JoinedTempData %>% 
   mutate(Site = factor(case_when(
-    str_detect(TiltMeter, "Tilt1") ~ "Oki2", 
-    str_detect(TiltMeter, "Tilt2") ~ "Oki3", 
-    str_detect(TiltMeter, "Tilt3") ~ "Oki4", 
-    str_detect(TiltMeter, "Tilt4") ~ "Oki7", 
-    str_detect(TiltMeter, "Tilt5") ~ "Oki9", 
+    str_detect(TiltMeter, "Tilt1") ~ "Oki02", 
+    str_detect(TiltMeter, "Tilt2") ~ "Oki03", 
+    str_detect(TiltMeter, "Tilt3") ~ "Oki04", 
+    str_detect(TiltMeter, "Tilt4") ~ "Oki07", 
+    str_detect(TiltMeter, "Tilt5") ~ "Oki09", 
     str_detect(TiltMeter, "Tilt6") ~ "Oki11", 
     str_detect(TiltMeter, "Tilt7") ~ "Oki15", 
     str_detect(TiltMeter, "Tilt8") ~ "Oki14" ))) %>%
       relocate(Site, .after = TiltMeter) %>% #Move new site column to after the Tilt Meter
  left_join(LatLong, by = "Site")
-              
-
-TempMeans <- JoinedTempData %>%
-  group_by(Site) %>%
-
-  summarise(min(Temperature), max(Temperature), mean(Temperature))
-
-kbl(TempMeans, col.names = c("Site", "Min Temperature", "Max Temperature", "Mean Temperature")) %>%
-  kable_classic()  %>%
-  kable_styling(full_width = FALSE)
 ```
 
 ### Tide Data
 
+Making a new tide dataframe and calling it *TideDataHourly* the tide data is already hourly but we are combing the date and time into one column to match the other dataframes. We are also changing the sealevel from mm to meters in a new column *Sealevel_m*
+
 ```{r}
+#| echo: false
  TideDataHourly <- TideData %>%
-   mutate(DateTime = ymd_hms(paste(Date, Hour, "00:00")), #Combining Data and time into one column 
+   mutate(DateTime = ymd_hms(paste(Date, Hour, "00:00")), #Combining Date and time into one column 
           Sealevel_m = Sealevel_mm / 1000) %>%
     select(DateTime, everything())
 
 ```
 
-# Plotting Tidal Ellipses
+# Site Map
+
+Map of the sites, points represent the locations the Tilt Meters were placed. 
+
+```{r}
+#| fig-width: 12
+#| fig-height: 8
+
+MapBound <- c(127.65, 26.3, 128.2, 26.6) #Making a map bounding box, which centers the map better 
+#bounding box lowerleftlon, lowerleftlat, upperrightlon, upperrightlat
+SiteMap1 <- get_map(location = MapBound, maptype = "hybrid")
+
+SitesMap <- ggmap(SiteMap1) +
+  geom_point(data = LatLong, 
+            aes(x = Long, y = Lat, color = Site), 
+            size = 5) +
+  geom_label_repel(data = LatLong, aes(x = Long, y = Lat, label = Site), 
+       size = 4) +
+   scale_color_manual(
+      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
+  #annotate('rect', xmin = 127.73, ymin = 26.45, xmax = 127.75, ymax = 26.46, color = "red", fill = "white")+
+# annotate('text', x = 127.75 , y = 26.46, label = 'Oki 15', colour = "white", size = 4)+
+# annotate('segment', x = 127.74835, xend = 127.75, y = 26.4377, yend = 26.46,
+# color = 'white', arrow = arrow(length = unit (0.3,"cm")), size = 0.75) +
+
+  
+labs(x = 'Longitude', y = 'Latitude') + 
+  ggtitle('Site Map') +
+
+  annotation_scale( bar_cols = c("lightblue", "white"),
+                    location = "br")+ # put the bar on the bottom left and make the colors light blue and white
+  
+  annotation_north_arrow(location = "tl") + # add a north arrow
+  coord_sf(crs = 4326) +
+    theme(legend.position = "none", 
+          text = element_text(face = "bold", size =12)) 
+         
+
+SitesMap
+```
+
+# Visualizing Data
+
+```{r}
+#| echo: false
+#| results: false
+#| output: false
+
+ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
+  geom_point() +
+   facet_wrap(~TiltMeter)
+```
 
 ### Prax Ellipse Function
 
-This code is converted from Matlab Katie Smith Via Christina Comfort First thing we have to do is make a function for the prax_ellipse
+This code is converted from Matlab Katie Smith Via Christina Comfort. 
 
 ```{r}
 prax_ellipse_fct <- function(u, v) {
@@ -520,38 +555,23 @@ prax_ellipse_fct <- function(u, v) {
 
 ```
 
-## Plotting Current Ellipses
+## All Sites Current Ellipses
 
 We are again converting the matlab script and we are going to use the joined data to facet plot all the current ellipses together
 
-Able to facet all the graphs into one, but now
 
 ```{r}
 #| output: false
-#| results: false
-# Extract the velocity components
-
-as.numeric(JoinedData[[8]]) #eastward
-as.numeric(JoinedData[[7]]) # northward
-
-#Run the Ellipse Funciton 
-
-```
-
-```{r}
-
-# JoinedData %>% mutate(results = prax_ellipse_fct(Velocity_N, Velocity_E))
-# rot <- results$phi
-# xx <- results$x
-# yy <- results$y
-# major_axis_angle <- (90 - rot * 180 / pi) %% 360
 
 TiltEllipses <- JoinedData %>% 
-  group_by(TiltMeter, Site) %>% 
+  group_by(TiltMeter, Site, Long) %>% 
   summarise( 
     ellipse = list({ results <- prax_ellipse_fct(Velocity_N, Velocity_E) 
-    phi_deg <- 90 - (results$phi * 180 / pi) %% 360 
-    phi_deg <- ((phi_deg + 180) %% 360) -180 #Try to not to add 180 
+    
+    phi_deg <- (90 - (results$phi * 180 / pi))  #alls us to wrap angles into a 0-360 range
+    
+    phi_deg <- ifelse(phi_deg > 90, phi_deg - 180, phi_deg)
+    
     tibble( x = results$x, y = results$y, phi_deg = phi_deg ) }),
     
     .groups = "drop" ) %>% 
@@ -560,7 +580,6 @@ TiltEllipses <- JoinedData %>%
 TiltEllipses <- TiltEllipses %>% 
   group_by(TiltMeter) %>%
   mutate(angle_label = round(unique(phi_deg), 1)) 
-view(TiltEllipses)
 
 #Make a table so we can put all the tilt meter data together
 # tibble(
@@ -574,11 +593,11 @@ view(TiltEllipses)
 
 #Creating gg plot 
 
-p <- ggplot(TiltEllipses, aes( x = x, y = y, color = Site)) +
+AllEllipsesPlot <- ggplot(TiltEllipses, aes( x = x, y = y, color = Site, Lon)) +
   geom_path() + #Have geom label, and have geom point next to it north 
   #facet_wrap(~ paste0(TiltMeter, "\n", angle_label, "˚ cw from north"), scales = "fixed") +
   scale_color_manual(
-      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
+      values = c( "lightblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
   labs(
 
     x = 'u velocity (cm/s)',
@@ -590,32 +609,112 @@ p <- ggplot(TiltEllipses, aes( x = x, y = y, color = Site)) +
   xlim(-7, 7) +
   ylim(-7, 7) +
   
+  labs(color = "Site") +
+  
   # Apply a clean theme
-  theme_bw() 
+  theme_bw() +
+  theme(
+      legend.position = "bottom",
+      text = element_text(face = "bold", size =12),
+      legend.title = element_text(size = 10), 
+      plot.subtitle = element_text(hjust = 1))
 
 # Display the plot
-p
-ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),
-         width = 10, height = 5)
+AllEllipsesPlot
+#ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),
+        # width = 10, height = 5)
 
-# p + 
-#   geom_point(aes(x = mean(u), y = mean(v)), color = "red", size = 2) +
-#   geom_segment(aes(x = 0, y = 0, xend = mean(u), yend = mean(v)), 
-#                arrow = arrow(length = unit(0.2, "cm")), color = "red")
 ```
 
-# Plotting the Data
+```{r}
+#| fig-cap: "Current Ellipses and Site Map, colors represent the sites. The larger the ellilpses represent higher flow rates and variability. The sites with the higher flow rates are Oki 7 and Oki 14 while the sites with the lowest flow rates are Oki 2, Oki 3, and Oki11. Our most west site, Oki 15 had the lowest flow rate and variability"
+#| fig-width: 12
+#| fig-height: 8
+ AllEllipsesPlot | SitesMap 
 
-We are going to make a big function to make a plot of the following
+```
+## Individual Site Plots
 
--   Feather Plot. \| Wind Rose Plot
-
--   Temperature Plot \| Elipses Plot?
-
--   Tide Plot \| Photo of Tilt Meter?
+### Current Ellipses
 
 ```{r}
-#| echo: false
+TiltEllipses <- JoinedData %>% 
+  group_by(TiltMeter, Site, Long) %>% 
+  summarise( 
+    ellipse = list({ results <- prax_ellipse_fct(Velocity_N, Velocity_E) 
+    
+    phi_deg <- (90 - (results$phi * 180 / pi))  #alls us to wrap angles into a 0-360 range
+    
+    #phi_deg <- ifelse(phi_deg > 90, phi_deg - 180, phi_deg)
+    
+    tibble( x = results$x, y = results$y, phi_deg = phi_deg ) }),
+    
+    .groups = "drop" ) %>% 
+  unnest(ellipse) 
+
+TiltEllipses <- TiltEllipses %>% 
+  group_by(TiltMeter) %>%
+  mutate(angle_label = round(unique(phi_deg), 1)) 
+```
+
+
+```{r}
+#| fig-width: 8
+#| fig-height: 8
+#| fig-cap: "Current ellipses by each site, the degrees clockwise from north represents the ellipse's major axis relative to North"
+
+ggplot(TiltEllipses, aes( x = x, y = y, color = Site, Long)) +
+  geom_path() + #Have geom label, and have geom point next to it north 
+  facet_wrap(~ paste0(Site, "\n", angle_label, "˚ cw from north"), scales = "fixed") +
+  scale_color_manual(
+      values = c( "lightblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
+  labs(
+
+    x = 'u velocity (cm/s)',
+    y = 'v velocity (cm/s)'
+  ) +
+# Enforce equal scale (axis equal equivalent)
+  coord_fixed(ratio = 1) +
+# Set the defined limits
+  xlim(-7, 7) +
+  ylim(-7, 7) +
+  
+  labs(color = "Site") +
+  
+  # Apply a clean theme
+  theme_bw() +
+  theme(
+      text = element_text(face = "bold", size =12),
+      legend.position = "none", 
+      plot.subtitle = element_text(hjust = 1))
+
+# Display the plot
+
+ggsave(here("Output", "TiltMeterData", "CurrentVectors.png"),
+         width = 6, height = 6)
+
+```
+
+### Flow, Temperature, and Tide Data
+
+The data can be viewed on an interactive map on [GoogleEarth](https://earth.google.com/web/@26.48013127,127.82743887,-0.56086902a,35635.32918753d,30.0006467y,0.00441429h,0.02513031t,0r/data=CgRCAggBMikKJwolCiExdXZGM3BDQ295VHE0WTVFZTlaaURFdXdGamZKX0ZaamggAToDCgEwQgIIAEoHCPWM-SYQAQ)
+
+-   **Feather Plot:** Time series showing the average velocity in cm/s. A positive *Velocity North* (blue) indicates a north flow direction, a negative *Velocity North* (blue) is a south flow direction. A positive *Velocity East* (red) is a east flow direction, a negative *Velocity East* (red) is a west flow direction.
+
+-   **Windrose Plot:** Represents the current speed and direction. The longer the pie cut is in a specific direction is the more dominant current direction. The colors represtent the current speeds in cm/s. The majority current speed at all sites was between 0-5 cm/s. 
+-   **Temperature Plot:** A line graph showing all temperature. All sites had an increase in temperature around August 5th and a decrease in temperature around August 12th. This may be due to nearby typhoons: 
+
+![](AugustCyclone.png){
+  fig-cap="Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present"
+}
+Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present.
+
+**Source:** NOAA National Centers for Environmental Information, Monthly Tropical Cyclones Report for August 2025, published online September 2025, retrieved on November 17, 2025 from [here](https://www.ncei.noaa.gov/access/monitoring/monthly-report/tropical-cyclones/202508). [DOI]( https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00775)
+
+-   **Tide Plot:** Continuous line graph of the sealevel in meters that was captured every hour at the Okinawa Tide station. 
+
+
+```{r}
 Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename) {
   
 time_limits <- range(Tiltdf$DateTime, na.rm = TRUE)
@@ -659,7 +758,7 @@ FeatherPlot <- ggplot(Tiltdf, aes( DatetTime, y = 0)) +
            axis.text.x = element_text(angle = 45, hjust =1))
        
  
- ggsave(here("Output","TiltMeterData",FeatherPlotname))
+ ggsave(here("Output","TiltMeterData", "Feather Plots", FeatherPlotname))
  
  
  TempPlot <- ggplot(Tempdf, aes(DateTime, Temperature)) +
@@ -675,10 +774,8 @@ FeatherPlot <- ggplot(Tiltdf, aes( DatetTime, y = 0)) +
           axis.text.x = element_blank())
           
      
-  
-ggsave(here("Output", "TiltMeterData", TempPlotname))
+ggsave(here("Output", "TiltMeterData", "Temperature", TempPlotname))
  
-
 
 TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
    geom_line(color = "steelblue") +
@@ -720,20 +817,15 @@ TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
       plot.subtitle = element_text(hjust = 1))
      
   
-  ggsave(here("Output","TiltMeterData",WindrosePlotname))
+  ggsave(here("Output","TiltMeterData", "Windrose", WindrosePlotname))
   
  
-   
-  #TiltPhotoPlot <- as.ggplot(TiltPhoto)
   TiltPhotoPlot <- wrap_elements(
   panel = rasterGrob(as.raster(TiltPhoto),
                      width = unit(1, "npc"),
                      height = unit(0.5, "npc"))
 )
-  # TiltPhotoPlot <- wrap_elements(panel = rasterGrob(TiltPhoto, 
-  #                                                   x = unit(1, "npc"), 
-  #                                                   y = unit(1, "npc")))
-  
+
   
  FeatherPlot2 <- FeatherPlot + 
    guides(shape = guide_legend(override.aes = list(size = 0.5)), 
@@ -750,14 +842,14 @@ TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
          axis.text.x = element_blank(), 
          axis.ticks.x = element_blank())
          #legend.position = "none")
+ 
  WindrosePlot2 <- WindrosePlot + theme(plot.title = element_blank())
 
 left_side  <- (FeatherPlot2 / TempPlot / TidePlot) + 
                 plot_layout(axes = "collect")
 
 right_side <- (WindrosePlot2 / plot_spacer()  / TiltPhotoPlot) 
-  # plot_layout(heights = c(1,2), 
-  #             widths = c(1,2))
+ 
 
 combined <- (left_side | right_side) +
   plot_layout(widths = c(2,1)) +   # control relative widths
@@ -767,39 +859,24 @@ combined <- (left_side | right_side) +
   ) &
   theme(text = element_text(face = "bold"))
   
-  
-  
-  
-  
- 
-# combined <- (FeatherPlot/TempPlot/TidePlot + plot_layout(width = 4, axes = "collect")) |
-#   (WindrosePlot/TiltPhotoPlot +
-# #combined <- (FeatherPlot + TempPlot + TidePlot + WindrosePlot + TiltPhotoPlot) +
-#   plot_layout(width = 1)) +
-#   plot_annotation(title = Sitename, 
-#                   theme = theme(plot.title = element_text(size = 16))) &
-#   
-#   theme(text = element_text (face = "bold")) 
-  
-
    ggsave(here::here("Output", "TiltMeterData", combinedplot))
    
    return(combined)
+ 
  }
-
 
 
 Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, Sitename1 = "Site: Oki 2", AverageSpeed = "Average Speed: 1.74 cm/s", WindrosePlotname = "Windrose1.jpeg", Tilt1Photo, combinedplot = "Tilt1TideCombo.jpeg", Sitename = "Site: Oki 2")
 
- Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, Sitename1 = "Site: Oki 3", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose2.jpeg", Tilt2Photo, combinedplot = "Tilt2TideCombo.jpeg", Sitename = "Site: Oki 3")
+ Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, Sitename1 = "*Site: Oki 3*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose2.jpeg", Tilt2Photo, combinedplot = "Tilt2TideCombo.jpeg", Sitename = "*Site: Oki 3*")
 
  Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, Sitename1 = "Site: Oki 4", AverageSpeed = "Average Speed: 3.53 cm/s", WindrosePlotname = "Windrose3.jpeg", Tilt3Photo, combinedplot = "Tilt3TideCombo.jpeg", Sitename = "Site: Oki 4")
 
- Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, Sitename1 = "Site: Oki 7", AverageSpeed = "Average Speed: 6.27 cm/s", WindrosePlotname = "Windrose4.jpeg", Tilt4Photo, combinedplot = "Tilt4TideCombo.jpeg", Sitename = "Site: Oki 7")
+ Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, Sitename1 = "*Site: Oki 7*", AverageSpeed = "Average Speed: 6.27 cm/s", WindrosePlotname = "Windrose4.jpeg", Tilt4Photo, combinedplot = "Tilt4TideCombo.jpeg", Sitename = "*Site: Oki 7*")
 
  Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, Sitename1 = "Site: Oki 9", AverageSpeed = "Average Speed: 2.28 cm/s", WindrosePlotname = "Windrose5.jpeg", Tilt5Photo, combinedplot = "Tilt5TideCombo.jpeg", Sitename = "Site: Oki 9")
 
- Velocity_TidePlot_fun(Tilt6DataHourly, FeatherPlotname = "Tilt6Velocity.png", Tilt6Temp, TempPlotname = "Tilt6Temp.png", Tilt6DataHourly, Sitename1 = "Site: Oki 11", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose6.jpeg", Tilt6Photo, combinedplot = "Tilt6TideCombo.jpeg", Sitename = "Site: Oki 11")
+ Velocity_TidePlot_fun(Tilt6DataHourly, FeatherPlotname = "Tilt6Velocity.png", Tilt6Temp, TempPlotname = "Tilt6Temp.png", Tilt6DataHourly, Sitename1 = "*Site: Oki 11*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose6.jpeg", Tilt6Photo, combinedplot = "Tilt6TideCombo.jpeg", Sitename = "*Site: Oki 11*")
 
  Velocity_TidePlot_fun(Tilt7DataHourly, FeatherPlotname = "Tilt7Velocity.png", Tilt7Temp, TempPlotname = "Tilt7Temp.png", Tilt7DataHourly, Sitename1 = "Site: Oki 15", AverageSpeed = "Average Speed: 1.45 cm/s", WindrosePlotname = "Windrose7.jpeg", Tilt7Photo, combinedplot = "Tilt7TideCombo.jpeg", Sitename = "Site: Oki 15")
 
@@ -807,41 +884,66 @@ Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Ti
 
 
 ```
+# Summmary Stats
 
-# Make A Map of the Sites
+Degrees to compass heading function
 
 ```{r}
-Site7 <- LatLong %>% 
-  filter(Site == "Oki7") %>%
-  select(Long, Lat)
+degrees_to_compass <- function(degrees) {
+  # Normalize degrees to be within 0-360
+  degrees <- degrees %% 360
 
-SiteMap <- get_map(Site7, zoom = 11, maptype = "hybrid")
-MapBound <- c(127.65, 26.3, 128.2, 26.6) #Making a map bounding box, which centers the map better 
-#bounding box lowerleftlon, lowerleftlat, upperrightlon, upperrightlat
-SiteMap1 <- get_map(location = MapBound, maptype = "hybrid")
+  # Define compass directions and their corresponding degree ranges
+  directions <- c("N", "NE", "E", "SE", "S", "SW", "W", "NW", "N")
+  breaks <- c(0, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5, 360)
 
-ggmap(SiteMap1) +
-  geom_point(data = LatLong, 
-            aes(x = Long, y = Lat, color = fct_reorder(Site, Long)), 
-            size = 5) +
-  geom_label_repel(data = LatLong, aes(x = Long,y = Lat, label = Site), 
-       size = 4) +
-   scale_color_manual(
-      values = c( "skyblue","orange" ,"green2", "blue","red", "darkred", "magenta", "purple")) +
-  #annotate('rect', xmin = 127.73, ymin = 26.45, xmax = 127.75, ymax = 26.46, color = "red", fill = "white")+
-# annotate('text', x = 127.75 , y = 26.46, label = 'Oki 15', colour = "white", size = 4)+
-# annotate('segment', x = 127.74835, xend = 127.75, y = 26.4377, yend = 26.46,
-# color = 'white', arrow = arrow(length = unit (0.3,"cm")), size = 0.75) +
+  # Find the correct direction based on the degree value
+  # The findInterval function returns the index of the interval containing each element of 'degrees'.
+  # We subtract 1 from the index because the 'directions' vector has N at index 1 and 9, but we only need one N.
+  # The last break (360) is effectively the same as 0 for N.
+  compass_heading <- directions[findInterval(degrees, breaks)]
 
-  
-labs(x = 'Longitude', y = 'Latitude') + 
-  ggtitle('Site Map') +
+  return(compass_heading)
+}# Define compass directions and their corresponding degree ranges
+  directions <- c("N", "NE", "E", "SE", "S", "SW", "W", "NW", "N")
+  breaks <- c(0, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5, 360)
+```
 
-  annotation_scale( bar_cols = c("lightblue", "white"),
-                    location = "br")+ # put the bar on the bottom left and make the colors light blue and white
-  
-  annotation_north_arrow(location = "tl") + # add a north arrow
-  coord_sf(crs = 4326) +
-    theme(legend.position = "none")
 
+```{r}
+#| fig-cap: "Table of the minimum, maximum and average current speeds collected by each of the tilt meters by site. All sites had a souther current direction on average. Highlighted rows are the sites we are considering for long-term monitoring."
+
+Means<- JoinedData %>%
+  group_by(Site) %>%
+  filter(Speed <=  25.01416) %>%
+  summarise(MinSpeed = min(Speed, na.rm = TRUE), 
+            MaxSpeed = max(Speed, na.rm = TRUE),
+            MeanSpeed = mean(Speed, na.rm = TRUE), 
+            MeanFlowDir = mean(Heading, na.rm = TRUE) ) %>%
+ mutate(AverageDirection = degrees_to_compass(MeanFlowDir)) %>%
+  mutate_if(is.numeric, round, 2) %>%
+    mutate(MeanFlowDir = paste0(MeanFlowDir, "˚")) %>%
+  arrange(Site) #Reorder so that the means are from lowest ot highest speed
+
+
+   kbl(Means, format = "html", col.names = c("Site", "Min Speed (cm/s)", "Max Speed (cm/s)", "Mean Speed (cm/s)", "Mean Flow Direction ˚", "Mean Direction ")) %>% #Giving the average speed m/s of each tilt meter
+  kable_classic() %>%
+     kable_styling(full_width = F, position = "center") %>% 
+      row_spec(c(2, 4, 6), bold = TRUE, color = "black", background = "lightyellow") #Highlight oki3, 7, 11
+```
+
+
+```{r}
+#| fig-cap: "Table of the minimum, maximum, and average temperatures collected by each of the tilt meters by site. All sites had an average temperature of 29˚C and experienced a 3˚C temperature fluctuation within the two weeks during deployment. Highlighted rows are the sites we are considering for long-term monitoring."
+
+TempMeans <- JoinedTempData %>%
+  group_by(Site) %>%
+
+  summarise(min(Temperature), max(Temperature), mean(Temperature)) %>%
+  mutate_if(is.numeric, round, 2)
+
+kbl(TempMeans, col.names = c("Site", "Min Temperature", "Max Temperature", "Mean Temperature")) %>%
+  kable_classic()  %>%
+  kable_styling(full_width = FALSE) %>%
+  row_spec(c(2, 4, 6), bold = TRUE, color = "black", background = "lightyellow")
 ```
