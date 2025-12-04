@@ -460,7 +460,8 @@ labs(x = 'Longitude', y = 'Latitude') +
     theme(legend.position = "none", 
           text = element_text(face = "bold", size =12)) 
          
-
+ggsave(here("Output", "TiltMeterData", "SiteMap.png"),
+         width = 6, height = 6)
 SitesMap
 ```
 
@@ -645,7 +646,7 @@ TiltEllipses <- JoinedData %>%
     
     phi_deg <- (90 - (results$phi * 180 / pi))  #alls us to wrap angles into a 0-360 range
     
-    #phi_deg <- ifelse(phi_deg > 90, phi_deg - 180, phi_deg)
+    phi_deg <- ifelse(phi_deg > 90, phi_deg - 180, phi_deg)
     
     tibble( x = results$x, y = results$y, phi_deg = phi_deg ) }),
     
@@ -715,7 +716,7 @@ Tracks of Cyclones near Okinawa in August 2025, the small numbers along the trac
 
 
 ```{r}
-Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename) {
+Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename, left_sidePlot) {
   
 time_limits <- range(Tiltdf$DateTime, na.rm = TRUE)
 
@@ -848,6 +849,8 @@ TidePlot <- ggplot(TideDataHourly, aes(DateTime, Sealevel_m)) +
 left_side  <- (FeatherPlot2 / TempPlot / TidePlot) + 
                 plot_layout(axes = "collect")
 
+   
+
 right_side <- (WindrosePlot2 / plot_spacer()  / TiltPhotoPlot) 
  
 
@@ -861,26 +864,40 @@ combined <- (left_side | right_side) +
   
    ggsave(here::here("Output", "TiltMeterData", combinedplot))
    
+   
+Combined2 <- left_side +
+  plot_annotation(
+    title = Sitename, 
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 16)) 
+    
+  ) &
+  theme(text = element_text(face = "bold"))
+        # axis.title.x = element_text(size = 12), 
+        # axis.title.y = element_text(size = 12))
+
+   ggsave(here::here("Output", "TiltMeterData", left_sidePlot))
+
    return(combined)
+   return(left_side)
  
  }
 
 
-Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, Sitename1 = "Site: Oki 2", AverageSpeed = "Average Speed: 1.74 cm/s", WindrosePlotname = "Windrose1.jpeg", Tilt1Photo, combinedplot = "Tilt1TideCombo.jpeg", Sitename = "Site: Oki 2")
+Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Tilt1Temp, TempPlotname = "Tilt1Temp.png", Tilt1DataHourly, Sitename1 = "Site: Oki 2", AverageSpeed = "Average Speed: 1.74 cm/s", WindrosePlotname = "Windrose1.jpeg", Tilt1Photo, combinedplot = "Tilt1TideCombo.jpeg", Sitename = "Site: Oki 2", left_sidePlot = "Site2VelocityTempTide.jpeg")
 
- Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, Sitename1 = "*Site: Oki 3*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose2.jpeg", Tilt2Photo, combinedplot = "Tilt2TideCombo.jpeg", Sitename = "*Site: Oki 3*")
+ Velocity_TidePlot_fun(Tilt2DataHourly, FeatherPlotname = "Tilt2Velocity.png", Tilt2Temp, TempPlotname = "Tilt2Temp.png", Tilt2DataHourly, Sitename1 = "*Site: Oki 3*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose2.jpeg", Tilt2Photo, combinedplot = "Tilt2TideCombo.jpeg", Sitename = "*Site: Oki 3*", left_sidePlot = "Site3VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, Sitename1 = "Site: Oki 4", AverageSpeed = "Average Speed: 3.53 cm/s", WindrosePlotname = "Windrose3.jpeg", Tilt3Photo, combinedplot = "Tilt3TideCombo.jpeg", Sitename = "Site: Oki 4")
+ Velocity_TidePlot_fun(Tilt3DataHourly, FeatherPlotname = "Tilt3Velocity.png", Tilt3Temp, TempPlotname = "Tilt3Temp.png", Tilt3DataHourly, Sitename1 = "Site: Oki 4", AverageSpeed = "Average Speed: 3.53 cm/s", WindrosePlotname = "Windrose3.jpeg", Tilt3Photo, combinedplot = "Tilt3TideCombo.jpeg", Sitename = "Site: Oki 4", left_sidePlot = "Site4VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, Sitename1 = "*Site: Oki 7*", AverageSpeed = "Average Speed: 6.27 cm/s", WindrosePlotname = "Windrose4.jpeg", Tilt4Photo, combinedplot = "Tilt4TideCombo.jpeg", Sitename = "*Site: Oki 7*")
+ Velocity_TidePlot_fun(Tilt4DataHourly, FeatherPlotname = "Tilt4Velocity.png", Tilt4Temp, TempPlotname = "Tilt4Temp.png", Tilt4DataHourly, Sitename1 = "*Site: Oki 7*", AverageSpeed = "Average Speed: 6.27 cm/s", WindrosePlotname = "Windrose4.jpeg", Tilt4Photo, combinedplot = "Tilt4TideCombo.jpeg", Sitename = "*Site: Oki 7*", left_sidePlot = "Site7VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, Sitename1 = "Site: Oki 9", AverageSpeed = "Average Speed: 2.28 cm/s", WindrosePlotname = "Windrose5.jpeg", Tilt5Photo, combinedplot = "Tilt5TideCombo.jpeg", Sitename = "Site: Oki 9")
+ Velocity_TidePlot_fun(Tilt5DataHourly, FeatherPlotname = "Tilt5Velocity.png", Tilt5Temp, TempPlotname = "Tilt5Temp.png", Tilt5DataHourly, Sitename1 = "Site: Oki 9", AverageSpeed = "Average Speed: 2.28 cm/s", WindrosePlotname = "Windrose5.jpeg", Tilt5Photo, combinedplot = "Tilt5TideCombo.jpeg", Sitename = "Site: Oki 9", left_sidePlot = "Site9VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt6DataHourly, FeatherPlotname = "Tilt6Velocity.png", Tilt6Temp, TempPlotname = "Tilt6Temp.png", Tilt6DataHourly, Sitename1 = "*Site: Oki 11*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose6.jpeg", Tilt6Photo, combinedplot = "Tilt6TideCombo.jpeg", Sitename = "*Site: Oki 11*")
+ Velocity_TidePlot_fun(Tilt6DataHourly, FeatherPlotname = "Tilt6Velocity.png", Tilt6Temp, TempPlotname = "Tilt6Temp.png", Tilt6DataHourly, Sitename1 = "*Site: Oki 11*", AverageSpeed = "Average Speed: 0.80 cm/s", WindrosePlotname = "Windrose6.jpeg", Tilt6Photo, combinedplot = "Tilt6TideCombo.jpeg", Sitename = "*Site: Oki 11*", left_sidePlot = "Site11VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt7DataHourly, FeatherPlotname = "Tilt7Velocity.png", Tilt7Temp, TempPlotname = "Tilt7Temp.png", Tilt7DataHourly, Sitename1 = "Site: Oki 15", AverageSpeed = "Average Speed: 1.45 cm/s", WindrosePlotname = "Windrose7.jpeg", Tilt7Photo, combinedplot = "Tilt7TideCombo.jpeg", Sitename = "Site: Oki 15")
+ Velocity_TidePlot_fun(Tilt7DataHourly, FeatherPlotname = "Tilt7Velocity.png", Tilt7Temp, TempPlotname = "Tilt7Temp.png", Tilt7DataHourly, Sitename1 = "Site: Oki 15", AverageSpeed = "Average Speed: 1.45 cm/s", WindrosePlotname = "Windrose7.jpeg", Tilt7Photo, combinedplot = "Tilt7TideCombo.jpeg", Sitename = "Site: Oki 15", left_sidePlot = "Site15VelocityTempTidePlot.jpeg")
 
- Velocity_TidePlot_fun(Tilt8DataHourly, FeatherPlotname = "Tilt8Velocity.png", Tilt8Temp, TempPlotname = "Tilt8Temp.png", Tilt8DataHourly, Sitename1 = "Site: Oki 14", AverageSpeed = "Average Speed: 5.43 cm/s", WindrosePlotname = "Windrose8.jpeg", Tilt8Photo, combinedplot = "Tilt8TideCombo.jpeg", Sitename = "Site: Oki 14")
+ Velocity_TidePlot_fun(Tilt8DataHourly, FeatherPlotname = "Tilt8Velocity.png", Tilt8Temp, TempPlotname = "Tilt8Temp.png", Tilt8DataHourly, Sitename1 = "Site: Oki 14", AverageSpeed = "Average Speed: 5.43 cm/s", WindrosePlotname = "Windrose8.jpeg", Tilt8Photo, combinedplot = "Tilt8TideCombo.jpeg", Sitename = "Site: Oki 14", left_sidePlot = "Site14VelocityTempTidePlot.jpeg")
 
 
 ```
