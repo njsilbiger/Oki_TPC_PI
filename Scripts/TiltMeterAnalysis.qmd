@@ -752,8 +752,8 @@ FeatherPlot <- ggplot(Tiltdf, aes( DatetTime, y = 0)) +
   labs( x = "Date",
     y = "Velocity (cm/s)") +
   theme_minimal() +
-   theme( legend.position = "inside", #axis.text.x = element_text(angle = 45, hjust =1) +
-        legend.position.inside = c(0.5, 0.0), 
+   theme( #legend.position = "inside", #axis.text.x = element_text(angle = 45, hjust =1) +
+        #legend.position.inside = c(0.0, 0.1), 
         legend.box.background = element_rect(color = "black"), 
         #legend.key.size = unit(0.1, "cm"), 
            axis.text.x = element_text(angle = 45, hjust =1))
@@ -862,7 +862,7 @@ combined <- (left_side | right_side) +
   ) &
   theme(text = element_text(face = "bold"))
   
-   ggsave(here::here("Output", "TiltMeterData", combinedplot))
+   #ggsave(here::here("Output", "TiltMeterData", combinedplot))
    
    
 Combined2 <- left_side +
@@ -871,9 +871,9 @@ Combined2 <- left_side +
     theme = theme(plot.title = element_text(hjust = 0.5, size = 16)) 
     
   ) &
-  theme(text = element_text(face = "bold"))
+  theme(text = element_text(face = "bold"),
         # axis.title.x = element_text(size = 12), 
-        # axis.title.y = element_text(size = 12))
+        axis.title.y = element_text(size = 10))
 
    ggsave(here::here("Output", "TiltMeterData", left_sidePlot))
 
