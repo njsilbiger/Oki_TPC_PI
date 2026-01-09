@@ -117,17 +117,24 @@ for(i in 1:length(filenames_final)) {
   
   oxy_subsets <- Sample_Info[FRow,] %>%
       pmap(function(Light_level, start_time, stop_time, ...) {
-      data <- Respo.Data1  %>%
-        filter(Time >= start_time & Time <= stop_time) %>%
-        mutate(sec = row_number()) %>%# add an id for each row to help remove the first few mins
-        mutate(Light_level = Light_level,
-               sec = sec) %>%
-        filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 2 Hz
-        mutate(row_number = row_number()) %>%
-        filter(row_number %% 10 == 0) %>%  # keep every 10th row only to thin the data
-        select(-row_number) %>%
-        mutate(sec2 = row_number())  #update the row numbers
-      #return(subset)
+        data <- Respo.Data1  %>%
+          filter(Time >= start_time & Time <= stop_time) %>%
+          arrange(Time) %>%
+          mutate(t_sec = as.numeric(difftime(Time, first(Time), units = "secs"))) %>% #keep everything in seconds
+          mutate(Light_level = Light_level) %>%
+          filter(t_sec > 120) %>%                          # drop first 2 min (120 s)
+          filter(row_number() %% 10 == 0)                  # keep every 10th row
+      #   data <- Respo.Data1  %>%
+      #   filter(Time >= start_time & Time <= stop_time) %>%
+      #   mutate(sec = row_number()) %>%# add an id for each row to help remove the first few mins
+      #   mutate(Light_level = Light_level,
+      #          sec = sec) %>%
+      #   filter(sec > 60)  %>%# delete the first 2 mins of data assuming freq of 0.5 Hz
+      #   mutate(row_number = row_number()) %>%
+      #   filter(row_number %% 10 == 0) %>%  # keep every 10th row only to thin the data
+      #   select(-row_number) %>%
+      #   mutate(sec2 = row_number())  #update the row numbers
+      # #return(subset)
     }) 
    
  
@@ -138,7 +145,7 @@ for(i in 1:length(filenames_final)) {
   rename<- sub("_O2.csv","", filenames_final[i])
   
     ### plot and export the thinned data ####
-  p1<- ggplot(combined_oxy, aes(x = sec, y = Value)) +
+  p1<- ggplot(combined_oxy, aes(x = t_sec, y = Value)) +
     geom_point(color = "dodgerblue") +
     labs(
       x = 'Time (seconds)',
@@ -153,7 +160,7 @@ for(i in 1:length(filenames_final)) {
   
   # Define function for fitting LoLinR regressions to be applied to all intervals for all samples
   fit_reg <- function(data) {
-    rankLocReg(xall = data$sec2, yall = data$Value, 
+    rankLocReg(xall = data$t_sec, yall = data$Value, 
                alpha = 0.2, method = "pc", verbose = FALSE)
   }
   
@@ -162,8 +169,8 @@ for(i in 1:length(filenames_final)) {
   
   # Map LoLinR function onto all intervals of each sample's thinned dataset
   df <- combined_oxy %>%
-    select(sec2, Value, Light_level, Temp)%>%
-    mutate(sec2 = as.numeric(sec2))%>%
+    select(t_sec, Value, Light_level, Temp)%>%
+    mutate(t_sec = as.numeric(t_sec))%>%
     nest_by(Light_level) %>%
     ungroup()%>%
     mutate(regs = furrr::future_map(data, fit_reg), # run the LOLinR fit in parallel
@@ -243,12 +250,14 @@ RespoR_Normalized <- RespoR2 %>%
   #dplyr::select(Light_level, run_block, blank.rate, date) %>% # this is what I will use to join the blanks back with the raw data
   right_join(RespoR2) %>% # join blanks with the respo data
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates   
-         mmol.cm2.hr = 0.001*(umol.sec.corr*3600)/SA_cm2, # convert to mmol cm-2 hr-1
-         mmol.cm2.hr_uncorr = 0.001*(umol.sec*3600)/SA_cm2) %>% 
+         umol.cm2.hr = (umol.sec.corr*3600)/SA_cm2,
+         umol.cm2.hr_uncorr = (umol.sec*3600)/SA_cm2) %>%
+         # mmol.cm2.hr = 0.001*(umol.sec.corr*3600)/SA_cm2, # convert to mmol cm-2 hr-1
+         # mmol.cm2.hr_uncorr = 0.001*(umol.sec*3600)/SA_cm2) %>% 
   filter(blank!=1) %>% # remove the Blank data
   #ungroup() %>%
-  dplyr::select(date, species, sample_ID, frag_ID, light_dark, run_block, SA_cm2, run_block, mmol.cm2.hr, chamber_channel, 
-                Temp.C, mmol.cm2.hr_uncorr, Light_level, Light_value, light_dark) #keep only what we need
+  dplyr::select(date, species, sample_ID, frag_ID, light_dark, run_block, SA_cm2, run_block, umol.cm2.hr, chamber_channel, 
+                Temp.C, umol.cm2.hr_uncorr, Light_level, Light_value, light_dark) #keep only what we need
 
 
 #######################
@@ -270,7 +279,7 @@ Blank_only %>%
 
 #  basic plot of rates versus light before you make the real PI curve 
 basic_PI_plot <- RespoR_Normalized %>%
-  ggplot(aes(x = Light_value, y = mmol.cm2.hr, color = species, group = frag_ID))+
+  ggplot(aes(x = Light_value, y = umol.cm2.hr, color = species, group = frag_ID))+
   geom_point()+
   geom_line()+
   facet_wrap(~species, scales = "free")
