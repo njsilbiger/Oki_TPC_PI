@@ -670,7 +670,8 @@ sp_cols <- c(
 )
 
 #read in data
-topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4_7sp.csv"))
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_df <- topt_df %>% filter(sample_ID != "B08_TPC")
 
 #convert to long so you can plot everything at once
 metrics <- c("topt", "rmax", "e", "breadth") #select metrics
@@ -700,14 +701,14 @@ topt_summary <- topt_long %>%
 #first visualize data - plots of Topt and other variables from TPCs######
 topt_plot <- ggplot() +
   geom_jitter(data = topt_long,
-              aes(x = species, y = value, color = full_species),
+              aes(x = full_species, y = value, color = full_species),
               width = 0.15, alpha = 0.8) +
   geom_errorbar(data = topt_summary,
-                aes(x = species,
+                aes(x = full_species,
                     ymin = mean - se, ymax = mean + se),
                 width = 0.2, linewidth = 0.6) +
   geom_point(data = topt_summary,
-             aes(x = species, y = mean),
+             aes(x = full_species, y = mean),
              size = 2) +
   facet_wrap(PR ~ metric, scales = "free_y") +
   theme_bw(base_size = 12) +
@@ -780,6 +781,8 @@ topt_breadth_plot <- ggplot() +
   geom_errorbar(data = breadth_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = breadth_mean_np, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
+  stat_summary(data = topt_breadth_np, aes(x = full_species, y = value), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "b"))+
   theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
   #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "none")+
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
@@ -790,6 +793,9 @@ topt_e_plot <- ggplot() +
   geom_errorbar(data = e_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = e_mean_np, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
+  ylim(0,1)+
+  stat_summary(data = topt_e_np, aes(x = full_species, y = value), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "b"))+
   theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
   #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), , legend.position = "none", axis.title.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
@@ -810,30 +816,33 @@ topt_rmax_plot <- ggplot() +
   geom_errorbar(data = rmax_mean_np,aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = rmax_mean_np, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
+  stat_summary(data = topt_rmax_np, aes(x = full_species, y = value), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "b", "b"))+
   theme(axis.text.x = element_blank(), axis.title.x = element_blank(),legend.position = "right")+
   #theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"), legend.position = "none")+
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  ylim(0,2)+
   labs(x = "Species", y = expression("Rmax" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), , color = "Species")
 
 library(ggpubr)
-np_topt_plots <- ggarrange(topt_rmax_plot, topt_topt_plot, topt_e_plot, topt_breadth_plot, 
-                           nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
+np_topt_plots <- ggarrange(topt_rmax_plot, topt_topt_plot, 
+                           nrow = 1, ncol = 2, legend = "right", common.legend = TRUE)
 np_topt_plots
 
-ggsave(here("Output","TPC","Graphs","np_topt_plots.pdf"), np_topt_plots, h = 8, w = 12, dpi = 300)
+ggsave(here("Output","TPC","Graphs","np_topt_plots_2.pdf"), np_topt_plots, h = 5, w = 15, dpi = 300)
 
 
 #topt plot all together
 topt_plot <- ggplot() +
   geom_jitter(data = topt_long,
-              aes(x = species, y = value, color = full_species),
+              aes(x = full_species, y = value, color = full_species),
               width = 0.15, alpha = 0.8) +
   geom_errorbar(data = topt_summary,
-                aes(x = species,
+                aes(x = full_species,
                     ymin = mean - se, ymax = mean + se),
                 width = 0.2, linewidth = 0.6) +
   geom_point(data = topt_summary,
-             aes(x = species, y = mean),
+             aes(x = full_species, y = mean),
              size = 2) +
   facet_wrap(PR ~ metric, scales = "free_y") +
   theme_bw(base_size = 12) +
@@ -888,6 +897,9 @@ for (pr in PR_levels) {
 emm_all   <- bind_rows(emm_list)
 anova_all <- bind_rows(anova_list)
 emm_pair_set <- bind_rows(emm_pair_list)
+
+#NP
+
 
 write_csv(emm_all, here("Data","RespoFiles","TPC","emmeans_all_PR_metrics.csv"))
 write_csv(anova_all, here("Data","RespoFiles","TPC","anova_all_PR_metrics.csv"))

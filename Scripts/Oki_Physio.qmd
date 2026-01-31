@@ -155,7 +155,7 @@ dw_plot <- ggplot() +
        y = expression("Tissue biomass" ~ (mg ~ cm^{-2})))
 dw_plot
 
-#ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "dryweight_species_jitter.pdf"), dw_plot, h = 5, w = 10)
 ```
 
 ## Chlorophyll a
@@ -273,7 +273,7 @@ chla_plot <- ggplot() +
   ylim(0,22)
 chla_plot
 
-#ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 5, w = 10)
 ```
 
 #### Chla/symbiont
@@ -484,7 +484,7 @@ sym_plot <- ggplot() +
   labs(x = "Species", color = "Species", y = expression("Symbiont Density" ~ (cells ~ cm^{-2})))
 sym_plot
 
-ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 5, w = 10)
 ```
 
 ## Protein
@@ -521,6 +521,14 @@ Emmeans comparisons and plot
 ```{r}
 emm_obj <- emmeans::emmeans(prot.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
+# Acropora hyacinthus - Turbinaria frondens            -1148.9 257 85  -4.465  0.0010
+# Echinopora lamellosa - Turbinaria frondens           -1028.7 257 85  -3.998  0.0050
+# Montipora aequituberculata - Turbinaria frondens     -1068.6 257 85  -4.153  0.0030
+# Pachyseris rugosa - Pocillopora eydouxi                947.5 264 85   3.584  0.0190
+# Pocillopora eydouxi - Porites rus                     -904.6 264 85  -3.422  0.0308
+# Pocillopora eydouxi - Porites cylindrica              -867.6 264 85  -3.282  0.0457
+# Pocillopora eydouxi - Turbinaria frondens            -1577.3 264 85  -5.967  <.0001
+#a, ab, ab, ab, abc, abc, bc, bc, bc, c  
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
 emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
@@ -551,7 +559,8 @@ prot_plot <- ggplot() +
   geom_point(data = prot_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
   stat_summary(data = prot_ordered, aes(x = full_species, y = prot_ug_cm2), geom = "text", fun = max, vjust = -0.5, size = 8,
-    label = c("a", "a", "ab", "ab", "a", "a", "b", "ab", "ab", "ab"))+
+    label = c("a", "ab", "ab", "ab", "abc", "abc", "bc", "bc", "bc", "c"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   ylim(0,4100)+
@@ -559,7 +568,7 @@ prot_plot <- ggplot() +
        y = expression("Protein Content" ~ (mu*g ~ cm^{-2})))
 prot_plot
 
-#ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 5, w = 10)
 
 ```
 

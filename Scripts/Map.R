@@ -26,7 +26,7 @@ oki_outline <- ggplot() + #generate map of just outline
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) +
   #labs(title = "Okinawa Island, Japan") +
-  theme_minimal()
+  theme_minimal(base_size = 22)
 oki_outline
 
 ggsave(here("Output", "Okinawa_map", "oki_outline.pdf"), oki_outline, h = 8, w = 8)
@@ -39,13 +39,13 @@ afuso <- st_sf(name = "Afuso Reef", geometry = st_sfc(st_point(c(127.88984, 26.5
 oki_outline_labels <- ggplot() +
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   #labs(title = "Okinawa Island, Japan") +
-  theme_bw() +
-  geom_sf(data = oist, shape = 21, fill = "firebrick3", size = 4, stroke = 0.5) + #add labels on map
-  geom_sf_text(data = oist, aes(label = name), nudge_x = -0.05, fontface = "bold", size = 5) +
-  geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 4, stroke = 0.5) +
-  geom_sf_text(data = oist_mss, aes(label = name), nudge_x = -0.09, fontface = "bold", size = 5) +
-  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 4, stroke = 0.5) +
-  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.03, fontface = "bold", size = 5) +
+  theme_minimal(base_size = 22) +
+  #geom_sf(data = oist, shape = 21, fill = "firebrick3", size = 4, stroke = 0.5) + #add labels on map
+  #geom_sf_text(data = oist, aes(label = name), nudge_x = -0.05, fontface = "bold", size = 5) +
+  geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 8, stroke = 0.5) +
+  geom_sf_text(data = oist_mss, aes(label = name), nudge_x = -0.15, fontface = "bold", size = 8) +
+  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 8, stroke = 0.5) +
+  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.04, fontface = "bold", size = 8) +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) + #make sure to set boundary for map after adding labels because coord system will make map big if not
   theme(axis.title.y = element_blank(), axis.title.x = element_blank()) 
 oki_outline_labels
@@ -56,6 +56,23 @@ ggsave(here("Output", "Okinawa_map", "oki_outline_labels.pdf"), oki_outline_labe
 
 #read in temp data from Tilt 2 (at coral collection site)
 temp <- read_csv(here("Data", "TiltMeterData", "Tilt2_Temperature.csv"))
+
+#temp plot
+temp_plot <- ggplot(temp, aes(y = Temperature, x = DateTime)) +
+  geom_line()+
+  #geom_hline(yintercept = 28.294, linetype = "dashed") +
+  #geom_hline(yintercept = 29.87, linetype = "dashed") +
+  labs(x = "Date", y = "Temperature (°C)") +
+  theme_bw(base_size = 22)+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  ylim(27,30.2)+
+  scale_x_datetime(date_breaks = "1 day", 
+                   minor_breaks = NULL,
+                   date_labels = "%b %d")
+
+temp_plot
+
+ggsave(here("Output", "Okinawa_map", "temp_plot.pdf"), temp_plot, h = 8, w = 10)
 
 #add column to denote temperature points above Topt
 #Fcom highest mean Topt for NP = 29.87
@@ -186,7 +203,13 @@ E_y2 <- approx(temp, rate_mean, xout = E_x2)$y
 p <- ggplot(df, aes(x = temp, y = rate_mean)) +
   # curve + points
   geom_line(aes(y = rate_mean), linewidth = 1.2) +
-  
+  # Topt: vertical dashed line + parsed label near x-axis
+  geom_vline(xintercept = Topt, linetype = 2) +
+  annotate("text",
+           x = Topt, y = 0, vjust = 0.5, hjust = 2,
+           label = "T['opt']",
+           parse = TRUE, size = 8) +
+  theme_classic(base_size = 22)+
   # Rmax: mark peak, arrow, and label
   annotate("point", x = Topt_eff, y = Rmax_eff, size = 3) +
   annotate("segment",
@@ -196,13 +219,6 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
   annotate("text",
            x = Topt_eff + 2.3, y = Rmax_eff, hjust = 0, vjust = 0,
            label = "R['max']",
-           parse = TRUE, size = 8) +
-  
-  # Topt: vertical dashed line + parsed label near x-axis
-  geom_vline(xintercept = Topt, linetype = 2) +
-  annotate("text",
-           x = Topt, y = 0, vjust = 0.5, hjust = 2,
-           label = "T['opt']",
            parse = TRUE, size = 8) +
   
   # Breadth (FWHM): double-headed arrow at half height + ticks + label
@@ -236,4 +252,14 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
 
 p
 
-ggsave(here("Output","Okinawa_Map","tpc_schematic.pdf"), p, h = 8, w = 10)
+#simple plot
+schematic <- ggplot(df, aes(x = temp, y = rate_mean)) +
+  # curve + points
+  geom_line(aes(y = rate_mean), linewidth = 1.2) +
+  # Topt: vertical dashed line + parsed label near x-axis
+  geom_vline(xintercept = Topt, linetype = 2) +
+  labs(x = expression("Temperature ("*degree*C*")"),
+       y = expression("Physiological Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
+  theme_classic(base_size = 22)
+
+ggsave(here("Output","Okinawa_Map","tpc_simple_schematic.pdf"), p, h = 8, w = 10)

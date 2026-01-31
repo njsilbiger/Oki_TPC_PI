@@ -86,7 +86,8 @@ AllData <- AllData %>%
     ChlPlate_750_corr = ChlPlate_750 - blank_vals$blank_750
   )
 
-### Run pH Analysis ##################
+### Run chla analysis ###
+###MAYA UPDATE THIS TO USE CORRECTED VALUES!!!
 # chl from Jeffry and Humphreys
 ChlData_raw<-AllData %>%
   mutate(chla = 11.43*(ChlPlate_663 - ChlPlate_750 / PL) - 0.64*(ChlPlate_630 - ChlPlate_750/PL),
