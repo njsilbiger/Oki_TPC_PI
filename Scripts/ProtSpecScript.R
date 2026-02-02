@@ -4,7 +4,7 @@
 ### Created by Maya Powell
 ### modified Dr. Nyssa Silbiger's chla script and Dr. Hollie Putnam's protein script
 ###
-### Edited on 08/08/2025
+### Edited on 02/02/2026
 #########################################################################
 
 ## create a folder for your day of sampling (foldername below) and put your plate.csv files in there. All your data will be exported to that folder
@@ -21,6 +21,7 @@ filename<-'Plate4_Proteins_08.12.25.csv' # data
 sampleID<-'protein_platemap_run4.csv' # template of sample IDs
 platename<-'plate4' # this will be the name of your file
 metadata_file<-"protein_meta_run4.csv" # file with slurry vols and SA
+standard_id <-"StandardI_Run4" #the name of your standard - should always be StandardI_RunX
 
 # Only edit the run# for the blanks below this line!! ---------------------
 #I just did case-sensitive find-replace for e.g. "Run4" -> "Run4"
@@ -87,7 +88,7 @@ std_curve <- AllData %>%
   #mutate(std = str_sub(std, 9, 9)) %>%
   group_by(std) %>%
   summarise(mean_abs = mean(abs)) %>%                       # calculate mean of standard duplicates
-  mutate(mean_abs_adj = mean_abs - mean_abs[std == "StandardI_Run4"]) %>%       # subtract blank absorbance value from all
+  mutate(mean_abs_adj = mean_abs - mean_abs[std == standard_id]) %>%       # subtract blank absorbance value from all
   #YOU WILL NEED TO CHANGE THE STANDARD # EACH ROUND WHEN YOU RUN THIS SORRY
   left_join(standards)
 
@@ -119,8 +120,7 @@ prot <- AllData %>%
   filter(!is.na(Sample.Name)) %>% 
   group_by(Sample.Name) %>%
   summarise(mean_abs = mean(abs)) %>% 
-  #CHANGE BASED ON RUN NUMBER
-  mutate(mean_abs_adj = mean_abs - mean_abs[Sample.Name == "StandardI_Run4"]) %>% #subtract abs of blank from ALL samples
+  mutate(mean_abs_adj = mean_abs - mean_abs[Sample.Name == standard_id]) %>% #subtract abs of blank from ALL samples
   filter(!grepl("Standard", Sample.Name)) %>%   # Get just samples (not standards)
   mutate(prot_ug_mL = map_dbl(mean_abs_adj, ~ predict(mod, newdata = data.frame(mean_abs_adj = .)))) %>%   # Use standard curve to convert absorbance to protein
   left_join(metadata) %>% #merge with sample data again to get slurry vol and SA
