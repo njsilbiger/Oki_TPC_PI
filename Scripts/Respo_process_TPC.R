@@ -80,7 +80,7 @@ BioData <- BioData %>%
 RespoMeta <- RespoMeta %>% 
   dplyr::select(-notes)
 
-Sample_Info <- left_join(RespoMeta, BioData)
+Sample_Info <- left_join(RespoMeta, BioData, by = c("sample_ID", "frag_ID"))
 #View(Sample_Info)
 
 ##### Make sure times are consistent ####
