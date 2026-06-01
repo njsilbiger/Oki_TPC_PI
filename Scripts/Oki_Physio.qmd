@@ -232,7 +232,7 @@ Generate emmeans comparisons and plot
 ```{r}
 emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#a, a, a, a, a, a, ab, ab, b, b
+#"a", "a", "a", "a", "a", "a", "ab", "ab", "b", "b"
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
 emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
@@ -270,7 +270,7 @@ chla_plot <- ggplot() +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   labs(x = "Species", color = "Species", y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2}))) +
-  ylim(0,22)
+  ylim(0,31)
 chla_plot
 
 ggsave(here("Output", "Physiology", "chla_cm2_species_jitter.pdf"), chla_plot, h = 5, w = 10)
@@ -282,7 +282,9 @@ Only seven species for sym data for now so edit dataframe accordingly
 
 ```{r}
 sp_keep <- c("Acropora hyacinthus","Echinopora lamellosa", "Favites complanata","Montipora aequituberculata","Pocillopora eydouxi","Porites rus","Turbinaria frondens")
-chla_7sp <- chla_avg %>% filter(full_species %in% sp_keep)
+chla_7sp <- chla_avg %>% 
+  filter(full_species %in% sp_keep) %>%
+  filter(frag_ID != "E04" & frag_ID != "E05") #removing exceptionally high chla/sym samples
 
 ```
 
@@ -343,13 +345,13 @@ chla_sym_plot <- ggplot() +
   geom_errorbar(data = chla_sym_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_sym_summary, aes(x = full_species, y = mean), size = 2) +
   stat_summary(data = chla_7sp_ordered, aes(x = full_species, y = chla_pg_sym), geom = "text", fun = max, vjust = -0.5, size = 8,
-               label = c("a", "ab", "ab", "abc", "abc", "bc", "c"))+
+               label = c("a", "a", "a", "a", "a", "ab", "b"))+
   theme_bw(base_size = 22)+
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   labs(x = "Species", color = "Species", y = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-2}))) +
-  ylim(0,11)
+  ylim(0,8)
 chla_sym_plot
 
 ggsave(here("Output", "Physiology", "chla_sym_species_jitter.pdf"), chla_sym_plot, h = 8, w = 10)
@@ -485,6 +487,7 @@ sym_plot <- ggplot() +
 sym_plot
 
 ggsave(here("Output", "Physiology", "sym_species_jitter.pdf"), sym_plot, h = 5, w = 10)
+#low sym density but high chla/sym maybe helpful for P eyd here - lots of photosynthesis but lower cell counts = more energy/stores for growth
 ```
 
 ## Protein
@@ -540,7 +543,7 @@ emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_speci
   labs(x = "Emmean", y = "Species")
 emm_plot
 
-#ggsave(here("Output","Physiology","prot_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
+ggsave(here("Output","Physiology","prot_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
 
 Reorder and plot species comparisons
@@ -578,9 +581,9 @@ Put all physio plots together
 
 ```{r}
 #| fig.width: 15
-#| fig.height: 10
-physio_plots <- ggarrange(chla_plot, sym_plot, dw_plot, prot_plot, nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
+#| fig.height: 15
+physio_plots <- ggarrange(chla_plot, chla_sym_plot, sym_plot, dw_plot, prot_plot, nrow = 3, ncol = 2, legend = "right", common.legend = TRUE)
 
 plot(physio_plots)
-#ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)
+ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 15, w = 15)
 ```

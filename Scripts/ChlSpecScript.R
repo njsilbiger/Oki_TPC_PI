@@ -2,7 +2,7 @@
 ### This calculates the Chlorophyll from a 96 well plate in corals from teh SpectraMax iD5
 ### 
 ### Created by Dr. Nyssa Silbiger
-### Edited on 07/10/2025
+### Edited on 06/01/2026 by Maya Powell (updated chla calculation correctly accounting for path length)
 #########################################################################
 
 ## create a folder for your day of sampling (foldername below) and put your plate.csv files in there. All your data will be exported to that folder
@@ -14,10 +14,10 @@ library(tidyverse)
 
 ## File names -------------------
 foldername<-'ChlaSpec' # folder of the day
-filename<-'Plate4_Chla_16.50_8.12.2025.csv' # data
-sampleID<-'Chl_template_plate4.csv' # template of sample IDs
-platename<-'oki_chla_plate4' # this will be the name of your file
-metadata_file<-"Chl_metadata_plate4.csv" # file with slurry vols and SA
+filename<-'Plate1_Chla_12.42_8.12.2025.csv' # data
+sampleID<-'Chl_template_plate1.csv' # template of sample IDs
+platename<-'oki_chla_plate1' # this will be the name of your file
+metadata_file<-"Chl_metadata_plate1.csv" # file with slurry vols and SA
 
 ## What is the path length?
 PL<-0.71 # pathlength for donahue lab plate
@@ -87,11 +87,11 @@ AllData <- AllData %>%
   )
 
 ### Run chla analysis ###
-###MAYA UPDATE THIS TO USE CORRECTED VALUES!!!
+
 # chl from Jeffry and Humphreys
 ChlData_raw<-AllData %>%
-  mutate(chla = 11.43*(ChlPlate_663 - ChlPlate_750 / PL) - 0.64*(ChlPlate_630 - ChlPlate_750/PL),
-         chlc = 27.09*(ChlPlate_630 - ChlPlate_750 / PL) - 3.63*(ChlPlate_663 - ChlPlate_750/PL),
+  mutate(chla = 11.43*((ChlPlate_663 - ChlPlate_750)/PL) - 0.64*((ChlPlate_630 - ChlPlate_750)/PL),
+         chlc = 27.09*((ChlPlate_630 - ChlPlate_750)/PL) - 3.63*((ChlPlate_663 - ChlPlate_750)/PL),
          Totalchl = chla+chlc,
            daterun = Sys.Date()) %>%
   left_join(sampleIDNames) %>% # join with the sampleIDs
