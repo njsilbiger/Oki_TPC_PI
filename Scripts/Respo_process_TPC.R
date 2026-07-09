@@ -1,6 +1,6 @@
 ###### Respo Code for TPC Light and Dark Runs ####### 
 ### Created by: Nyssa Silbiger
-#### Last updated on: 2025-07-26
+#### Last updated on: 2025-07-26 by Maya Powell
 
 ############## Introduction to code/script ####################
 ## this script will help us process the raw data gathered during respirometry runs. 
@@ -12,7 +12,8 @@
 if ("segmented" %in% rownames(installed.packages()) == 'FALSE') install.packages('segmented')
 if ("plotrix" %in% rownames(installed.packages()) == 'FALSE') install.packages('plotrix')
 if ("gridExtra" %in% rownames(installed.packages()) == 'FALSE') install.packages('gridExtra')
-if ("LoLinR" %in% rownames(installed.packages()) == 'FALSE') devtools::install_github('colin-olito/LoLinR')
+if ("remotes" %in% rownames(installed.packages()) == 'FALSE') install.packages('remotes')
+if ("LoLinR" %in% rownames(installed.packages()) == 'FALSE') install_github('colin-olito/LoLinR')
 if ("chron" %in% rownames(installed.packages()) == 'FALSE') install.packages('chron')
 if ("tidyverse" %in% rownames(installed.packages()) == 'FALSE') install.packages('tidyverse')
 if ("here" %in% rownames(installed.packages()) == 'FALSE') install.packages('here')
@@ -28,18 +29,18 @@ library(plotrix)
 library(gridExtra)
 library(LoLinR)
 library(lubridate)
-library(chron)
+#library(chron)
 library(patchwork)
 library(tidyverse)
 library(here)
-library(PNWColors)
 library(ggrepel)
 library(reshape2)
-library(viridis)
 library(car)
 library(future)
 library(furrr)
 library(dplyr)
+library(ggplot2)
+library(ggpubr)
 
 ############# now it's time to code ############
 ################################################
