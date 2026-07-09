@@ -228,7 +228,7 @@ chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 
 chla_avg <- chla_avg %>% 
   #filter(full_species %in% sp_keep) %>% 
-  filter(frag_ID != "E04") %>% #remove outlier frag
+  filter(frag_ID != "E04", frag_ID != "E05") %>% #remove outlier frag
   mutate(chla_ug_total = (chla_mean*50)) %>% #multiply by slurry volume to get total chla
   mutate(chla_pg_sym = (chla_ug_total/sym_total)*1000000) #divide by total symbionts and multiply by 1000000 to get pg
 
@@ -262,17 +262,17 @@ Generate emmeans comparisons and plot
 ```{r}
 emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#"a", "a", "a", "a", "a", "ab", "ab", "ab", "b", "b"
-#Acropora hyacinthus - Porites cylindrica             -6.8720 1.84 90  -3.726  0.0119
-#Acropora hyacinthus - Porites rus                    -7.4207 1.84 90  -4.024  0.0045
-#Echinopora lamellosa - Porites cylindrica            -6.4047 1.84 90  -3.473  0.0260
-#Echinopora lamellosa - Porites rus                   -6.9533 1.84 90  -3.770  0.0104
-#Montipora aequituberculata - Porites cylindrica      -6.9516 1.84 90  -3.769  0.0104
-#Montipora aequituberculata - Porites rus             -7.5002 1.84 90  -4.067  0.0039
-#Pachyseris rugosa - Porites cylindrica               -5.7105 1.84 90  -3.096  0.0742
-#Pachyseris rugosa - Porites rus                      -6.2592 1.84 90  -3.394  0.0328
-#Pocillopora eydouxi - Porites cylindrica             -9.0542 1.84 90  -4.910  0.0002
-#Pocillopora eydouxi - Porites rus                    -9.6029 1.84 90  -5.207 <0.0001
+#"a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"
+#Acropora hyacinthus - Porites cylindrica             -6.8720 1.86 88  -3.686  0.0137
+#Acropora hyacinthus - Porites rus                    -7.4207 1.86 88  -3.980  0.0053
+#Echinopora lamellosa - Porites cylindrica            -6.4047 1.86 88  -3.435  0.0293
+#Echinopora lamellosa - Porites rus                   -6.9533 1.86 88  -3.729  0.0119
+#Montipora aequituberculata - Porites cylindrica      -6.9516 1.86 88  -3.728  0.0120
+#Montipora aequituberculata - Porites rus             -7.5002 1.86 88  -4.023  0.0045
+#Pachyseris rugosa - Porites cylindrica               -5.7105 1.86 88  -3.063  0.0813
+#Pachyseris rugosa - Porites rus                      -6.2592 1.86 88  -3.357  0.0367
+#Pocillopora eydouxi - Porites cylindrica             -9.1954 1.98 88  -4.650  0.0005
+#Pocillopora eydouxi - Porites rus                    -9.7441 1.98 88  -4.927  0.0002
 
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
@@ -305,7 +305,7 @@ chla_plot <- ggplot() +
   geom_errorbar(data = chla_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_summary, aes(x = full_species, y = mean), size = 2) +
   stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_ug_cm2_mean), geom = "text", fun = max, vjust = -0.5, size = 8,
-               label = c("a", "a", "a", "a", "a", "ab", "ab", "ab", "b", "b"))+
+               label = c("a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"))+
   theme_bw(base_size = 22)+
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
@@ -344,9 +344,14 @@ Emmeans comparison and plot
 ```{r}
 emm_obj <- emmeans::emmeans(chla.sym.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#Montipora aequituberculata - Pocillopora eydouxi    -2.94930 0.88 90  -3.352  0.0370
-#Pocillopora eydouxi - Turbinaria frondens            2.95298 0.88 90   3.356  0.0365
-#a, ab, ab, abc, abc, bc, c
+#Acropora hyacinthus - Porites rus                   -2.53747 0.497 88  -5.109 <0.0001
+#Echinopora lamellosa - Porites rus                  -2.20511 0.497 88  -4.439  0.0010
+#Favites complanata - Porites rus                    -2.25391 0.497 88  -4.538  0.0007
+#Montipora aequituberculata - Porites rus            -2.74696 0.497 88  -5.530 <0.0001
+#Pocillopora eydouxi - Porites rus                   -1.99834 0.527 88  -3.793  0.0097
+#Porites cylindrica - Porites rus                    -2.11202 0.497 88  -4.252  0.0020
+#Porites rus - Turbinaria frondens                    2.75064 0.497 88   5.538 <0.0001
+#"a", "a", "a", "a", "a", "a", "a", "ab", "ab", "b"
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
 emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
@@ -377,16 +382,16 @@ chla_sym_plot <- ggplot() +
   geom_jitter(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym, color = full_species), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = chla_sym_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_sym_summary, aes(x = full_species, y = mean), size = 2) +
-  #stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "a", "a", "a", "a", "ab", "b"))+
+  stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "a", "a", "a", "a", "a", "a", "ab", "ab", "b"))+
   theme_bw(base_size = 22)+
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  ylim(1.5,9.5)+
   labs(x = "Species", color = "Species", y = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-2})))
-  #ylim(0,8)
 chla_sym_plot
 
-ggsave(here("Output", "Physiology", "chla_sym_species_jitter.pdf"), chla_sym_plot, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "chla_sym_species_jitter.pdf"), chla_sym_plot, h = 5, w = 10)
 ```
 
 ## Symbiont density
