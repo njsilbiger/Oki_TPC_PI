@@ -425,7 +425,7 @@ Making a new tide dataframe and calling it *TideDataHourly* the tide data is alr
 
 # Site Map
 
-Map of the sites, points represent the locations the Tilt Meters were placed. 
+Map of the sites, points represent the locations the Tilt Meters were placed.
 
 ```{r}
 #| fig-width: 12
@@ -479,7 +479,7 @@ ggplot(JoinedData, aes(x = DateTime, y = Speed_m)) +
 
 ### Prax Ellipse Function
 
-This code is converted from Matlab Katie Smith Via Christina Comfort. 
+This code is converted from Matlab Katie Smith Via Christina Comfort.
 
 ```{r}
 prax_ellipse_fct <- function(u, v) {
@@ -560,7 +560,6 @@ prax_ellipse_fct <- function(u, v) {
 
 We are again converting the matlab script and we are going to use the joined data to facet plot all the current ellipses together
 
-
 ```{r}
 #| output: false
 
@@ -634,6 +633,7 @@ AllEllipsesPlot
  AllEllipsesPlot | SitesMap 
 
 ```
+
 ## Individual Site Plots
 
 ### Current Ellipses
@@ -657,7 +657,6 @@ TiltEllipses <- TiltEllipses %>%
   group_by(TiltMeter) %>%
   mutate(angle_label = round(unique(phi_deg), 1)) 
 ```
-
 
 ```{r}
 #| fig-width: 8
@@ -702,18 +701,15 @@ The data can be viewed on an interactive map on [GoogleEarth](https://earth.goog
 
 -   **Feather Plot:** Time series showing the average velocity in cm/s. A positive *Velocity North* (blue) indicates a north flow direction, a negative *Velocity North* (blue) is a south flow direction. A positive *Velocity East* (red) is a east flow direction, a negative *Velocity East* (red) is a west flow direction.
 
--   **Windrose Plot:** Represents the current speed and direction. The longer the pie cut is in a specific direction is the more dominant current direction. The colors represtent the current speeds in cm/s. The majority current speed at all sites was between 0-5 cm/s. 
--   **Temperature Plot:** A line graph showing all temperature. All sites had an increase in temperature around August 5th and a decrease in temperature around August 12th. This may be due to nearby typhoons: 
+-   **Windrose Plot:** Represents the current speed and direction. The longer the pie cut is in a specific direction is the more dominant current direction. The colors represtent the current speeds in cm/s. The majority current speed at all sites was between 0-5 cm/s.
 
-![](AugustCyclone.png){
-  fig-cap="Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present"
-}
-Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present.
+-   **Temperature Plot:** A line graph showing all temperature. All sites had an increase in temperature around August 5th and a decrease in temperature around August 12th. This may be due to nearby typhoons:
 
-**Source:** NOAA National Centers for Environmental Information, Monthly Tropical Cyclones Report for August 2025, published online September 2025, retrieved on November 17, 2025 from [here](https://www.ncei.noaa.gov/access/monitoring/monthly-report/tropical-cyclones/202508). [DOI]( https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00775)
+![](AugustCyclone.png){fig-cap="Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present"} Tracks of Cyclones near Okinawa in August 2025, the small numbers along the tracks represent the dates when the cyclone was present.
 
--   **Tide Plot:** Continuous line graph of the sealevel in meters that was captured every hour at the Okinawa Tide station. 
+**Source:** NOAA National Centers for Environmental Information, Monthly Tropical Cyclones Report for August 2025, published online September 2025, retrieved on November 17, 2025 from [here](https://www.ncei.noaa.gov/access/monitoring/monthly-report/tropical-cyclones/202508). [DOI](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ncdc:C00775)
 
+-   **Tide Plot:** Continuous line graph of the sealevel in meters that was captured every hour at the Okinawa Tide station.
 
 ```{r}
 Velocity_TidePlot_fun <- function(Tiltdf, FeatherPlotname, Tempdf, TempPlotname, Tiltdf2, Sitename1, AverageSpeed, WindrosePlotname, TiltPhoto, combinedplot, Sitename, left_sidePlot) {
@@ -901,6 +897,7 @@ Velocity_TidePlot_fun(Tilt1DataHourly, FeatherPlotname = "Tilt1Velocity.png", Ti
 
 
 ```
+
 # Summmary Stats
 
 Degrees to compass heading function
@@ -926,7 +923,6 @@ degrees_to_compass <- function(degrees) {
   breaks <- c(0, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5, 360)
 ```
 
-
 ```{r}
 #| fig-cap: "Table of the minimum, maximum and average current speeds collected by each of the tilt meters by site. All sites had a souther current direction on average. Highlighted rows are the sites we are considering for long-term monitoring."
 
@@ -948,7 +944,6 @@ Means<- JoinedData %>%
      kable_styling(full_width = F, position = "center") %>% 
       row_spec(c(2, 4, 6), bold = TRUE, color = "black", background = "lightyellow") #Highlight oki3, 7, 11
 ```
-
 
 ```{r}
 #| fig-cap: "Table of the minimum, maximum, and average temperatures collected by each of the tilt meters by site. All sites had an average temperature of 29˚C and experienced a 3˚C temperature fluctuation within the two weeks during deployment. Highlighted rows are the sites we are considering for long-term monitoring."

@@ -1,0 +1,32 @@
+---
+title: "SfM Analysis"
+author: "Ashley Carreiro"
+format: html
+editor: visual
+---
+
+## Upload Data From CoralNet
+
+```{r}
+CoralNet <- read_csv(here("Data/SfM/CoralNetAnalysis.csv"))
+CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv"))
+```
+
+mutate( full_name = case_match(abbrev, c("NY", "NYC") \~ "New York", "LA" \~ "Los Angeles", c("SF", "SFO") \~ "San Francisco", .default = NA_character\_
+
+```{r}
+SubstrateCoverData <- 
+  left_join(CoralNet, CoralNetReference, by = c("CoralNetAbb"))
+view(SubstrateCoverData)
+```
+
+\
+
+```{r}
+SubstrateCoverDataWide <- SubstrateCoverData %>%
+  mutate(Count = 1) %>%
+  select(SiteName, Quadrant,Name, Count) %>%
+
+pivot_wider(names_from = Name, values_from = Count,
+            values_fill = 0)
+```

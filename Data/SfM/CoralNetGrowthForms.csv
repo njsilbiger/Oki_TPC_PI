@@ -1,0 +1,74 @@
+﻿CoralNetAbb,Name,GrowthForm,FunctionalGroup
+TurfAl,Turf algae,CTB,Algae
+CCA,CCA (crustose coralline algae),CCA,Algae
+Unclear,Unclear,NA,Other
+porB,Porites (branching),Branching,Hard coral
+Favites,Favites,Massive,Hard coral
+FilamentAl,Algae (filamentous),CTB,Algae
+porM,Porites (massive),Massive,Hard coral
+PorLob,Porites lobata,Massive,Hard coral
+Mtub,Montipora tuberculosa,Submassive,Hard coral
+DeadCoral,Dead coral,RDC,Hard Substrate
+gal,Galaxea,Submassive,Hard coral
+pec,Pectinia,Massive,Hard coral
+gon,Goniastrea,Massive,Hard coral
+Faviidae,Faviidae,Massive,Hard coral
+BS,Bare Substrate,CTB,Hard Substrate
+san,Sandalolitha,Sand,Hard coral
+fun,Fungia,Submassive,Hard coral
+RCK,Rock,CTB,Hard Substrate
+RUB,Rubble,CTB,Other
+pla,Platygyra,Massive,Hard coral
+AcrpBr,Acropora (branching),Branching,Hard coral
+myc,Mycedium,Submassive,Hard coral
+HCBr,Hard Coral (branching),Branching,Hard coral
+Favia,Favia (Indo-Pacific),Submassive,Hard coral
+MoAeq,Montipora aequituberculata,Plating,Hard coral
+pac,Pachyseris,Plating,Hard coral
+*MOBR,CRED-Montipora spp_branching,Branching,Hard coral
+AMAC,Macroalgae,CTB,Algae
+lob,Lobophyllia,Submassive,Hard coral
+Spog,Sponge,Sponge,Other Invertebrates
+HCEn,Hard Coral_Encrusting,Encrusting,Hard coral
+poc,Pocillopora,Corymbose,Hard coral
+*MOEN,CRED-Montipora spp_encrusting,Encrusting,Hard coral
+dip,Diploastrea,Massive,Hard coral
+PorE,Porites_encrusting,Encrusting,Hard coral
+*MOFO,CRED-Montipora spp_foliose,Plating,Hard coral
+mer,Merulina,Plating,Hard coral
+Tridacna,Tridacna: Giant clam,Clam,Other Invertebrates
+TurbEnc,Turbinaria Encrusting,Encrusting,Hard coral
+lep,Leptoria,Encrusting,Hard coral
+turb,Turbinaria (coral),Foliose,Hard coral
+SC,Soft Coral,Soft Coral,Other Invertebrates
+PorRus,Porites rus,Submassive,Hard coral
+UNK,Unknown,NA,Other
+PALYTHO,Palythoa,Zooanthid,Other Invertebrates
+eph,Echinophyllia,Submassive,Hard coral
+PorP,Porites PLating,Plating,Hard coral
+AcrpTab,Acropora (tabulate),Tabular,Hard coral
+mtp,Montipora,submassive,Hard coral
+sym,Symphyllia,Submassive,Hard coral
+mon,Montastraea,Submassive,Hard coral
+cyp,Cyphastrea,Submassive,Hard coral
+HCP,Hard Coral plate,Plating,Hard coral
+HCMa,Hard Coral Massive,Massive,Hard coral
+Ascd,Ascidian,Ascidian,Other Invertebrates
+SeaCucum,Sea cucumber,Sea Cucumber,Other Invertebrates
+Other,All other,NA,Other
+Alveo,Alveopora,Submassive,Hard coral
+psa,Psammocora,Encrusting,Hard coral
+Astreo,Astreopora,Submassive,Hard coral
+Dis-AcroWS,Acropora-diseased-White Syndrome,Disease,Hard coral
+AcrpDi,Acropora (digitate),Digitate,Hard coral
+ALG,Algae,Algae,Algae
+Ech_lam,Echinopora lamellosa,Plating,Hard coral
+HCFo,Hard Coral (foliose),Foliose,Hard coral
+mil,Millepora,Millepora,Other Invertebrates
+lepta,Leptastrea,Encrusting,Hard coral
+hydno,Hydnophora,Submassive,Hard coral
+pav,Pavona,Submassive,Hard coral
+SGR,Seagrass,Seagrass,Seagrass
+phy,Physogyra,Massive,Hard coral
+gop,Goniopora,Submassive,Hard coral
+Zoanthids,Zoanthid,Zooanthid,Other Invertebrates
