@@ -69,6 +69,102 @@ SubstrateCoverDataWide <- SubstrateCoverData %>%
 SubstrateCoverDataWide$Total #making sure there is 100 
 ```
 
+Function to Creat Dataframes of everythign we want to graph
+
+```{r}
+PercentCover_Fun <- function(  G, rowx, rowy, GroupName) 
+{
+  
+SubstrateCoverData %>%
+    mutate(Count = 1) %>%
+    group_by(id, {{G}}) %>%
+    select(id, {{G}}, Count) %>%
+    pivot_wider(names_from = {{G}}, values_from = Count,
+                values_fill = 0,
+                values_fn = sum) %>%
+    mutate(Total = sum(c_across({{rowx}}:{{rowy}}), na.rm = TRUE)) %>%
+    mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
+    pivot_longer(cols = {{rowx}}:{{rowy}}, 
+                 names_to = GroupName) %>%
+    left_join(MetaData, by = join_by(id)) %>%
+    filter(value != 0)
+}
+
+PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName = "CoralNetAbb")
+
+#FunctionalGroupMeta <- PercentCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
+
+
+
+
+#GrowthFormMeta <- PercentCover_Fun(GrowthForm, CTB, Seagrass, GroupName = "GrowthForm") %>% 
+
+
+
+
+HardCoralMeta <- PercentCoverMeta %>%
+  filter(FunctionalGroup == "Hard coral") 
+  
+
+
+```
+  
+Visualize the Data, create a funciton to look at all the different meta data variables to see if there is any relationship 
+
+```{r}
+RelationshipPlots_fun <- function(Df, MetaVariable)
+  
+{
+
+  ggplot(Df, aes(x= {{MetaVariable}}, y = value, color = SiteName)) +
+         geom_point()
+}
+
+RelationshipPlots_fun(HardCoralMeta, MeanRug)
+RelationshipPlots_fun(HardCoralMeta, MeanHR)
+RelationshipPlots_fun(HardCoralMeta, MeanDepth)
+RelationshipPlots_fun(HardCoralMeta, TempRange)
+RelationshipPlots_fun(HardCoralMeta, MeanSpeed)
+RelationshipPlots_fun(HardCoralMeta, FlowRange)
+RelationshipPlots_fun(HardCoralMeta, MaxSpeed)
+
+
+```
+
+```{r}
+RelationshipBarPlots_fun <- function(Df, MetaVariable, Variables)
+  
+{
+
+  ggplot(Df, aes( x= {{MetaVariable}}, y = value, fill = {{Variables}})) +
+         geom_col(position = "stack") +
+    labs( y = "PercentCover") 
+}
+
+
+RelationshipBarPlots_fun(PercentCoverMeta, MeanRug, FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, MeanHR, FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, MeanDepth, FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, TempRange , FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, MeanSpeed, FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, FlowRange, FunctionalGroup)
+RelationshipBarPlots_fun(PercentCoverMeta, MaxSpeed, FunctionalGroup)
+
+RelationshipBarPlots_fun(HardCoralMeta, MeanRug, GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, MeanHR, GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, MeanDepth, GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, TempRange , GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, MeanSpeed, GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, FlowRange, GrowthForm)
+RelationshipBarPlots_fun(HardCoralMeta, MaxSpeed, GrowthForm)
+```
+
+
+
+
+
+
+
 ```{r}
 count_data <- SubstrateCoverDataWide %>% dplyr::select(-Total) %>% mutate(across(c(TurfAl:Zoanthids),as.numeric))
 rownames(count_data) <- count_data$id
@@ -127,90 +223,13 @@ plot_bar(ps.rel.coral_growth, x = "id", y = "Abundance", fill = "GrowthForm")+
   geom_bar(stat = "identity")
 ```
 
-```{r}
-PercentCover_Fun <- function(  G, rowx, rowy, GroupName) 
-{
-  
-SubstrateCoverData %>%
-    mutate(Count = 1) %>%
-    group_by(id, {{G}}) %>%
-    select(id, {{G}}, Count) %>%
-    pivot_wider(names_from = {{G}}, values_from = Count,
-                values_fill = 0,
-                values_fn = sum) %>%
-    mutate(Total = sum(c_across({{rowx}}:{{rowy}}), na.rm = TRUE)) %>%
-    mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
-    pivot_longer(cols = {{rowx}}:{{rowy}}, 
-                 names_to = GroupName) %>%
-    left_join(MetaData, by = join_by(id)) %>%
-    filter(value != 0)
-}
-
-PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName = "CoralNetAbb")
-FunctionalGroupMeta <- PercentCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
-
-
-```
-  
 
 
 
-```{r}
-TotalSiteCoverWide <- SubstrateCoverData %>%
-
-  mutate(Count = 1) %>%
-    group_by(SiteName, CoralNetAbb) %>%
-  select(SiteName, CoralNetAbb, Count) %>%
-  pivot_wider(names_from = CoralNetAbb, values_from = Count,
-            values_fill = 0,
-            values_fn = sum) %>%
-  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
-  
-```
-
-```{r}
-FunctionalGroupWide <- SubstrateCoverData %>%
-  mutate(Count = 1) %>%
-    group_by(id, FunctionalGroup) %>%
-  select(id,FunctionalGroup, Count) %>%
-  pivot_wider(names_from = FunctionalGroup, values_from = Count,
-            values_fill = 0,
-            values_fn = sum) %>%
-  mutate(Total = sum(c_across(Algae:Seagrass), na.rm = TRUE))
-```
 
 
-```{r}
-FunctionalGroupPercentMeta <- FunctionalGroupWide %>%
-   mutate(across(c(Algae:Seagrass), ~ (.x/Total))) %>%
-  pivot_longer(cols = Algae:Seagrass, 
-               names_to = "FunctionalGroup") %>%
-  left_join(MetaData, by = join_by(id, SiteName, Quadrat)) %>%
-  filter (value != 0)
-
-```
-
-```{r}
-
-ggplot(FunctionalGroupPercentMeta, aes(x =MeanRug, y = value, fill = FunctionalGroup, color = SiteName.x)) +
-  geom_bar(stat = "sum")
-```
 
 
-```{r}
-TotalSitePercentCover <- TotalSiteCoverWide %>%
-  mutate(across(c(TurfAl:Zoanthids), ~ (.x/Total))) %>%
-  pivot_longer(cols = TurfAl:Zoanthids , 
-names_to = "CoralNetAbb")
-
-```
-
-```{r}
-
-PercentCoverData <- SubstrateCoverDataWide %>%
-  mutate(across(c(TurfAl:Zoanthids), ~ (.x/Total)))
-
-```
 
 ```{r}
 PercentCoverMeta <- PercentCoverData %>%
