@@ -244,7 +244,7 @@ Tilt8Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt8.jpg"))
 
 #Load Meta Data
 TiltMetaData <- read_csv(here("Data/TiltMeterData/MetaData.csv"))
-LatLong <- TiltMetaData %>% select(Site, Long, Lat)
+LatLong <- TiltMetaData %>% dplyr::select(Site, Long, Lat)
 
 ```
 
@@ -276,7 +276,7 @@ mutate( #Set datetime,a dding in the UTC timezone so wer are removing taht
        
        TiltMeter = tilt_name) %>%
     
-    select(TiltMeter, everything()) #Moving TiltMeter# Column to be the first column
+    dplyr::select(TiltMeter, everything()) #Moving TiltMeter# Column to be the first column
     
 }
 
@@ -371,7 +371,7 @@ separate(col = DateTime, #Choose the column that you want separated
          Time = lubridate::hms(Time), 
    TiltMeter = tilt_name, na.rm = TRUE) %>%
 
-    select(TiltMeter, everything()) 
+    dplyr::select(TiltMeter, everything()) 
   
 }
 
@@ -419,7 +419,7 @@ Making a new tide dataframe and calling it *TideDataHourly* the tide data is alr
  TideDataHourly <- TideData %>%
    mutate(DateTime = ymd_hms(paste(Date, Hour, "00:00")), #Combining Date and time into one column 
           Sealevel_m = Sealevel_mm / 1000) %>%
-    select(DateTime, everything())
+    dplyr::select(DateTime, everything())
 
 ```
 
@@ -938,6 +938,8 @@ Means<- JoinedData %>%
     mutate(MeanFlowDir = paste0(MeanFlowDir, "˚")) %>%
   arrange(Site) #Reorder so that the means are from lowest ot highest speed
 
+MeansFlow <- Means %>% rename(SiteName = Site)
+write.csv(MeansFlow, here("Data/SfM/FlowMetrics.csv"), row.names = FALSE)
 
    kbl(Means, format = "html", col.names = c("Site", "Min Speed (cm/s)", "Max Speed (cm/s)", "Mean Speed (cm/s)", "Mean Flow Direction ˚", "Mean Direction ")) %>% #Giving the average speed m/s of each tilt meter
   kable_classic() %>%
@@ -951,8 +953,11 @@ Means<- JoinedData %>%
 TempMeans <- JoinedTempData %>%
   group_by(Site) %>%
 
-  summarise(min(Temperature), max(Temperature), mean(Temperature)) %>%
+  summarise(minTemp = min(Temperature),maxTemp =  max(Temperature), meanTemp = mean(Temperature)) %>%
   mutate_if(is.numeric, round, 2)
+
+Temp <- TempMeans %>% rename(SiteName = Site)
+write.csv(Temp, here("Data/SfM/TempMeans.csv"), row.names = FALSE)
 
 kbl(TempMeans, col.names = c("Site", "Min Temperature", "Max Temperature", "Mean Temperature")) %>%
   kable_classic()  %>%

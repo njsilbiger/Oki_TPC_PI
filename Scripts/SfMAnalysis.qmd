@@ -21,9 +21,14 @@ library(emmeans)
 ```{r}
 CoralNet <- read_csv(here("Data/SfM/CoralNetAnalysis.csv"))
 CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv"))
+ComplexityData <- read_csv(here("Data/SfM/ComplexitySummaryStats.csv"))
+TempData <- read_csv(here("Data/SfM/TempMeans.csv"))
+FlowData <- read_csv(here("Data/SfM/FlowMetrics.csv"))
 ```
+Creating Meta Data Frame with: 
+UniqueID, Site, Quadrat, complexity average metrics for each site, flow average metrics for each site, and temperature average metrics for each site
 
-mutate( full_name = case_match(abbrev, c("NY", "NYC") \~ "New York", "LA" \~ "Los Angeles", c("SF", "SFO") \~ "San Francisco", .default = NA_character\_
+
 
 ```{r}
 SubstrateCoverData <- 
@@ -32,7 +37,21 @@ SubstrateCoverData <-
 view(SubstrateCoverData)
 ```
 
-\
+```{r}
+MetaData <- SubstrateCoverData %>% 
+  dplyr::select(id, SiteName, Year, Quadrat) %>%
+  group_by(id) %>%
+  summarise(across(everything(), ~ paste(unique(.), collapse = ", ")), .groups = "drop") %>%
+  left_join(ComplexityData) %>%
+  left_join(FlowData) %>%
+  left_join(TempData) %>%
+  
+  
+  mutate(TempRange = maxTemp - minTemp) %>%
+  mutate(FlowRange = MaxSpeed - MinSpeed)
+            
+            
+```
 
 ```{r}
 SubstrateCoverDataWide <- SubstrateCoverData %>%
@@ -244,5 +263,9 @@ view(Evennessemm_pairs)
 write.csv(Evennessemm_pairs, here("Output/SfM/EvennessDiversityStats.csv"))
 
 ```
+
+Organize the Complexity  data 
+First read in the data that was created in the other script
+
 
 
