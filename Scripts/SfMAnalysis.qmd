@@ -5,6 +5,17 @@ format: html
 editor: visual
 ---
 
+```{r}
+library(tidyverse)
+library(here)
+library(vegan)
+library(phyloseq)
+library(car)
+library(see)
+library(performance)
+library(emmeans)
+```
+
 ## Upload Data From CoralNet
 
 ```{r}
@@ -16,7 +27,8 @@ mutate( full_name = case_match(abbrev, c("NY", "NYC") \~ "New York", "LA" \~
 
 ```{r}
 SubstrateCoverData <- 
-  left_join(CoralNet, CoralNetReference, by = c("CoralNetAbb"))
+  left_join(CoralNet, CoralNetReference, by = c("CoralNetAbb")) %>% mutate(id = paste(SiteName, Quadrat)) %>%
+    select(id, everything()) 
 view(SubstrateCoverData)
 ```
 
@@ -24,9 +36,213 @@ view(SubstrateCoverData)
 
 ```{r}
 SubstrateCoverDataWide <- SubstrateCoverData %>%
-  mutate(Count = 1) %>%
-  select(SiteName, Quadrant,Name, Count) %>%
 
-pivot_wider(names_from = Name, values_from = Count,
-            values_fill = 0)
+  mutate(Count = 1) %>%
+    group_by(id, CoralNetAbb) %>%
+  select(id,CoralNetAbb, Count) %>%
+  pivot_wider(names_from = CoralNetAbb, values_from = Count,
+            values_fill = 0,
+            values_fn = sum) %>%
+  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
+  
+view(SubstrateCoverDataWide)
+SubstrateCoverDataWide$Total
 ```
+
+```{r}
+count_data <- SubstrateCoverDataWide %>% dplyr::select(-Total) %>% mutate(across(c(TurfAl:Zoanthids),as.numeric))
+rownames(count_data) <- count_data$id
+newcountdata <- count_data[,-1]
+
+#has to match column names with variable
+taxa <- CoralNetReference
+rownames(taxa) <- taxa$CoralNetAbb
+
+#has to match id with count data
+samdf <- SubstrateCoverDataWide %>% select(id) %>% left_join(SubstrateCoverData) %>% select(id, SiteName, Quadrat)
+samdf <- distinct(samdf)
+rownames(samdf) <- samdf$id
+
+#BiocManager::install("phyloseq")
+
+mcounts <- as.matrix(newcountdata)
+mtaxa <- as.matrix(taxa)
+
+ps <- phyloseq(otu_table(mcounts, taxa_are_rows = F),
+               sample_data(samdf),
+               tax_table(mtaxa))
+
+rel_cover <- TotalSiteCoverWide %>% dplyr::select(-Total) %>% mutate(across(c(TurfAl:Zoanthids),as.numeric))
+rel_cover <- rel_cover[,-1:-2]
+mrel <- as.matrix(rel_cover)
+
+ps.rel <- phyloseq(otu_table(mrel, taxa_are_rows = F),
+               sample_data(samdf),
+               tax_table(mtaxa))#Making relative abundance dataframe
+
+#make different plots with functional group, species
+plot_bar(ps.rel, x = "id", y = "Abundance", fill = "FunctionalGroup")+
+  facet_wrap(~SiteName, scales = "free")
+  geom_bar(stat = "identity")
+
+#filter dataframe to just look at coral
+ps.rel.coral <- subset_taxa(ps.rel, FunctionalGroup == "Hard coral")
+
+plot_bar(ps.rel.coral, x = "id", y = "Abundance", fill = "Name")+
+  facet_wrap(~SiteName, scales = "free")
+  geom_bar(stat = "identity")
+```
+
+```{r}
+PercentCoverSite_Quadrat <- TotalSiteCoverWide %>%
+  mutate(Total = )
+```
+
+```{r}
+TotalSiteCoverWide <- SubstrateCoverData %>%
+
+  mutate(Count = 1) %>%
+    group_by(SiteName, CoralNetAbb) %>%
+  select(SiteName, CoralNetAbb, Count) %>%
+  pivot_wider(names_from = CoralNetAbb, values_from = Count,
+            values_fill = 0,
+            values_fn = sum) %>%
+  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
+  
+```
+
+```{r}
+TotalSitePercentCover <- TotalSiteCoverWide %>%
+  mutate(across(c(TurfAl:Zoanthids), ~ (.x/Total))) %>%
+  pivot_longer(cols = TurfAl:Zoanthids , 
+names_to = "SubstrateType")
+
+```
+
+```{r}
+
+PercentCoverData <- SubstrateCoverDataWide %>%
+  mutate(across(c(TurfAl:Zoanthids), ~ (.x/Total)))
+
+```
+
+```{r}
+PercentCoverLong <- SubstrateCoverDataWide %>%
+  pivot_longer(cols = TurfAl:Zoanthids , 
+names_to = "SubstrateType")
+```
+
+```{r}
+ggplot(PercentCoverLong, aes(x= SiteName, y = value, fill = SubstrateType)) +
+         geom_bar(stat=("")) 
+```
+
+```{r}
+ggplot(TotalSitePercentCover, aes(x= SiteName, y = value, fill = SubstrateType)) +
+         geom_bar(stat="sum") 
+```
+
+DIVERSITY
+
+```{r}
+CoralDiversity <- data.frame(estimate_richness(ps, split=TRUE, measures=c("Shannon","Observed")))
+
+CoralDiversity$sample_id <- rownames(CoralDiversity)
+
+samdf <- data.frame(sample_data(ps))
+samdf$sample_id <- rownames(samdf)
+Diversity <- merge(CoralDiversity,samdf, by = "sample_id") #add sample data
+
+#add evenness = shannon diversity divided by species richness
+Diversity$even <- Diversity$Shannon/(log(Diversity$Observed))
+
+#SAVE DATAFRAME
+write.csv(Diversity, file = here("Data/SfM/CoralNetDiversityMetrics.csv"), row.names = FALSE)
+
+
+```
+
+Read in the new dataframe
+
+```{r}
+DiversityMetrics <- read.csv(here("Data/SfM/CoralNetDiversityMetrics.csv"))
+```
+
+
+```{r}
+#Shannon by species across everything
+gg.spp.sha <- ggplot(DiversityMetrics,aes(x=SiteName,y=Shannon,fill=SiteName))+
+  geom_boxplot(outlier.shape=NA,size=1)+
+  theme_classic(base_size=22)+
+  geom_jitter(alpha=0.5)+
+  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
+ # ylab("Shannon Index")+
+  #xlab("Coral Species")+
+  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
+  #facet_wrap(m_y~.,scales = "free_x")
+gg.spp.sha
+```
+```{r}
+#Shannon by species across everything
+gg.spp.rich <- ggplot(DiversityMetrics,aes(x=SiteName,y=Observed,fill=SiteName))+
+  geom_boxplot(outlier.shape=NA,size=1)+
+  theme_classic(base_size=22)+
+  geom_jitter(alpha=0.5)+
+  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
+ # ylab("Shannon Index")+
+  #xlab("Coral Species")+
+  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
+  #facet_wrap(m_y~.,scales = "free_x")
+gg.spp.rich
+```
+
+```{r}
+#Shannon by species across everything
+gg.spp.Evenness <- ggplot(DiversityMetrics,aes(x=SiteName,y=even,fill=SiteName))+
+  geom_boxplot(outlier.shape=NA,size=1)+
+  theme_classic(base_size=22)+
+  geom_jitter(alpha=0.5)+
+  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
+ # ylab("Shannon Index")+
+  #xlab("Coral Species")+
+  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
+  #facet_wrap(m_y~.,scales = "free_x")
+gg.spp.Evenness
+
+ggsave(here("Output", "SfM", "DiversityPlot_Evenness.png"),
+         width = 6, height = 6)
+```
+Linear model looking across site
+
+Oki04 is different from all 
+
+```{r}
+shannonModel <- lm(Shannon ~ SiteName, data = DiversityMetrics)
+anova(shannonModel)
+summary(shannonModel)
+check_model(shannonModel)
+
+ShannonEmm <- emmeans::emmeans(shannonModel, ~SiteName)
+emm_pairs <- pairs(ShannonEmm)
+view(emm_pairs)
+
+write.csv(emm_pairs, here("Output/SfM/ShannonDiversityStats.csv"))
+
+```
+
+```{r}
+
+EvennessModel <- lm(even ~ SiteName, data = DiversityMetrics)
+anova(EvennessModel)
+summary(EvennessModel)
+check_model(EvennessModel)
+
+EvennessEmm <- emmeans::emmeans(EvennessModel, ~SiteName)
+Evennessemm_pairs <- pairs(EvennessEmm)
+view(Evennessemm_pairs)
+
+write.csv(Evennessemm_pairs, here("Output/SfM/EvennessDiversityStats.csv"))
+
+```
+
+
