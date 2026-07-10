@@ -16,18 +16,15 @@ library(performance)
 library(emmeans)
 ```
 
-## Upload Data From CoralNet
+Upload Data
 
 ```{r}
 CoralNet <- read_csv(here("Data/SfM/CoralNetAnalysis.csv"))
-CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv"))
+CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv")) 
 ComplexityData <- read_csv(here("Data/SfM/ComplexitySummaryStats.csv"))
 TempData <- read_csv(here("Data/SfM/TempMeans.csv"))
 FlowData <- read_csv(here("Data/SfM/FlowMetrics.csv"))
 ```
-Creating Meta Data Frame with: 
-UniqueID, Site, Quadrat, complexity average metrics for each site, flow average metrics for each site, and temperature average metrics for each site
-
 
 
 ```{r}
@@ -37,11 +34,14 @@ SubstrateCoverData <-
 view(SubstrateCoverData)
 ```
 
+Creating Meta Data Frame with: 
+UniqueID, Site, Quadrat, complexity average metrics for each site, flow average metrics for each site, and temperature average metrics for each site
+
 ```{r}
 MetaData <- SubstrateCoverData %>% 
   dplyr::select(id, SiteName, Year, Quadrat) %>%
   group_by(id) %>%
-  summarise(across(everything(), ~ paste(unique(.), collapse = ", ")), .groups = "drop") %>%
+  summarise(across(everything(), ~ paste(unique(.), collapse = ", ")), .groups = "drop") %>% #Collapse all the rows that have the same data across all columns
   left_join(ComplexityData) %>%
   left_join(FlowData) %>%
   left_join(TempData) %>%
@@ -52,6 +52,7 @@ MetaData <- SubstrateCoverData %>%
             
             
 ```
+
 
 ```{r}
 SubstrateCoverDataWide <- SubstrateCoverData %>%
@@ -64,8 +65,8 @@ SubstrateCoverDataWide <- SubstrateCoverData %>%
             values_fn = sum) %>%
   mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
   
-view(SubstrateCoverDataWide)
-SubstrateCoverDataWide$Total
+
+SubstrateCoverDataWide$Total #making sure there is 100 
 ```
 
 ```{r}
@@ -78,44 +79,81 @@ taxa <- CoralNetReference
 rownames(taxa) <- taxa$CoralNetAbb
 
 #has to match id with count data
-samdf <- SubstrateCoverDataWide %>% select(id) %>% left_join(SubstrateCoverData) %>% select(id, SiteName, Quadrat)
-samdf <- distinct(samdf)
-rownames(samdf) <- samdf$id
+samdf <- MetaData 
+rownames(samdf) <- samdf$id #Adding rownames 
 
 #BiocManager::install("phyloseq")
 
 mcounts <- as.matrix(newcountdata)
 mtaxa <- as.matrix(taxa)
 
-ps <- phyloseq(otu_table(mcounts, taxa_are_rows = F),
+ps <- phyloseq(otu_table(mcounts, taxa_are_rows = F), #Making phyloseq  object
                sample_data(samdf),
                tax_table(mtaxa))
 
-rel_cover <- TotalSiteCoverWide %>% dplyr::select(-Total) %>% mutate(across(c(TurfAl:Zoanthids),as.numeric))
-rel_cover <- rel_cover[,-1:-2]
-mrel <- as.matrix(rel_cover)
 
-ps.rel <- phyloseq(otu_table(mrel, taxa_are_rows = F),
-               sample_data(samdf),
-               tax_table(mtaxa))#Making relative abundance dataframe
+ps.rel <- transform_sample_counts(ps, function(x) x /sum(x)) #Making relative abundance dataframe, trasnforming to divide by the sum to make it relative abundance, for each sample (combined quadrat and site)
+
+##DO THIS AT ALL DIFFERENT LEVELS###
 
 #make different plots with functional group, species
 plot_bar(ps.rel, x = "id", y = "Abundance", fill = "FunctionalGroup")+
-  facet_wrap(~SiteName, scales = "free")
+  facet_wrap(~SiteName, scales = "free") +
   geom_bar(stat = "identity")
 
 #filter dataframe to just look at coral
+ps.coral <- subset_taxa(ps, FunctionalGroup == "Hard coral")
 ps.rel.coral <- subset_taxa(ps.rel, FunctionalGroup == "Hard coral")
 
+SubstrateCoverFullDataFrame <- psmelt(ps.rel) %>%
+  filter(Abundance != 0)
+
+ps.rel.cover <- merge_taxa(ps.rel, "FunctionalGroup")
+FunctionalGroupFullDataFrame <- psmelt(ps.rel.cover) %>%
+  filter(Abundance != 0)
+
+
+ggplot(SubstrateCoverFullDataFrame aes(x = MeanRug, y = ))
+
 plot_bar(ps.rel.coral, x = "id", y = "Abundance", fill = "Name")+
-  facet_wrap(~SiteName, scales = "free")
+  facet_wrap(~SiteName, scales = "free") +
+  geom_bar(stat = "identity")
+  
+#plot at dif taxonomic level
+ps.rel.coral_growth <- tax_glom(ps.rel.coral, "GrowthForm")
+coralgrowth_melt <- psmelt(ps.rel.coral_growth)
+plot_bar(ps.rel.coral_growth, x = "id", y = "Abundance", fill = "GrowthForm")+
+  facet_wrap(~SiteName, scales = "free") +
   geom_bar(stat = "identity")
 ```
 
 ```{r}
-PercentCoverSite_Quadrat <- TotalSiteCoverWide %>%
-  mutate(Total = )
+PercentCover_Fun <- function(  G, rowx, rowy, GroupName) 
+{
+  
+SubstrateCoverData %>%
+    mutate(Count = 1) %>%
+    group_by(id, {{G}}) %>%
+    select(id, {{G}}, Count) %>%
+    pivot_wider(names_from = {{G}}, values_from = Count,
+                values_fill = 0,
+                values_fn = sum) %>%
+    mutate(Total = sum(c_across({{rowx}}:{{rowy}}), na.rm = TRUE)) %>%
+    mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
+    pivot_longer(cols = {{rowx}}:{{rowy}}, 
+                 names_to = GroupName) %>%
+    left_join(MetaData, by = join_by(id)) %>%
+    filter(value != 0)
+}
+
+PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName = "CoralNetAbb")
+FunctionalGroupMeta <- PercentCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
+
+
 ```
+  
+
+
 
 ```{r}
 TotalSiteCoverWide <- SubstrateCoverData %>%
@@ -131,10 +169,39 @@ TotalSiteCoverWide <- SubstrateCoverData %>%
 ```
 
 ```{r}
+FunctionalGroupWide <- SubstrateCoverData %>%
+  mutate(Count = 1) %>%
+    group_by(id, FunctionalGroup) %>%
+  select(id,FunctionalGroup, Count) %>%
+  pivot_wider(names_from = FunctionalGroup, values_from = Count,
+            values_fill = 0,
+            values_fn = sum) %>%
+  mutate(Total = sum(c_across(Algae:Seagrass), na.rm = TRUE))
+```
+
+
+```{r}
+FunctionalGroupPercentMeta <- FunctionalGroupWide %>%
+   mutate(across(c(Algae:Seagrass), ~ (.x/Total))) %>%
+  pivot_longer(cols = Algae:Seagrass, 
+               names_to = "FunctionalGroup") %>%
+  left_join(MetaData, by = join_by(id, SiteName, Quadrat)) %>%
+  filter (value != 0)
+
+```
+
+```{r}
+
+ggplot(FunctionalGroupPercentMeta, aes(x =MeanRug, y = value, fill = FunctionalGroup, color = SiteName.x)) +
+  geom_bar(stat = "sum")
+```
+
+
+```{r}
 TotalSitePercentCover <- TotalSiteCoverWide %>%
   mutate(across(c(TurfAl:Zoanthids), ~ (.x/Total))) %>%
   pivot_longer(cols = TurfAl:Zoanthids , 
-names_to = "SubstrateType")
+names_to = "CoralNetAbb")
 
 ```
 
@@ -146,29 +213,36 @@ PercentCoverData <- SubstrateCoverDataWide %>%
 ```
 
 ```{r}
-PercentCoverLong <- SubstrateCoverDataWide %>%
-  pivot_longer(cols = TurfAl:Zoanthids , 
-names_to = "SubstrateType")
+PercentCoverMeta <- PercentCoverData %>%
+  pivot_longer(cols = TurfAl:Zoanthids, 
+               names_to = "CoralNetAbb") %>%
+  left_join(MetaData, by = join_by(id)) %>%
+  left_join(CoralNetReference)
+```
+```{r}
+rel_abun <- as.data.frame(ps.rel@otu_table)
+rel_abun$sample_id <- rownames(rel_abun)
+RelativeAbundance <- left_join(DiversityMetrics, rel_abun)
 ```
 
 ```{r}
-ggplot(PercentCoverLong, aes(x= SiteName, y = value, fill = SubstrateType)) +
+ggplot(PercentCoverLong, aes(x= SiteName, y = value, fill = CoralNetAbb)) +
          geom_bar(stat=("")) 
 ```
 
 ```{r}
-ggplot(TotalSitePercentCover, aes(x= SiteName, y = value, fill = SubstrateType)) +
+ggplot(TotalSitePercentCover, aes(x= SiteName, y = value, fill = CoralNetAbb)) +
          geom_bar(stat="sum") 
 ```
 
 DIVERSITY
 
 ```{r}
-CoralDiversity <- data.frame(estimate_richness(ps, split=TRUE, measures=c("Shannon","Observed")))
+CoralDiversity <- data.frame(estimate_richness(ps.coral, split=TRUE, measures=c("Shannon","Observed")))
 
 CoralDiversity$sample_id <- rownames(CoralDiversity)
 
-samdf <- data.frame(sample_data(ps))
+samdf <- data.frame(sample_data(ps.coral))
 samdf$sample_id <- rownames(samdf)
 Diversity <- merge(CoralDiversity,samdf, by = "sample_id") #add sample data
 
@@ -214,6 +288,17 @@ gg.spp.rich <- ggplot(DiversityMetrics,aes(x=SiteName,y=Observed,fill=SiteName))
   #facet_wrap(m_y~.,scales = "free_x")
 gg.spp.rich
 ```
+
+Make Regression Plot 
+#DO THIS FOR EVERYTHING TO SEE IF THERE IS ANYTYPE OF PATTERN
+
+```{r}
+ggplot(DiversityMetrics, aes(x = MeanRug, y = Observed, color = SiteName)) +
+  geom_point()
+```
+
+
+
 
 ```{r}
 #Shannon by species across everything
@@ -266,6 +351,10 @@ write.csv(Evennessemm_pairs, here("Output/SfM/EvennessDiversityStats.csv"))
 
 Organize the Complexity  data 
 First read in the data that was created in the other script
+
+
+BETA DIVERSITY
+
 
 
 
