@@ -69,7 +69,8 @@ SubstrateCoverDataWide <- SubstrateCoverData %>%
 SubstrateCoverDataWide$Total #making sure there is 100 
 ```
 
-Function to Creat Dataframes of everythign we want to graph
+Function to Creat Dataframes of everythign we want to graph, 
+DOnʻt think this was necessary can just use SbustrateCoverMetaData
 
 ```{r}
 PercentCover_Fun <- function(  G, rowx, rowy, GroupName) 
@@ -112,21 +113,25 @@ HardCoralMeta <- PercentCoverMeta %>%
 Visualize the Data, create a funciton to look at all the different meta data variables to see if there is any relationship 
 
 ```{r}
-RelationshipPlots_fun <- function(Df, MetaVariable)
+RelationshipPlots_fun <- function(Df, MetaVariable, PlotName)
   
 {
 
   ggplot(Df, aes(x= {{MetaVariable}}, y = value, color = SiteName)) +
-         geom_point()
+         geom_point() +
+     labs( y = "PercentCover") +
+    
+  
+  ggsave(here("Output", "SfM", PlotName))
 }
 
-RelationshipPlots_fun(HardCoralMeta, MeanRug)
-RelationshipPlots_fun(HardCoralMeta, MeanHR)
-RelationshipPlots_fun(HardCoralMeta, MeanDepth)
-RelationshipPlots_fun(HardCoralMeta, TempRange)
-RelationshipPlots_fun(HardCoralMeta, MeanSpeed)
-RelationshipPlots_fun(HardCoralMeta, FlowRange)
-RelationshipPlots_fun(HardCoralMeta, MaxSpeed)
+RelationshipPlots_fun(HardCoralMeta, MeanRug, PlotName = "HardCoralRug.png")
+RelationshipPlots_fun(HardCoralMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
+RelationshipPlots_fun(HardCoralMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
+RelationshipPlots_fun(HardCoralMeta, TempRange, PlotName = "HardCoralTempRange.png")
+RelationshipPlots_fun(HardCoralMeta, MeanSpeed, PlotName = "HardCoralMeanSpeed.png")
+RelationshipPlots_fun(HardCoralMeta, FlowRange, PlotName = "HardCoralFlowRange.png")
+RelationshipPlots_fun(HardCoralMeta, MaxSpeed, PlotName = "HardCoralMaxSpeed.png")
 
 
 ```
