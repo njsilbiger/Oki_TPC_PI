@@ -147,13 +147,13 @@ RelationshipPlots_fun <- function(Df, MetaVariable, PlotName)
   ggsave(here("Output", "SfM", PlotName))
 }
 
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanRug, filename = here("Output/SfM/HardCoralRug.png"))
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
-RelationshipPlots_fun(TotalSiteHardCoralMeta, TempRange, PlotName = "HardCoralTempRange.png")
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanSpeed, PlotName = "HardCoralMeanSpeed.png")
-RelationshipPlots_fun(TotalSiteHardCoralMeta, FlowRange, PlotName = "HardCoralFlowRange.png")
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MaxSpeed, PlotName = "HardCoralMaxSpeed.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, MeanRug, PlotName = "HardCoralRug.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, TempRange, PlotName = "HardCoralTempRange.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, MeanSpeed, PlotName = "HardCoralMeanSpeed.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, FlowRange, PlotName = "HardCoralFlowRange.png")
+RelationshipPlots_fun(HCFunctionalSiteMeta, MaxSpeed, PlotName = "HardCoralMaxSpeed.png")
 
 
 ```
@@ -165,7 +165,7 @@ RelationshipBarPlots_fun <- function(Df, MetaVariable, Variables)
   ggplot(Df, aes(x = {{MetaVariable}}, y = value, fill = {{Variables}})) +
     geom_col(position = "stack") +
     
-    labs(y = "PercentCover", x = "MeanRug")
+    labs(y = "PercentCover")
 
 
 }
@@ -180,13 +180,15 @@ RelationshipBarPlots_fun(PercentCoverMeta, MeanSpeed, FunctionalGroup)
 RelationshipBarPlots_fun(TotalSubstrateSiteMeta, FlowRange, CoralNetAbb)
 RelationshipBarPlots_fun(PercentCoverMeta, MaxSpeed, FunctionalGroup)
 
+RelationshipBarPlots_fun(HCGrowthFormSite, SiteName, GrowthForm)
+
 RelationshipBarPlots_fun(HCGrowthFormSite, MeanRug, GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, MeanHR, GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, MeanDepth, GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, TempRange , GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, MeanSpeed, GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, FlowRange, GrowthForm)
-RelationshipBarPlots_fun(HardCoralMeta, MaxSpeed, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, MeanHR, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, MeanDepth, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, TempRange , GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, MeanSpeed, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, FlowRange, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, MaxSpeed, GrowthForm)
 ```
 
 
