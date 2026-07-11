@@ -64,48 +64,17 @@ SiteMetaData <- SubstrateCoverData %>%
 ```
 
 
-```{r}
-SubstrateCoverDataWide <- SubstrateCoverData %>%
-
-  mutate(Count = 1) %>%
-    group_by(id, CoralNetAbb) %>%
-  select(id,CoralNetAbb, Count) %>%
-  pivot_wider(names_from = CoralNetAbb, values_from = Count,
-            values_fill = 0,
-            values_fn = sum) %>%
-  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
-  
-
-SubstrateCoverDataWide$Total #making sure there is 100 
-```
-
-```{r}
-SubstrateCoverDataWide <- SubstrateCoverData %>%
-
-  mutate(Count = 1) %>%
-    group_by(id, CoralNetAbb) %>%
-  select(id,CoralNetAbb, Count) %>%
-  pivot_wider(names_from = CoralNetAbb, values_from = Count,
-            values_fill = 0,
-            values_fn = sum) %>%
-  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
-  
-
-SubstrateCoverDataWide$Total #making sure there is 100 
-```
-
-
 Function to Creat Dataframes of everythign we want to graph, 
-DOnʻt think this was necessary can just use SbustrateCover. 
+
 
 ```{r}
-PercentCover_Fun <- function( H, G, rowx, rowy, GroupName, MD) 
+PercentCover_Fun <- function( G, rowx, rowy, GroupName) 
 {
   
 SubstrateCoverData %>%
     mutate(Count = 1) %>%
-    group_by({{H}}, {{G}}) %>%
-    select({{H}}, {{G}}, Count) %>%
+    group_by(id, {{G}}) %>%
+    select(id, {{G}}, Count) %>%
     pivot_wider(names_from = {{G}}, values_from = Count,
                 values_fill = 0,
                 values_fn = sum) %>%
@@ -113,22 +82,13 @@ SubstrateCoverData %>%
     mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
     pivot_longer(cols = {{rowx}}:{{rowy}}, 
                  names_to = GroupName) %>%
-    left_join(MD, by = join_by(H)) %>%
+    left_join(MetaData, by = join_by(id)) %>%
     filter(value != 0)
 }
 
-PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, Algae, Zoanthids, GroupName = "CoralNetAbb")
+QuadratePercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName = "CoralNetAbb")
 
 SiteFunctionalPercentCover <- PercentCover_Fun(SiteName, FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup", SiteMetaData)
-
-
-#FunctionalGroupMeta <- PercentCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
-
-
-
-
-#GrowthFormMeta <- PercentCover_Fun(GrowthForm, CTB, Seagrass, GroupName = "GrowthForm") %>% 
-
 
 
 
@@ -153,17 +113,22 @@ SubstrateCoverData %>%
     filter(value != 0)
 }
 
+TotalSubstrateSiteMeta <- SiteCover_Fun(CoralNetAbb, TurfAl, Zoanthids, 
+                                        GroupName = "CoralNetAbb")
   
 FunctionalSiteMeta <- SiteCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
 
-TotalSitePercentCoverMeta <- TotalSitePercentCover %>%
-  left_join(SiteMetaData, by = c("SiteName")) %>%
-  left_join(CoralNetReference)
- 
-
- 
-TotalSiteHardCoralMeta <- FunctionalSiteMeta %>%
+HCFunctionalSiteMeta <- FunctionalSiteMeta %>%
   filter(FunctionalGroup == "Hard coral")
+
+GrowthFormSiteMeta <- SiteCover_Fun(GrowthForm, CTB, Seagrass, 
+                                    GroupName = "GrowthForm")
+
+HCGrowthFormSite <- GrowthFormSiteMeta %>%
+  filter(!GrowthForm %in% c("CTB", "Clam", "Disease", "CCA", "Sponge", "NA", "RDC", "Algae", "Sand", "Zooanthid", "Sea Cucumber", "Millepora", "Ascidian", "Seagrass"))
+
+
+
 
 ```
   
@@ -197,22 +162,25 @@ RelationshipPlots_fun(TotalSiteHardCoralMeta, MaxSpeed, PlotName = "HardCoralMax
 RelationshipBarPlots_fun <- function(Df, MetaVariable, Variables)
   
 {
+  ggplot(Df, aes(x = {{MetaVariable}}, y = value, fill = {{Variables}})) +
+    geom_col(position = "stack") +
+    
+    labs(y = "PercentCover", x = "MeanRug")
 
-  ggplot(Df, aes( x= {{MetaVariable}}, y = value, fill = {{Variables}})) +
-         geom_col(position = "stack") +
-    labs( y = "PercentCover") 
+
 }
 
-
-RelationshipBarPlots_fun(PercentCoverMeta, MeanRug, FunctionalGroup)
-RelationshipBarPlots_fun(PercentCoverMeta, MeanHR, FunctionalGroup)
+          
+          
+RelationshipBarPlots_fun(TotalSubstrateSiteMeta, MeanRug, CoralNetAbb)
+RelationshipBarPlots_fun(TotalSubstrateSiteMeta, MeanHR, CoralNetAbb)
 RelationshipBarPlots_fun(PercentCoverMeta, MeanDepth, FunctionalGroup)
 RelationshipBarPlots_fun(PercentCoverMeta, TempRange , FunctionalGroup)
 RelationshipBarPlots_fun(PercentCoverMeta, MeanSpeed, FunctionalGroup)
-RelationshipBarPlots_fun(PercentCoverMeta, FlowRange, FunctionalGroup)
+RelationshipBarPlots_fun(TotalSubstrateSiteMeta, FlowRange, CoralNetAbb)
 RelationshipBarPlots_fun(PercentCoverMeta, MaxSpeed, FunctionalGroup)
 
-RelationshipBarPlots_fun(HardCoralMeta, MeanRug, GrowthForm)
+RelationshipBarPlots_fun(HCGrowthFormSite, MeanRug, GrowthForm)
 RelationshipBarPlots_fun(HardCoralMeta, MeanHR, GrowthForm)
 RelationshipBarPlots_fun(HardCoralMeta, MeanDepth, GrowthForm)
 RelationshipBarPlots_fun(HardCoralMeta, TempRange , GrowthForm)
@@ -221,220 +189,6 @@ RelationshipBarPlots_fun(HardCoralMeta, FlowRange, GrowthForm)
 RelationshipBarPlots_fun(HardCoralMeta, MaxSpeed, GrowthForm)
 ```
 
-
-
-
-
-
-
-```{r}
-count_data <- SubstrateCoverDataWide %>% dplyr::select(-Total) %>% mutate(across(c(TurfAl:Zoanthids),as.numeric))
-rownames(count_data) <- count_data$id
-newcountdata <- count_data[,-1]
-
-#has to match column names with variable
-taxa <- CoralNetReference
-rownames(taxa) <- taxa$CoralNetAbb
-
-#has to match id with count data
-samdf <- MetaData 
-rownames(samdf) <- samdf$id #Adding rownames 
-
-#BiocManager::install("phyloseq")
-
-mcounts <- as.matrix(newcountdata)
-mtaxa <- as.matrix(taxa)
-
-ps <- phyloseq(otu_table(mcounts, taxa_are_rows = F), #Making phyloseq  object
-               sample_data(samdf),
-               tax_table(mtaxa))
-
-
-ps.rel <- transform_sample_counts(ps, function(x) x /sum(x)) #Making relative abundance dataframe, trasnforming to divide by the sum to make it relative abundance, for each sample (combined quadrat and site)
-
-##DO THIS AT ALL DIFFERENT LEVELS###
-
-#make different plots with functional group, species
-plot_bar(ps.rel, x = "id", y = "Abundance", fill = "FunctionalGroup")+
-  facet_wrap(~SiteName, scales = "free") +
-  geom_bar(stat = "identity")
-
-#filter dataframe to just look at coral
-ps.coral <- subset_taxa(ps, FunctionalGroup == "Hard coral")
-ps.rel.coral <- subset_taxa(ps.rel, FunctionalGroup == "Hard coral")
-
-SubstrateCoverFullDataFrame <- psmelt(ps.rel) %>%
-  filter(Abundance != 0)
-
-ps.rel.cover <- merge_taxa(ps.rel, "FunctionalGroup")
-FunctionalGroupFullDataFrame <- psmelt(ps.rel.cover) %>%
-  filter(Abundance != 0)
-
-
-ggplot(SubstrateCoverFullDataFrame aes(x = MeanRug, y = ))
-
-plot_bar(ps.rel.coral, x = "id", y = "Abundance", fill = "Name")+
-  facet_wrap(~SiteName, scales = "free") +
-  geom_bar(stat = "identity")
-  
-#plot at dif taxonomic level
-ps.rel.coral_growth <- tax_glom(ps.rel.coral, "GrowthForm")
-coralgrowth_melt <- psmelt(ps.rel.coral_growth)
-plot_bar(ps.rel.coral_growth, x = "id", y = "Abundance", fill = "GrowthForm")+
-  facet_wrap(~SiteName, scales = "free") +
-  geom_bar(stat = "identity")
-```
-
-
-
-
-
-
-
-
-
-```{r}
-PercentCoverMeta <- PercentCoverData %>%
-  pivot_longer(cols = TurfAl:Zoanthids, 
-               names_to = "CoralNetAbb") %>%
-  left_join(MetaData, by = join_by(id)) %>%
-  left_join(CoralNetReference)
-```
-```{r}
-rel_abun <- as.data.frame(ps.rel@otu_table)
-rel_abun$sample_id <- rownames(rel_abun)
-RelativeAbundance <- left_join(DiversityMetrics, rel_abun)
-```
-
-```{r}
-ggplot(PercentCoverLong, aes(x= SiteName, y = value, fill = CoralNetAbb)) +
-         geom_bar(stat=("")) 
-```
-
-```{r}
-ggplot(TotalSitePercentCover, aes(x= SiteName, y = value, fill = CoralNetAbb)) +
-         geom_bar(stat="sum") 
-```
-
-DIVERSITY
-
-```{r}
-CoralDiversity <- data.frame(estimate_richness(ps.coral, split=TRUE, measures=c("Shannon","Observed")))
-
-CoralDiversity$sample_id <- rownames(CoralDiversity)
-
-samdf <- data.frame(sample_data(ps.coral))
-samdf$sample_id <- rownames(samdf)
-Diversity <- merge(CoralDiversity,samdf, by = "sample_id") #add sample data
-
-#add evenness = shannon diversity divided by species richness
-Diversity$even <- Diversity$Shannon/(log(Diversity$Observed))
-
-#SAVE DATAFRAME
-write.csv(Diversity, file = here("Data/SfM/CoralNetDiversityMetrics.csv"), row.names = FALSE)
-
-
-```
-
-Read in the new dataframe
-
-```{r}
-DiversityMetrics <- read.csv(here("Data/SfM/CoralNetDiversityMetrics.csv"))
-```
-
-
-```{r}
-#Shannon by species across everything
-gg.spp.sha <- ggplot(DiversityMetrics,aes(x=SiteName,y=Shannon,fill=SiteName))+
-  geom_boxplot(outlier.shape=NA,size=1)+
-  theme_classic(base_size=22)+
-  geom_jitter(alpha=0.5)+
-  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
- # ylab("Shannon Index")+
-  #xlab("Coral Species")+
-  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
-  #facet_wrap(m_y~.,scales = "free_x")
-gg.spp.sha
-```
-```{r}
-#Shannon by species across everything
-gg.spp.rich <- ggplot(DiversityMetrics,aes(x=SiteName,y=Observed,fill=SiteName))+
-  geom_boxplot(outlier.shape=NA,size=1)+
-  theme_classic(base_size=22)+
-  geom_jitter(alpha=0.5)+
-  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
- # ylab("Shannon Index")+
-  #xlab("Coral Species")+
-  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
-  #facet_wrap(m_y~.,scales = "free_x")
-gg.spp.rich
-```
-
-Make Regression Plot 
-#DO THIS FOR EVERYTHING TO SEE IF THERE IS ANYTYPE OF PATTERN
-
-```{r}
-ggplot(DiversityMetrics, aes(x = MeanRug, y = Observed, color = SiteName)) +
-  geom_point()
-```
-
-
-
-
-```{r}
-#Shannon by species across everything
-gg.spp.Evenness <- ggplot(DiversityMetrics,aes(x=SiteName,y=even,fill=SiteName))+
-  geom_boxplot(outlier.shape=NA,size=1)+
-  theme_classic(base_size=22)+
-  geom_jitter(alpha=0.5)+
-  #scale_fill_manual("Coral Species", values = c("darkkhaki","darksalmon","indianred"), labels = c(substitute(paste(italic("Porites sp."))), substitute(paste(italic("S. radians"))),substitute(paste(italic("S. siderea")))))+
- # ylab("Shannon Index")+
-  #xlab("Coral Species")+
-  theme(legend.position="right",axis.text.x = element_blank(),axis.ticks.x=element_blank())
-  #facet_wrap(m_y~.,scales = "free_x")
-gg.spp.Evenness
-
-ggsave(here("Output", "SfM", "DiversityPlot_Evenness.png"),
-         width = 6, height = 6)
-```
-Linear model looking across site
-
-Oki04 is different from all 
-
-```{r}
-shannonModel <- lm(Shannon ~ SiteName, data = DiversityMetrics)
-anova(shannonModel)
-summary(shannonModel)
-check_model(shannonModel)
-
-ShannonEmm <- emmeans::emmeans(shannonModel, ~SiteName)
-emm_pairs <- pairs(ShannonEmm)
-view(emm_pairs)
-
-write.csv(emm_pairs, here("Output/SfM/ShannonDiversityStats.csv"))
-
-```
-
-```{r}
-
-EvennessModel <- lm(even ~ SiteName, data = DiversityMetrics)
-anova(EvennessModel)
-summary(EvennessModel)
-check_model(EvennessModel)
-
-EvennessEmm <- emmeans::emmeans(EvennessModel, ~SiteName)
-Evennessemm_pairs <- pairs(EvennessEmm)
-view(Evennessemm_pairs)
-
-write.csv(Evennessemm_pairs, here("Output/SfM/EvennessDiversityStats.csv"))
-
-```
-
-Organize the Complexity  data 
-First read in the data that was created in the other script
-
-
-BETA DIVERSITY
 
 
 
