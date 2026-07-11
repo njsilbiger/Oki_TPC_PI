@@ -1,0 +1,1311 @@
+---
+title: "Okinawa Reef Diversity & Environmental Drivers"
+author: "Nyssa Silbiger Lab"
+date: last-modified
+toc: true
+number-sections: true
+format:
+  html:
+    warning: false
+    message: false
+    code-fold: true
+    embed-resources: true
+execute:
+  echo: true
+---
+
+# Background
+
+This analysis examines how reef structural complexity and coral community diversity vary across 8 sites in Okinawa, and asks whether environmental conditions — temperature, current speed, and depth — explain that variation. Coral cover data derive from CoralNet annotations on photogrammetry quadrats (Structure-from-Motion, SfM). Reef complexity metrics (rugosity, surface area, fractal dimension, height range) come from the same SfM models. Temperature and current speed were recorded over approximately two weeks in August 2025 using tilt meters deployed at each site.
+
+# Setup
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(vegan)
+library(car)
+library(performance)
+library(emmeans)
+library(patchwork)
+library(psych)
+library(gt)
+library(broom)
+library(ggforce)
+library(ggrepel)
+
+# Standard error helper used throughout
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+# Consistent site color palette
+site_colors <- c(
+  "Oki02" = "#ba7999",
+  "Oki03" = "#dd4124",
+  "Oki04" = "#ed8b00",
+  "Oki07" = "#edd746",
+  "Oki09" = "#45681e",
+  "Oki11" = "#7bbcd5",
+  "Oki14" = "#00496f",
+  "Oki15" = "#9A32CD"
+)
+
+# Shared theme for publication figures
+theme_pub <- function(base_size = 14) {
+  theme_bw(base_size = base_size) +
+    theme(
+      panel.grid.minor = element_blank(),
+      strip.background = element_blank(),
+      legend.key.size  = unit(0.8, "lines")
+    )
+}
+```
+
+# Data Loading
+
+```{r load-data}
+CoralNet          <- read_csv(here("Data/SfM/CoralNetAnalysis.csv"),    show_col_types = FALSE)
+CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv"), show_col_types = FALSE)
+ComplexityData    <- read_csv(here("Data/SfM/ComplexitySummaryStats.csv"), show_col_types = FALSE)
+TempData          <- read_csv(here("Data/SfM/TempMeans.csv"),           show_col_types = FALSE)
+FlowData          <- read_csv(here("Data/SfM/FlowMetrics.csv"),         show_col_types = FALSE)
+```
+
+# Data Wrangling
+
+## Substrate cover and quadrat-level metadata
+
+Each row in `CoralNet` is a single annotation point. We join with the reference table to get functional group labels, then build a quadrat-level metadata frame by summarising complexity, flow, and temperature metrics — all measured at the site level — down to each quadrat.
+
+```{r wrangle-meta}
+SubstrateCoverData <- CoralNet |>
+  left_join(CoralNetReference, by = "CoralNetAbb") |>
+  mutate(id = paste(SiteName, Quadrat)) |>
+  select(id, everything())
+
+MetaData <- SubstrateCoverData |>
+  distinct(id, SiteName, Year, Quadrat) |>
+  left_join(ComplexityData, by = "SiteName") |>
+  left_join(FlowData,       by = "SiteName") |>
+  left_join(TempData,       by = "SiteName") |>
+  mutate(
+    TempRange = maxTemp - minTemp,
+    FlowRange = MaxSpeed - MinSpeed
+  )
+```
+
+## Wide-format species matrix and diversity metrics
+
+We pivot to a species × quadrat matrix for the hard coral subset, then compute per-quadrat richness (number of coral morpho-taxa present), Shannon diversity, and Pielou's evenness. Richness is the count of taxa with at least one annotation in a quadrat.
+
+```{r wrangle-diversity}
+# Build the wide species matrix for ALL substrates
+SubstrateCoverDataWide <- SubstrateCoverData |>
+  mutate(Count = 1) |>
+  group_by(id, CoralNetAbb) |>
+  summarise(Count = sum(Count), .groups = "drop") |>
+  pivot_wider(names_from = CoralNetAbb, values_from = Count, values_fill = 0)
+
+# Restrict to hard corals only
+hard_coral_taxa <- CoralNetReference |>
+  filter(FunctionalGroup == "Hard coral") |>
+  pull(CoralNetAbb)
+
+CoralAbsoluteCount_Wide <- SubstrateCoverDataWide |>
+  select(id, any_of(hard_coral_taxa)) |>
+  left_join(MetaData, by = "id")
+
+# Identify actual hard coral columns present in the data
+coral_cols <- intersect(hard_coral_taxa, colnames(CoralAbsoluteCount_Wide))
+
+# Richness: number of taxa with count > 0 per quadrat (rowwise)
+CoralDiversity <- CoralAbsoluteCount_Wide |>
+  mutate(richness = rowSums(across(all_of(coral_cols)) > 0, na.rm = TRUE))
+
+# Shannon diversity via vegan
+sha_mat <- CoralDiversity |>
+  select(id, all_of(coral_cols)) |>
+  column_to_rownames("id") |>
+  mutate(across(everything(), as.numeric))
+
+shan_df <- tibble(
+  id      = rownames(sha_mat),
+  shannon = as.numeric(diversity(sha_mat, index = "shannon"))
+)
+
+CoralDiversity <- CoralDiversity |>
+  left_join(shan_df, by = "id") |>
+  mutate(evenness = if_else(richness > 1, shannon / log(richness), NA_real_))
+
+# Site-level summary (one row per site)
+CoralDiversitySite <- CoralDiversity |>
+  group_by(SiteName) |>
+  summarise(
+    site_richness = mean(richness, na.rm = TRUE),
+    site_evenness = mean(evenness, na.rm = TRUE),
+    site_shannon  = mean(shannon,  na.rm = TRUE),
+    across(MeanSA:FlowRange, ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  )
+
+# Save outputs
+write_csv(CoralDiversity,     here("Data/SfM/CoralNetDiversityMetrics.csv"))
+write_csv(CoralDiversitySite, here("Data/SfM/CoralNetDiversityMetricsSite.csv"))
+```
+
+# Site Overview
+
+## Environmental conditions by site
+
+```{r env-table}
+#| label: tbl-env
+#| tbl-cap: "Summary of environmental and complexity metrics across the 8 Okinawa reef sites."
+
+MetaData |>
+  distinct(SiteName, MeanDepth, meanTemp, TempRange, MeanSpeed, MeanRug, MeanFD) |>
+  arrange(SiteName) |>
+  gt() |>
+  cols_label(
+    SiteName  = "Site",
+    MeanDepth = "Depth (m)",
+    meanTemp  = "Mean Temp (°C)",
+    TempRange = "Temp Range (°C)",
+    MeanSpeed = "Mean Speed (cm/s)",
+    MeanRug   = "Rugosity",
+    MeanFD    = "Fractal Dimension"
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 2) |>
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  )
+```
+
+## Substrate cover by site
+
+```{r cover-bar}
+#| label: fig-cover
+#| fig-cap: "Proportional substrate cover by functional group across sites. Each bar sums to 100% of annotation points."
+#| fig-width: 10
+#| fig-height: 5
+
+cover_summary <- SubstrateCoverData |>
+  filter(!is.na(FunctionalGroup)) |>
+  count(SiteName, FunctionalGroup) |>
+  group_by(SiteName) |>
+  mutate(prop = n / sum(n) * 100) |>
+  ungroup() |>
+  mutate(
+    FunctionalGroup = case_when(
+      FunctionalGroup == "Hard coral"     ~ "Hard Coral",
+      FunctionalGroup == "Algae"          ~ "Algae",
+      FunctionalGroup == "Hard Substrate" ~ "Hard Substrate",
+      TRUE                                ~ FunctionalGroup
+    )
+  )
+
+fg_palette <- c(
+  "Hard Coral"     = "#dd4124",
+  "Algae"          = "#45681e",
+  "Hard Substrate" = "#a88c6e",
+  "Other"          = "#b0b0b0",
+  "Soft coral"     = "#9A32CD",
+  "Mobile invertebrate" = "#7bbcd5"
+)
+
+p_cover <- ggplot(cover_summary, aes(x = SiteName, y = prop, fill = FunctionalGroup)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(values = fg_palette, na.value = "grey70") +
+  theme_pub() +
+  labs(x = "Site", y = "Cover (%)", fill = "Functional group") +
+  theme(legend.position = "right")
+p_cover
+```
+
+# Functional Group Composition
+
+Beyond simple richness and diversity, *which types* of corals are present matters ecologically. We group hard coral taxa into three functional categories based on growth form — branching/arborescent, massive/submassive, and encrusting/plating — and ask whether their relative dominance tracks the environmental gradients identified above.
+
+```{r growth-form-wrangle}
+# Aggregate CoralNetReference growth forms into three broad groups
+growth_cover_grouped <- SubstrateCoverData |>
+  filter(!is.na(GrowthForm), FunctionalGroup == "Hard coral") |>
+  mutate(
+    GrowthGroup = case_when(
+      GrowthForm %in% c("Branching", "Corymbose", "Digitate", "Tabular") ~ "Branching/Arborescent",
+      GrowthForm %in% c("Encrusting", "Plating", "Foliose")              ~ "Encrusting/Plating",
+      GrowthForm %in% c("Massive", "Submassive")                         ~ "Massive/Submassive",
+      TRUE                                                                 ~ "Other"
+    )
+  ) |>
+  count(SiteName, GrowthGroup) |>
+  group_by(SiteName) |>
+  mutate(prop = n / sum(n) * 100) |>
+  ungroup()
+
+# Order sites by increasing mean current speed
+site_order_flow <- FlowData |> arrange(MeanSpeed) |> pull(SiteName)
+
+# Branching proportion per site, joined with flow data
+branch_prop <- growth_cover_grouped |>
+  filter(GrowthGroup == "Branching/Arborescent") |>
+  select(SiteName, branch_prop = prop) |>
+  left_join(FlowData, by = "SiteName")
+```
+
+```{r growth-form-plot}
+#| label: fig-growthform
+#| fig-cap: "A) Hard coral community composition by growth form, sites ordered by increasing current speed. B) Branching/arborescent coral cover increases with current speed (Pearson r = 0.72)."
+#| fig-width: 12
+#| fig-height: 5
+
+gf_palette <- c(
+  "Branching/Arborescent" = "#d6604d",
+  "Massive/Submassive"    = "#4393c3",
+  "Encrusting/Plating"    = "#74c476",
+  "Other"                 = "#bdbdbd"
+)
+
+p_gf <- growth_cover_grouped |>
+  mutate(
+    SiteName    = factor(SiteName, levels = site_order_flow),
+    GrowthGroup = factor(GrowthGroup, levels = rev(names(gf_palette)))
+  ) |>
+  ggplot(aes(x = SiteName, y = prop, fill = GrowthGroup)) +
+  geom_col(width = 0.8) +
+  scale_fill_manual(values = gf_palette) +
+  scale_y_continuous(expand = c(0, 0)) +
+  annotate("segment", x = 0.4, xend = 8.6, y = -6, yend = -6,
+           arrow = arrow(length = unit(0.25, "cm"), ends = "last"), color = "grey40") +
+  annotate("text", x = 4.5, y = -12,
+           label = "Increasing current speed \u2192", size = 3.5, color = "grey40") +
+  coord_cartesian(ylim = c(-15, 100), clip = "off") +
+  theme_pub() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        plot.margin = margin(t = 5, r = 5, b = 30, l = 5)) +
+  labs(x = NULL, y = "% of hard coral cover", fill = "Growth form")
+
+p_branch <- ggplot(branch_prop, aes(x = MeanSpeed, y = branch_prop, color = SiteName)) +
+  geom_point(size = 4) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE,
+              color = "grey20", linewidth = 0.9) +
+  scale_color_manual(values = site_colors, guide = "none") +
+  theme_pub() +
+  labs(x = "Mean current speed (cm/s)",
+       y = "Branching/arborescent\ncoral cover (%)")
+
+p_growthform_panel <- (p_gf | p_branch) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+p_growthform_panel
+```
+
+```{r save-growthform}
+#| include: false
+ggsave(
+  here("Output/SfM/growth_form_panel.pdf"),
+  (p_gf | p_branch) + plot_annotation(tag_levels = "A"),
+  width = 12, height = 5
+)
+```
+
+**Interpretation.** Branching and arborescent corals (including *Acropora* and *Montipora* branching morphs) increase markedly at high-flow sites — from ~11% of hard coral cover at slow-current sites (Oki03, Oki11) to ~55–57% at the fastest sites (Oki14, Oki07). Massive and submassive morphs dominate at low-flow sites. This functional gradient is consistent with the well-documented dependence of branching *Acropora* on strong unidirectional flow for mass transfer and carbonate deposition, and adds a mechanistic biological layer to the community-level pattern captured by db-RDA.
+
+# Bleaching Vulnerability Index
+
+High-flow sites are dominated by branching and arborescent corals — growth forms known from the global bleaching literature to suffer the highest mortality during thermal stress events (Loya et al. 2001 *Ecology Letters*; Hughes et al. 2018 *Science*; Darling et al. 2012 *Ecology Letters*). We quantify this risk using a **Bleaching Vulnerability Index (BVI)**: the community-weighted mean thermal susceptibility of each quadrat, scored by growth form on a 1–5 scale derived from published bleaching outcomes.
+
+| Growth form | BVI score | Rationale |
+|---|---|---|
+| Tabular | 5.0 | Acropora tabulate — highest bleaching mortality globally |
+| Branching | 4.5 | Acropora, Montipora, Porites branching |
+| Corymbose | 4.5 | Pocillopora — consistently high bleaching susceptibility |
+| Digitate | 4.5 | Acropora digitate |
+| Foliose | 3.5 | Montipora, Turbinaria |
+| Plating | 3.5 | Montipora plating, Echinopora |
+| Submassive | 3.0 | Galaxea, Favia, Lobophyllia — intermediate |
+| Encrusting | 2.5 | Porites encrusting, Leptoria |
+| Massive | 2.0 | Porites massive, Faviidae — most resistant ("winners") |
+
+```{r bvi-wrangle}
+susceptibility_scores <- c(
+  Tabular    = 5.0, Branching  = 4.5, Corymbose = 4.5, Digitate   = 4.5,
+  Foliose    = 3.5, Plating    = 3.5, Submassive = 3.0,
+  Encrusting = 2.5, Massive    = 2.0
+)
+
+# Quadrat-level BVI = mean susceptibility score across all hard coral annotations
+bvi_quadrat <- SubstrateCoverData |>
+  filter(FunctionalGroup == "Hard coral",
+         !is.na(GrowthForm),
+         GrowthForm %in% names(susceptibility_scores)) |>
+  mutate(suscept = susceptibility_scores[GrowthForm]) |>
+  group_by(id, SiteName) |>
+  summarise(BVI = mean(suscept, na.rm = TRUE), .groups = "drop")
+
+# Site-level summary
+bvi_site <- bvi_quadrat |>
+  group_by(SiteName) |>
+  summarise(mean_BVI = mean(BVI, na.rm = TRUE),
+            se_BVI   = se_fun(BVI), .groups = "drop") |>
+  left_join(FlowData,       by = "SiteName") |>
+  left_join(ComplexityData, by = "SiteName") |>
+  left_join(CoralDiversitySite |> select(SiteName, site_richness), by = "SiteName") |>
+  left_join(branch_prop |> select(SiteName, branch_prop), by = "SiteName")
+
+cat("Site BVI vs. current speed (r =",
+    round(cor(bvi_site$mean_BVI, bvi_site$MeanSpeed), 3), ")\n")
+cat("Site BVI vs. rugosity (r =",
+    round(cor(bvi_site$mean_BVI, bvi_site$MeanRug), 3), ")\n")
+```
+
+```{r bvi-plot}
+#| label: fig-bvi
+#| fig-cap: "A) Bleaching Vulnerability Index increases strongly with current speed (r = 0.78, p = 0.021). B) BVI is decoupled from structural complexity (rugosity, r = −0.14, p = 0.73). Point size = species richness; point colour in B = current speed. Dashed lines = dataset means."
+#| fig-width: 12
+#| fig-height: 5
+
+p_bvi_flow_fig <- ggplot(bvi_site, aes(x = MeanSpeed, y = mean_BVI)) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE,
+              color = "grey30", linewidth = 0.9, fill = "grey80") +
+  geom_point(aes(color = SiteName), size = 5) +
+  geom_label_repel(aes(label = SiteName, color = SiteName),
+                   size = 3.2, label.size = 0.3, label.padding = 0.18,
+                   min.segment.length = 0.2, box.padding = 0.4, show.legend = FALSE) +
+  annotate("text", x = 0.8, y = 3.95, hjust = 0, size = 3.8, fontface = "italic",
+           color = "grey30", label = "r = 0.78,  p = 0.021") +
+  scale_color_manual(values = site_colors, guide = "none") +
+  theme_pub() +
+  labs(x = "Mean current speed (cm/s)", y = "Bleaching Vulnerability Index")
+
+rug_mid <- mean(bvi_site$MeanRug)
+bvi_mid <- mean(bvi_site$mean_BVI)
+
+p_archetype_fig <- ggplot(bvi_site, aes(x = MeanRug, y = mean_BVI)) +
+  annotate("rect", xmin = rug_mid, xmax = Inf,  ymin = -Inf,   ymax = bvi_mid,
+           fill = "#1a9641", alpha = 0.08) +
+  annotate("rect", xmin = -Inf,   xmax = rug_mid, ymin = bvi_mid, ymax = Inf,
+           fill = "#d7191c",  alpha = 0.08) +
+  annotate("text", x = 4.6, y = 2.79, size = 3, hjust = 0.5, fontface = "italic",
+           color = "#1a9641", label = "High complexity\nLow vulnerability\n(potential refugia)") +
+  annotate("text", x = 2.05, y = 3.82, size = 3, hjust = 0.5, fontface = "italic",
+           color = "#d7191c", label = "Low complexity\nHigh vulnerability") +
+  geom_hline(yintercept = bvi_mid, linetype = "dashed", color = "grey55", linewidth = 0.5) +
+  geom_vline(xintercept = rug_mid, linetype = "dashed", color = "grey55", linewidth = 0.5) +
+  geom_point(aes(color = MeanSpeed, size = site_richness)) +
+  geom_label_repel(aes(label = SiteName), color = "grey20", size = 3,
+                   label.size = 0, min.segment.length = 0.2, box.padding = 0.35) +
+  scale_color_gradient(low = "#abd9e9", high = "#d7191c", name = "Current\nspeed (cm/s)") +
+  scale_size_continuous(name = "Species\nrichness", range = c(3, 9)) +
+  theme_pub() +
+  labs(x = "Mean rugosity", y = "Bleaching Vulnerability Index")
+
+p_bvi_panel <- (p_bvi_flow_fig | p_archetype_fig) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+p_bvi_panel
+```
+
+```{r save-bvi}
+#| include: false
+ggsave(
+  here("Output/SfM/bvi_panel.pdf"),
+  (p_bvi_flow_fig | p_archetype_fig) + plot_annotation(tag_levels = "A"),
+  width = 12, height = 5
+)
+```
+
+**Interpretation.** Current speed is the dominant predictor of community-level thermal vulnerability (r = 0.78, p = 0.021): high-flow sites (Oki07, Oki14) supporting >55% branching and arborescent coral cover carry the highest BVI scores (3.6–3.8), placing them at greatest risk during bleaching events. Okinawa experienced mass bleaching in 2023 and again in summer 2024–2025, contemporaneous with this sampling period.
+
+Crucially, BVI is **statistically decoupled from structural complexity** (r = −0.14, p = 0.73). The most rugose sites — Oki03 and Oki15 — have below- or near-average BVI despite their high complexity. This is ecologically significant: the vulnerability gradient and the complexity gradient run along **different environmental axes** (flow and depth, respectively). High-rugosity, low-vulnerability sites may constitute thermal refugia — structurally complex reefs capable of retaining diverse communities through bleaching disturbance — rather than being the reefs most at risk.
+
+> **Caveat:** BVI scores are derived from growth-form-level literature rankings and represent an approximation of community-level thermal sensitivity. Taxon-level susceptibility data and site-specific bleaching surveys would strengthen these inferences. The n = 8 site-level analysis limits statistical power; patterns should be interpreted as descriptive at this scale.
+
+# Alpha Diversity
+
+We modelled each diversity metric against site using a one-way linear model, then used Tukey-corrected pairwise comparisons to identify which sites differ.
+
+## By-site patterns
+
+```{r alpha-models}
+richness_mod  <- lm(richness  ~ SiteName, data = CoralDiversity)
+evenness_mod  <- lm(evenness  ~ SiteName, data = CoralDiversity)
+shannon_mod   <- lm(shannon   ~ SiteName, data = CoralDiversity)
+
+# Assumption check — run interactively as needed
+# check_model(richness_mod)
+
+# Pairwise comparisons
+richness_pairs <- pairs(emmeans(richness_mod, ~ SiteName), adjust = "tukey")
+evenness_pairs <- pairs(emmeans(evenness_mod, ~ SiteName), adjust = "tukey")
+shannon_pairs  <- pairs(emmeans(shannon_mod,  ~ SiteName), adjust = "tukey")
+
+# ANOVA tables
+cat("=== Richness ANOVA ===\n")
+Anova(richness_mod) |> tidy() |> print()
+cat("\n=== Evenness ANOVA ===\n")
+Anova(evenness_mod) |> tidy() |> print()
+cat("\n=== Shannon ANOVA ===\n")
+Anova(shannon_mod)  |> tidy() |> print()
+```
+
+```{r alpha-plots}
+#| label: fig-alpha
+#| fig-cap: "Alpha diversity across 8 Okinawa reef sites (mean ± SE with individual quadrat values). Sites ordered by ascending mean."
+#| fig-width: 13
+#| fig-height: 5
+
+make_diversity_plot <- function(df, metric, ylabel, summary_df) {
+  df_ord <- df |>
+    left_join(summary_df, by = "SiteName") |>
+    mutate(SiteName = fct_reorder(SiteName, mean))
+
+  ggplot() +
+    geom_jitter(
+      data  = df_ord,
+      aes(x = SiteName, y = .data[[metric]], color = SiteName),
+      width = 0.15, alpha = 0.6, size = 1.2
+    ) +
+    geom_errorbar(
+      data = summary_df |> mutate(SiteName = factor(SiteName, levels = levels(df_ord$SiteName))),
+      aes(x = SiteName, ymin = mean - se, ymax = mean + se),
+      width = 0.25, linewidth = 0.7
+    ) +
+    geom_point(
+      data = summary_df |> mutate(SiteName = factor(SiteName, levels = levels(df_ord$SiteName))),
+      aes(x = SiteName, y = mean),
+      size = 2.5, shape = 21, fill = "white", stroke = 1.2
+    ) +
+    scale_color_manual(values = site_colors) +
+    theme_pub() +
+    theme(
+      legend.position  = "none",
+      axis.text.x      = element_text(angle = 35, hjust = 1)
+    ) +
+    labs(x = NULL, y = ylabel)
+}
+
+richness_summary <- CoralDiversity |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(richness, na.rm = TRUE), se = se_fun(richness), .groups = "drop")
+
+evenness_summary <- CoralDiversity |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(evenness, na.rm = TRUE), se = se_fun(evenness), .groups = "drop")
+
+shannon_summary <- CoralDiversity |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(shannon, na.rm = TRUE), se = se_fun(shannon), .groups = "drop")
+
+p_rich  <- make_diversity_plot(CoralDiversity, "richness",  "Richness",      richness_summary)
+p_shan  <- make_diversity_plot(CoralDiversity, "shannon",   "Shannon (H')",  shannon_summary)
+p_even  <- make_diversity_plot(CoralDiversity, "evenness",  "Evenness (J')", evenness_summary)
+
+p_alpha_panel <- (p_rich | p_shan | p_even) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+p_alpha_panel
+```
+
+```{r save-alpha}
+#| include: false
+ggsave(
+  here("Output/SfM/alpha_diversity_panel.pdf"),
+  (p_rich | p_shan | p_even) + plot_annotation(tag_levels = "A"),
+  width = 13, height = 5
+)
+```
+
+# Beta Diversity (Community Composition)
+
+We used Bray-Curtis dissimilarity on hard coral abundance matrices to compare community composition across sites, with PCoA ordination for visualisation, PERMANOVA to test site differences, and betadisper to confirm that differences in dispersion are not confounding the PERMANOVA result.
+
+```{r beta-wrangle}
+# Species abundance matrix aligned with PCoA sample order
+abund <- CoralDiversity |>
+  select(id, all_of(coral_cols)) |>
+  column_to_rownames("id") |>
+  mutate(across(everything(), as.numeric))
+
+samdf     <- CoralDiversity |> select(!all_of(coral_cols))
+braydist  <- vegdist(abund, method = "bray")
+pcoa_res  <- cmdscale(braydist, eig = TRUE, k = 2)
+variance  <- round(100 * pcoa_res$eig / sum(abs(pcoa_res$eig)), 2)
+
+points_df <- as.data.frame(pcoa_res$points) |>
+  setNames(c("PCoA1", "PCoA2")) |>
+  rownames_to_column("id") |>
+  left_join(samdf, by = "id")
+```
+
+```{r beta-stats}
+cat("=== PERMANOVA (adonis2) ===\n")
+perm_res <- adonis2(braydist ~ SiteName, data = samdf, permutations = 999)
+tidy(perm_res) |> print()
+
+cat("\n=== Betadisper (homogeneity of dispersion) ===\n")
+bet <- betadisper(braydist, samdf$SiteName)
+anova(bet) |> tidy() |> print()
+```
+
+```{r pcoa-envfit}
+# Environmental fit vectors
+env_vars <- samdf |>
+  select(id, MeanSA, MeanRug, MeanFD, MeanHR, MeanDepth, MeanSpeed, meanTemp) |>
+  column_to_rownames("id")
+
+ef  <- envfit(points_df[, c("PCoA1", "PCoA2")], env_vars, permutations = 999, na.rm = TRUE)
+
+# Scale arrows to 70% of the ordination range
+mult <- 0.7 * max(abs(points_df[, c("PCoA1", "PCoA2")])) /
+              max(abs(scores(ef, display = "vectors")))
+
+env_scores <- as.data.frame(scores(ef, display = "vectors")) |>
+  rownames_to_column("variable") |>
+  rename(raw1 = PCoA1, raw2 = PCoA2) |>
+  mutate(
+    pval  = ef$vectors$pvals,
+    PCoA1 = raw1 * mult,
+    PCoA2 = raw2 * mult
+  )
+
+env_scores_sig <- env_scores |> filter(pval < 0.05)
+
+# Clean labels for the arrows
+env_labels <- c(
+  MeanSA    = "Surface Area",
+  MeanRug   = "Rugosity",
+  MeanFD    = "Fractal Dim.",
+  MeanHR    = "Height Range",
+  MeanDepth = "Depth",
+  MeanSpeed = "Current Speed",
+  meanTemp  = "Temperature"
+)
+env_scores_sig <- env_scores_sig |>
+  mutate(label = env_labels[variable])
+```
+
+```{r pcoa-plot}
+#| label: fig-pcoa
+#| fig-cap: "PCoA of Bray-Curtis dissimilarity among hard coral communities. 95% confidence ellipses shown per site. Arrows show significant environmental vectors from envfit (p < 0.05)."
+#| fig-width: 8
+#| fig-height: 6
+
+ggplot(points_df, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
+  geom_point(size = 3) +
+  stat_ellipse(level = 0.95, linetype = 1, alpha = 0.5) +
+  geom_segment(
+    data        = env_scores_sig,
+    aes(x = 0, y = 0, xend = PCoA1, yend = PCoA2),
+    arrow       = arrow(length = unit(0.22, "cm"), type = "closed"),
+    color       = "grey20",
+    linewidth   = 0.8,
+    inherit.aes = FALSE
+  ) +
+  geom_label(
+    data        = env_scores_sig,
+    aes(x = PCoA1 * 1.25, y = PCoA2 * 1.25, label = label),
+    color       = "grey20",
+    size        = 3.5,
+    label.size  = 0,
+    inherit.aes = FALSE
+  ) +
+  scale_color_manual(values = site_colors) +
+  theme_pub() +
+  labs(
+    x     = paste0("PCoA 1 (", variance[1], "%)"),
+    y     = paste0("PCoA 2 (", variance[2], "%)"),
+    color = "Site"
+  )
+```
+
+```{r save-pcoa}
+#| include: false
+ggsave(
+  here("Output/SfM/pcoa_bray_envfit.pdf"),
+  last_plot(), width = 8, height = 6
+)
+```
+
+# Reef Complexity (Rugosity)
+
+## Rugosity across sites
+
+```{r rug-data}
+rug_data <- read_csv(
+  here("Data/SfM/ComplexitySummaryStats.csv"),
+  show_col_types = FALSE
+) |>
+  arrange(MeanRug)
+```
+
+```{r rug-site-plot}
+#| label: fig-rugosity
+#| fig-cap: "Mean rugosity (surface area ratio) per site with range (min–max) shown by error bars. Sites ordered by mean rugosity."
+#| fig-width: 7
+#| fig-height: 5
+
+p_rug_site <- ggplot(rug_data, aes(x = fct_reorder(SiteName, MeanRug), y = MeanRug, color = SiteName)) +
+  geom_errorbar(aes(ymin = MinRug, ymax = MaxRug), width = 0.25, linewidth = 0.7) +
+  geom_point(size = 4) +
+  scale_color_manual(values = site_colors, guide = "none") +
+  theme_pub() +
+  labs(
+    x = "Site (ordered by mean rugosity)",
+    y = "Rugosity (surface area ratio)"
+  )
+p_rug_site
+```
+
+```{r save-rug-site}
+#| include: false
+ggsave(here("Output/SfM/rugosity_by_site.pdf"), last_plot(), width = 7, height = 5)
+```
+
+## Rugosity vs. coral diversity
+
+```{r rug-vs-diversity}
+#| label: fig-rug-diversity
+#| fig-cap: "Relationship between mean site rugosity and mean site coral diversity metrics. Each point is one site."
+#| fig-width: 12
+#| fig-height: 4
+
+p_rug_rich <- ggplot(CoralDiversitySite, aes(x = MeanRug, y = site_richness, color = SiteName)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "grey30", linewidth = 0.9, aes(group = 1)) +
+  scale_color_manual(values = site_colors, guide = "none") +
+  theme_pub() +
+  labs(x = "Mean Rugosity", y = "Mean Richness")
+
+p_rug_shan <- ggplot(CoralDiversitySite, aes(x = MeanRug, y = site_shannon, color = SiteName)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "grey30", linewidth = 0.9, aes(group = 1)) +
+  scale_color_manual(values = site_colors, guide = "none") +
+  theme_pub() +
+  labs(x = "Mean Rugosity", y = "Mean Shannon (H')")
+
+p_rug_even <- ggplot(CoralDiversitySite, aes(x = MeanRug, y = site_evenness, color = SiteName)) +
+  geom_point(size = 4) +
+  geom_smooth(method = "lm", se = TRUE, color = "grey30", linewidth = 0.9, aes(group = 1)) +
+  scale_color_manual(values = site_colors) +
+  theme_pub() +
+  labs(x = "Mean Rugosity", y = "Mean Evenness (J')")
+
+(p_rug_rich | p_rug_shan | p_rug_even) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+```
+
+```{r save-rug-div}
+#| include: false
+ggsave(
+  here("Output/SfM/rugosity_vs_diversity.pdf"),
+  (p_rug_rich | p_rug_shan | p_rug_even) + plot_annotation(tag_levels = "A"),
+  width = 12, height = 4
+)
+```
+
+# Environmental Correlates of Diversity
+
+## Correlation matrix
+
+Pairwise Pearson correlations among quadrat-level diversity metrics and site-level environmental predictors, with Benjamini-Hochberg FDR correction.
+
+```{r corrmat}
+#| label: fig-corrmat
+#| fig-cap: "Pearson correlation matrix (BH-corrected). Significance symbols: * p < 0.05, ** p < 0.01, *** p < 0.001."
+#| fig-width: 9
+#| fig-height: 8
+
+# Pretty axis labels
+var_labels <- c(
+  richness  = "Richness",
+  evenness  = "Evenness",
+  shannon   = "Shannon",
+  MeanSA    = "Surface Area",
+  MeanRug   = "Rugosity",
+  MeanFD    = "Fractal Dim.",
+  MeanHR    = "Height Range",
+  MeanDepth = "Depth",
+  MeanSpeed = "Current Speed",
+  meanTemp  = "Temperature"
+)
+
+vars_for_cor <- CoralDiversity |>
+  select(richness, evenness, shannon,
+         MeanSA, MeanRug, MeanFD, MeanHR,
+         MeanDepth, MeanSpeed, meanTemp)
+
+cor_out <- psych::corr.test(
+  vars_for_cor,
+  use    = "pairwise",
+  method = "pearson",
+  adjust = "BH"
+)
+
+# Tidy into long format
+cor_long <- as.data.frame(cor_out$r) |>
+  rownames_to_column("var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "r")
+
+p_long <- as.data.frame(cor_out$p) |>
+  rownames_to_column("var1") |>
+  pivot_longer(-var1, names_to = "var2", values_to = "p")
+
+vlevels <- colnames(cor_out$r)
+
+cor_plot_df <- left_join(cor_long, p_long, by = c("var1", "var2")) |>
+  mutate(
+    sig = case_when(
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      TRUE      ~ ""
+    ),
+    label = if_else(sig == "", sprintf("%.2f", r), sprintf("%.2f\n%s", r, sig)),
+    var1  = factor(var1, levels = vlevels),
+    var2  = factor(var2, levels = vlevels)
+  ) |>
+  filter(as.numeric(var1) < as.numeric(var2)) |>
+  mutate(
+    var1 = var_labels[as.character(var1)] |> factor(levels = var_labels[vlevels]),
+    var2 = var_labels[as.character(var2)] |> factor(levels = var_labels[vlevels])
+  )
+
+ggplot(cor_plot_df, aes(x = var1, y = var2, fill = r)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = label), size = 3.2, lineheight = 0.9) +
+  scale_fill_gradient2(limits = c(-1, 1), name = "r",
+                       low = "#2166ac", mid = "white", high = "#d6604d") +
+  scale_x_discrete(position = "top") +
+  coord_fixed() +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 0),
+    panel.grid  = element_blank()
+  ) +
+  labs(x = NULL, y = NULL)
+```
+
+```{r save-corrmat}
+#| include: false
+ggsave(here("Output/SfM/correlation_matrix.pdf"), last_plot(), width = 9, height = 8)
+```
+
+## Key regression relationships
+
+Scatter plots for the environmental predictors most likely to drive richness across quadrats, with site-coded points and an overall regression line.
+
+```{r regression-panel}
+#| label: fig-regressions
+#| fig-cap: "Coral species richness as a function of key environmental predictors. Each point is a quadrat; line and shading show OLS fit ± 95% CI across all quadrats."
+#| fig-width: 12
+#| fig-height: 10
+
+make_scatter <- function(xvar, xlabel) {
+  ggplot(CoralDiversity, aes(x = .data[[xvar]], y = richness, color = SiteName)) +
+    geom_point(alpha = 0.7, size = 1.5) +
+    geom_smooth(aes(group = 1), method = "lm", se = TRUE,
+                color = "grey20", linewidth = 1, fill = "grey70") +
+    scale_color_manual(values = site_colors) +
+    theme_pub() +
+    labs(x = xlabel, y = "Richness", color = "Site")
+}
+
+p_speed <- make_scatter("MeanSpeed", "Mean Current Speed (cm/s)")
+p_depth <- make_scatter("MeanDepth", "Mean Depth (m)")
+p_temp  <- make_scatter("meanTemp",  "Mean Temperature (°C)")
+p_rug   <- make_scatter("MeanRug",   "Rugosity")
+p_fd    <- make_scatter("MeanFD",    "Fractal Dimension")
+p_hr    <- make_scatter("MeanHR",    "Height Range (m)")
+
+(p_speed + p_depth + p_temp + p_rug + p_fd + p_hr) +
+  plot_layout(ncol = 3, guides = "collect") +
+  plot_annotation(tag_levels = "A") &
+  theme(
+    plot.tag        = element_text(face = "bold"),
+    legend.position = "right"
+  )
+```
+
+```{r save-regressions}
+#| include: false
+ggsave(
+  here("Output/SfM/richness_env_regressions.pdf"),
+  (p_speed + p_depth + p_temp + p_rug + p_fd + p_hr) +
+    plot_layout(ncol = 3, guides = "collect") +
+    plot_annotation(tag_levels = "A"),
+  width = 12, height = 10
+)
+```
+
+## Regression model summaries
+
+Simple linear models for richness against each environmental predictor (quadrat-level, ignoring site structure). Note that because predictors are measured at the site level, all quadrats within a site share the same predictor value — these models underestimate uncertainty. Treat these as descriptive rather than inferential until a mixed model approach (site as random effect) is applied.
+
+```{r lm-summaries}
+predictors <- c(MeanSpeed = "Current Speed", MeanDepth = "Depth",
+                meanTemp  = "Temperature",   MeanRug   = "Rugosity",
+                MeanFD    = "Fractal Dim.",  MeanHR    = "Height Range")
+
+lm_results <- map_dfr(names(predictors), function(xvar) {
+  mod <- lm(reformulate(xvar, "richness"), data = CoralDiversity)
+  tidy(mod) |>
+    filter(term != "(Intercept)") |>
+    mutate(predictor = predictors[[xvar]], r2 = summary(mod)$r.squared)
+}) |>
+  select(predictor, estimate, std.error, statistic, p.value, r2) |>
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+lm_results |>
+  gt() |>
+  cols_label(
+    predictor  = "Predictor",
+    estimate   = "β",
+    std.error  = "SE",
+    statistic  = "t",
+    p.value    = "p",
+    r2         = "R²"
+  ) |>
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_footnote("Site-level predictors; all quadrats within a site share the same predictor value. Mixed models recommended for inference.")
+```
+
+# Variance Partitioning
+
+The db-RDA shows that multiple environmental factors shape community composition, but does not disentangle their unique vs. shared contributions. Variance partitioning (`vegan::varpart`) decomposes the total explained community variation (Bray-Curtis) into three ecologically meaningful groups: physical exposure (current speed + depth), structural complexity (rugosity + fractal dimension + height range), and thermal environment (mean temperature + temperature range). Each unique fraction is tested by partial db-RDA with the other two groups as covariates.
+
+```{r varpart-fit}
+env_full <- samdf |>
+  select(id, MeanDepth, MeanSpeed, MeanRug, MeanFD, MeanHR, meanTemp, TempRange)
+
+cc      <- complete.cases(env_full)
+abund_cc <- abund[cc, ]
+env_cc   <- env_full[cc, ] |> column_to_rownames("id")
+bray_cc  <- vegdist(abund_cc, "bray")
+
+vp <- varpart(
+  bray_cc,
+  ~ MeanSpeed + MeanDepth,
+  ~ MeanRug + MeanFD + MeanHR,
+  ~ meanTemp + TempRange,
+  data = env_cc
+)
+print(vp)
+
+cat("\n=== Unique fraction significance tests ===\n")
+cat("\n[a] Physical unique (p = 0.001):\n")
+anova(dbrda(bray_cc ~ MeanSpeed + MeanDepth +
+              Condition(MeanRug + MeanFD + MeanHR + meanTemp + TempRange), data = env_cc),
+      permutations = 999)
+
+cat("\n[b] Complexity unique (p = 0.001):\n")
+anova(dbrda(bray_cc ~ MeanRug + MeanFD + MeanHR +
+              Condition(MeanSpeed + MeanDepth + meanTemp + TempRange), data = env_cc),
+      permutations = 999)
+
+cat("\n[c] Thermal unique (p = 0.001):\n")
+anova(dbrda(bray_cc ~ meanTemp + TempRange +
+              Condition(MeanSpeed + MeanDepth + MeanRug + MeanFD + MeanHR), data = env_cc),
+      permutations = 999)
+```
+
+```{r varpart-plot}
+#| label: fig-varpart
+#| fig-cap: "Variance partitioning of coral community composition (Bray-Curtis). Each circle represents one predictor group; values are adjusted R² fractions. All unique fractions significant at p = 0.001 (partial db-RDA permutation tests)."
+#| fig-width: 7
+#| fig-height: 6
+
+circles_vp <- data.frame(
+  x     = c( 0,    1.1,  0.55),
+  y     = c( 0.7,  0.7, -0.3),
+  r     = c( 1.1,  1.1,  1.1),
+  group = c("Physical\n(flow + depth)",
+            "Structural\ncomplexity",
+            "Thermal")
+)
+
+frac_labels_vp <- data.frame(
+  x     = c(-0.85, 1.95,  0.55,  0.55),
+  y     = c( 0.90, 0.90, -1.05,  0.50),
+  label = c("4.96%***\nPhysical only",
+            "7.87%***\nComplexity only",
+            "6.75%***\nThermal only",
+            "Shared\n(3.3%)")
+)
+
+p_varpart <- ggplot() +
+  geom_circle(
+    data = circles_vp,
+    aes(x0 = x, y0 = y, r = r, fill = group),
+    alpha = 0.25, color = "grey50", linewidth = 0.9
+  ) +
+  scale_fill_manual(values = c(
+    "Physical\n(flow + depth)"  = "#4393c3",
+    "Structural\ncomplexity"    = "#74c476",
+    "Thermal"                   = "#d6604d"
+  )) +
+  geom_text(
+    data = frac_labels_vp,
+    aes(x = x, y = y, label = label),
+    size = 4, fontface = "bold", lineheight = 1.1
+  ) +
+  annotate("text", x = 0.55, y = 2.0,
+           label = "Total explained: 24.7% of community variation",
+           size = 3.8, fontface = "italic", color = "grey30") +
+  coord_fixed(xlim = c(-2.4, 2.9), ylim = c(-1.8, 2.4)) +
+  theme_void(base_size = 13) +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  labs(title = NULL)
+p_varpart
+```
+
+```{r save-varpart}
+#| include: false
+ggsave(here("Output/SfM/varpart_venn.pdf"), last_plot(), width = 7, height = 6)
+```
+
+**Interpretation.** All three predictor groups explain significant and independent fractions of community variation. Structural complexity has the largest unique contribution (7.87%), followed by thermal environment (6.75%) and physical exposure (4.96%). The shared fraction among all three groups (3.3%) is modest, indicating the three axes capture largely non-redundant information — except for a notable pairwise overlap between physical and thermal predictors (4.6%), which reflects the collinearity between depth and temperature noted in the mixed model. Together, the three groups explain 24.7% of total Bray-Curtis variation — a respectable amount given the complexity of coral community assembly.
+
+# Mixed-Effects Model of Richness
+
+With only 8 sites, predictors measured at the site level (depth, temperature, current speed, rugosity) do not vary within sites — every quadrat in a site shares the same value. A naive OLS regression therefore treats 93 pseudo-replicated observations as independent. A linear mixed model with *site* as a random intercept is the minimal correction: it partitions residual variance into within-site scatter and among-site structure, and the fixed-effect estimates reflect the site-level gradient more honestly.
+
+**Caveat:** Eight random-effect levels is on the low end. Variance component estimates will be imprecise, and the model should be interpreted as descriptive rather than definitive.
+
+```{r mixed-model}
+library(lme4)
+library(lmerTest)   # Satterthwaite df for p-values
+
+# Scale predictors (site-level; one unique value per site)
+CoralDiversity_sc <- CoralDiversity |>
+  mutate(
+    MeanDepth_sc = scale(MeanDepth)[, 1],
+    meanTemp_sc  = scale(meanTemp)[, 1]
+  )
+
+# Full model: depth + temperature + random site intercept
+mod_full <- lmer(
+  richness ~ MeanDepth_sc + meanTemp_sc + (1 | SiteName),
+  data = CoralDiversity_sc, REML = FALSE
+)
+
+# Reduced: depth only (temperature is collinear with depth, r = -0.66 across sites)
+mod_depth <- lmer(
+  richness ~ MeanDepth_sc + (1 | SiteName),
+  data = CoralDiversity_sc, REML = FALSE
+)
+
+# Null: random site intercept only
+mod_null <- lmer(
+  richness ~ 1 + (1 | SiteName),
+  data = CoralDiversity_sc, REML = FALSE
+)
+
+cat("=== Depth-only model (preferred by AIC) ===\n")
+summary(mod_depth)
+
+cat("\n=== Model comparison ===\n")
+anova(mod_null, mod_depth, mod_full)
+```
+
+**Interpretation.** Both models converge with the site-level random-effect variance estimated at exactly zero — a singular fit. This is informative: depth (and to a lesser extent temperature) accounts for essentially *all* systematic among-site variation in richness, leaving nothing for the random intercept to absorb. The depth-only model is preferred by AIC (lower by ~2.2 vs. the depth + temperature model). Deeper sites support higher coral richness (β = 1.13 richness units per SD of depth, t = 4.6, p < 0.001). Temperature is strongly negatively correlated with depth across sites (r = −0.66), so its marginal contribution to richness disappears once depth is controlled — the apparent temperature signal seen in pairwise correlations is likely mediated through depth.
+
+# Distance-based RDA
+
+Whereas PERMANOVA and PCoA test whether and how communities differ among sites, db-RDA asks *which environmental predictors* constrain that variation. We model Bray-Curtis dissimilarity as a function of all six site-level predictors simultaneously, giving a single model R² and permutation-based significance for each term.
+
+```{r dbrda-fit}
+dbrda_mod <- dbrda(
+  braydist ~ MeanDepth + meanTemp + MeanSpeed + MeanRug + MeanFD + MeanHR,
+  data = samdf
+)
+
+cat("=== Variance partitioning ===\n")
+cat(sprintf(
+  "Constrained (explained by predictors): %.1f%%\nUnconstrained (residual): %.1f%%\n",
+  100 * dbrda_mod$CCA$tot.chi / dbrda_mod$tot.chi,
+  100 * dbrda_mod$CA$tot.chi  / dbrda_mod$tot.chi
+))
+
+cat("\n=== Global permutation test ===\n")
+anova(dbrda_mod, permutations = 999) |> tidy() |> print()
+
+cat("\n=== By-term permutation test (sequential) ===\n")
+anova(dbrda_mod, by = "terms", permutations = 999) |> tidy() |> print()
+```
+
+```{r dbrda-plot}
+#| label: fig-dbrda
+#| fig-cap: "Distance-based RDA triplot. Points = quadrats (coloured by site); ellipses = 95% confidence regions per site; arrows = environmental predictors (all significant at p ≤ 0.01 by sequential permutation test). Axis labels show percentage of *total* Bray-Curtis variation explained."
+#| fig-width: 9
+#| fig-height: 7
+
+site_sc <- as.data.frame(scores(dbrda_mod, display = "sites")) |>
+  rownames_to_column("id") |>
+  left_join(samdf |> select(id, SiteName), by = "id")
+
+bp_sc <- as.data.frame(scores(dbrda_mod, display = "bp"))
+
+# Scale arrows proportionally to ordination range
+arrow_mult <- 0.85 * max(abs(site_sc[, c("dbRDA1", "dbRDA2")])) /
+              max(abs(bp_sc[, c("dbRDA1", "dbRDA2")]))
+
+env_label_map <- c(
+  MeanDepth = "Depth", meanTemp = "Temperature",
+  MeanSpeed = "Current Speed", MeanRug = "Rugosity",
+  MeanFD    = "Fractal Dim.", MeanHR = "Height Range"
+)
+
+bp_df <- bp_sc |>
+  rownames_to_column("variable") |>
+  mutate(
+    dbRDA1 = dbRDA1 * arrow_mult,
+    dbRDA2 = dbRDA2 * arrow_mult,
+    label  = env_label_map[variable]
+  )
+
+eig_all <- eigenvals(dbrda_mod, model = "all")
+eig_con <- eigenvals(dbrda_mod, model = "constrained")
+pct_exp <- round(100 * eig_con / sum(eig_all[eig_all > 0]), 1)
+
+p_dbrda <- ggplot(site_sc, aes(x = dbRDA1, y = dbRDA2, color = SiteName)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(level = 0.95, alpha = 0.4, linewidth = 0.7) +
+  geom_segment(
+    data = bp_df,
+    aes(x = 0, y = 0, xend = dbRDA1, yend = dbRDA2),
+    arrow       = arrow(length = unit(0.22, "cm"), type = "closed"),
+    color       = "grey15", linewidth = 0.85, inherit.aes = FALSE
+  ) +
+  geom_label_repel(
+    data        = bp_df,
+    aes(x = dbRDA1 * 1.12, y = dbRDA2 * 1.12, label = label),
+    color       = "grey15", size = 3.5, label.size = 0,
+    min.segment.length = 0.3, box.padding = 0.3,
+    inherit.aes = FALSE
+  ) +
+  scale_color_manual(values = site_colors) +
+  theme_bw(base_size = 14) +
+  theme(panel.grid.minor = element_blank()) +
+  labs(
+    x     = paste0("dbRDA1 (", pct_exp[1], "% of total variation)"),
+    y     = paste0("dbRDA2 (", pct_exp[2], "% of total variation)"),
+    color = "Site"
+  )
+p_dbrda
+```
+
+```{r save-dbrda}
+#| include: false
+ggsave(here("Output/SfM/dbrda_triplot.pdf"), last_plot(), width = 9, height = 7)
+```
+
+**Interpretation.** The six-predictor db-RDA explains **26.7% of total Bray-Curtis variation** (F₆,₈₆ = 5.21, p = 0.001). All predictors are individually significant by sequential permutation test. Current speed has the largest marginal effect, followed by depth — consistent with the mixed-model result for richness. The triplot shows that Oki07 and Oki14 (high current speed) separate along dbRDA1, while Oki03 (highest rugosity and height range) separates along dbRDA2. The constrained axes therefore capture the environmental gradient from structurally complex, deeper sites to shallower, faster-current sites.
+
+# Summary
+
+Across 8 Okinawa reef sites, coral communities differ substantially in both species richness and community composition. The analyses converge on a coherent story:
+
+- **Depth is the dominant driver of richness.** The mixed model (site random intercept) identifies depth as the only significant predictor of coral species richness (β = +1.1 richness units per SD depth, p < 0.001). The apparent negative relationship between temperature and richness is attributable to collinearity with depth (deeper sites are cooler, r = −0.66 across sites) — temperature adds no explanatory power once depth is controlled.
+
+- **Community composition is shaped by multiple environmental axes.** The db-RDA explains 26.7% of total Bray-Curtis variation (p = 0.001). Current speed and depth account for the most variation, but rugosity, fractal dimension, height range, and temperature all contribute independently. This suggests that while *which species are present* responds primarily to depth, *which assemblage type* a site hosts depends on the full environmental context.
+
+- **Thermal vulnerability and structural complexity are decoupled.** The highest-BVI (most bleaching-vulnerable) sites are the high-flow, branching-dominated ones — NOT the most structurally complex reefs. Rugosity and BVI are orthogonal (r = −0.14). This means the environmental gradients produce two distinct site archetypes: flow-exposed, branching-dominant, thermally vulnerable reefs versus deep, rugose, species-rich, thermally resistant reefs — potential refugia.
+
+**Remaining analytical priorities:**
+
+- NOAA Coral Reef Watch DHW data was attempted but is not useful at this spatial scale: all 8 sites lie within a ~14 km stretch of coastline, meaning they fall within 3–4 pixels of the 5 km resolution CRW product. Between-site DHW variation would be negligible from satellite data; the in-situ temperature loggers already provide the relevant thermal signal at site resolution.
+- A meaningful bleaching context could come from querying NOAA CRW for the broader Okinawa region (were DHW > 8 °C-weeks reached in summer 2025?) as a single-value descriptor of the sampling period, rather than a site-level predictor.
+- Confirm whether the dataset should include 9 sites — 8 appear in the current data files.
+
+---
+
+# Conservation Implications
+
+The environmental gradients characterised here — depth, current speed, structural complexity, and community-level thermal vulnerability — are not just ecological descriptors. They have direct, actionable implications for two of the most pressing reef management decisions: **where to protect reefs** and **where and how to restore them through coral outplanting**.
+
+## Site archetypes and management classification
+
+The BVI–rugosity framework identifies four site archetypes with distinct management needs. These classifications are based on whether a site falls above or below the dataset means for structural complexity (mean rugosity = `r round(rug_mid, 2)`) and thermal vulnerability (mean BVI = `r round(bvi_mid, 2)`).
+
+```{r conservation-table}
+#| label: tbl-conservation
+#| tbl-cap: "Site classification by structural complexity and bleaching vulnerability, with corresponding management priorities."
+
+site_class <- bvi_site |>
+  dplyr::select(SiteName, MeanDepth, MeanSpeed, MeanRug, mean_BVI, site_richness) |>
+  mutate(
+    Archetype = case_when(
+      mean_BVI >= bvi_mid & MeanRug <  rug_mid ~ "High-flow / Vulnerable",
+      mean_BVI <  bvi_mid & MeanRug >= rug_mid ~ "Refugia candidate",
+      MeanDepth > mean(MeanDepth) & mean_BVI < bvi_mid ~ "Deep / Lower risk",
+      TRUE ~ "Transitional"
+    ),
+    `Management priority` = case_when(
+      Archetype == "Refugia candidate"       ~ "Strict protection; larval source population",
+      Archetype == "High-flow / Vulnerable"  ~ "Bleaching monitoring; resistant-genotype outplanting",
+      Archetype == "Deep / Lower risk"       ~ "Protection; source population for restoration",
+      TRUE                                   ~ "Ongoing monitoring; baseline characterisation"
+    )
+  ) |>
+  arrange(MeanSpeed)
+
+site_class |>
+  gt() |>
+  cols_label(
+    SiteName      = "Site",
+    MeanDepth     = "Depth (m)",
+    MeanSpeed     = "Speed (cm/s)",
+    MeanRug       = "Rugosity",
+    mean_BVI      = "BVI",
+    site_richness = "Richness"
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 2) |>
+  tab_style(
+    style     = cell_fill(color = "#d7191c", alpha = 0.15),
+    locations = cells_body(rows = Archetype == "High-flow / Vulnerable")
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#1a9641", alpha = 0.15),
+    locations = cells_body(rows = Archetype == "Refugia candidate")
+  ) |>
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_footnote("BVI = Bleaching Vulnerability Index (community-weighted mean thermal sensitivity, 1–5 scale). Archetypes based on dataset means.")
+```
+
+## Prioritising reef protection
+
+**Refugia candidates (Oki03, and partially Oki15) should be the highest protection priority.** These sites combine three properties that matter for long-term reef persistence: high structural complexity that supports diverse communities, low bleaching vulnerability reflecting a thermally resistant community composition, and sufficient depth to buffer peak thermal stress. During a mass bleaching event that devastates the high-flow Acropora-dominated sites, refugia reefs are most likely to retain living coral cover and continue generating larvae — making them disproportionately important for regional recovery. Designating these sites as strict no-take zones, with active enforcement and regular monitoring, should precede any active restoration investment elsewhere.
+
+**Deep, species-rich sites with moderate flow (Oki09, Oki11) serve as secondary protection priorities.** They contribute the highest alpha diversity in this dataset (richness up to 9.3) and carry below-average BVI. Protection here secures the reservoir of species needed to recolonise degraded sites after disturbance.
+
+## Outplanting strategy informed by environmental data
+
+Active coral restoration — transplanting nursery-raised corals to reef sites — is increasingly common in Okinawa and across the Indo-Pacific. The environmental characterisation developed here argues strongly for **site-matched outplanting** rather than uniform deployment.
+
+**High-flow, bleaching-vulnerable sites (Oki07, Oki14) are candidates for outplanting thermally resistant coral genotypes.** The ecological rationale is threefold:
+
+1. **Structural insurance.** These sites are dominated by branching and arborescent *Acropora* that provide the highest structural complexity per unit cover, but collapse structurally after bleaching mortality. Outplanting massive *Porites* or encrusting *Faviidae* — which survive bleaching events with far higher frequency — would maintain a structural skeleton at the site even when the branching community bleaches, preserving habitat for reef-associated fish and invertebrates through the disturbance.
+
+2. **Flow as partial thermal protection.** High-current environments promote turbulent mixing that can moderate local temperatures during bleaching events, providing a partial physical buffer. Outplanted corals at these sites may benefit from this mixing even during regional thermal anomalies — though this effect is likely small relative to a DHW > 8 °C-week event.
+
+3. **Functional complementarity.** Introducing massive and encrusting morphologies alongside the naturally dominant branching community increases functional redundancy. If one growth form is eliminated by bleaching, calcification, structural support, and carbonate deposition continue through the survivors. This reduces the risk of a threshold shift from coral-dominated to algae-dominated reef following disturbance.
+
+**Refugia sites should not be targets for outplanting.** Introducing nursery-raised corals risks transmitting disease, disrupting locally adapted genotypes, and adding unnecessary anthropogenic pressure to the reefs that are most likely to self-recover. Conservation here means keeping people away, not adding corals.
+
+**Transitional sites (Oki02, Oki04, Oki15) warrant site-specific assessment** before restoration investment. Their intermediate environmental profiles mean that outplanting outcomes will be more context-dependent — species selection, nursery source population, and deployment depth all require careful matching to the local conditions characterised here.
+
+## The case for environmental baseline surveys before restoration
+
+A central lesson of this analysis is that meaningful conservation decisions require knowing the environmental context of a site *before* committing restoration resources. The data collected here — a two-week tilt meter deployment and a set of SfM photogrammetry surveys — provided enough to:
+
+- Characterise current speed, temperature, and structural complexity at each site
+- Classify sites by thermal vulnerability and refugia potential
+- Identify which sites should be protected, which should receive resistant outplants, and which need further assessment
+
+This represents a relatively rapid and low-cost baseline compared to multi-year ecological monitoring programs, yet it generates the site-specific environmental information that restoration practitioners currently lack. **A standardised pre-restoration environmental survey protocol — tilt meters, SfM, and CoralNet annotation — could substantially improve the evidence base for outplanting decisions across Okinawa and the broader Ryukyu Archipelago.**
+
+# 5-Minute Talk Outline
+
+**Central message:** Two distinct environmental axes structure coral reef communities along Okinawa's coast — depth determines *how many* species are present; current speed determines *what functional types* dominate. Structural complexity threads through both, reflecting the mutual reinforcement between physical habitat and the communities that build it.
+
+---
+
+## Slide 1 — Setting & Methods *(~60 sec)*
+
+> *"We used structure-from-motion photogrammetry and in-situ tilt meters to ask what drives coral diversity and community composition across 8 reef sites in Okinawa."*
+
+- **Study system:** 8 sites along Okinawa's southeast coast, surveyed August 2025
+- Sites span meaningful gradients: depth (6–12 m), current speed (0.8–6.3 cm/s), temperature (26.6–29.4°C)
+- **SfM photogrammetry:** CoralNet annotation of quadrats → coral cover by taxon + growth form; photogrammetric models → rugosity, surface area, fractal dimension, height range
+- **Tilt meters:** 2 weeks of continuous current speed + temperature at each site
+
+*Use: site map (from Map_full.R) as the primary image; the substrate cover panel below as a companion.*
+
+```{r slide1-fig, echo=FALSE, fig.width=10, fig.height=5, fig.cap="Slide 1 figure — Substrate cover by functional group across the 8 sites."}
+p_cover
+```
+
+---
+
+## Slide 2 — Communities Differ, and Environment Explains Why *(~75 sec)*
+
+> *"Sites have distinct coral communities, and together three environmental axes — physical exposure, structural complexity, and thermal regime — explain 25% of that variation."*
+
+- PERMANOVA: communities significantly different across sites (R² = 0.31, p = 0.001)
+- db-RDA: 6 environmental predictors explain **26.7%** of Bray-Curtis community variation (p = 0.001)
+- Variance partitioning decomposes this into three independent signals:
+
+| Predictor group | Unique R² | p |
+|---|---|---|
+| Structural complexity (rugosity, fractal dim., height range) | 7.9% | 0.001 |
+| Thermal (mean temp, temp range) | 6.8% | 0.001 |
+| Physical exposure (current speed, depth) | 5.0% | 0.001 |
+
+- All three fractions are independent — each captures something the others do not
+
+```{r slide2-fig, echo=FALSE, fig.width=7, fig.height=6, fig.cap="Slide 2 figure — Variance partitioning Venn diagram."}
+p_varpart
+```
+
+---
+
+## Slide 3 — High-Flow Reefs Are Functionally Vulnerable *(~75 sec)*
+
+> *"At high-flow sites, branching corals like Acropora and Montipora dominate. At low-flow sites, massive Porites take over — and the high-flow reefs are the most bleaching-vulnerable."*
+
+- Growth form composition shifts cleanly along the current speed gradient:
+  - Low flow (Oki03, Oki11, 0.8 cm/s): ~85% massive/submassive, ~11% branching
+  - High flow (Oki07, Oki14, 5.4–6.3 cm/s): ~55–57% branching/arborescent
+- Branching coral cover vs. mean current speed: Pearson **r = 0.72** across sites
+- **BVI** tracks current speed (r = 0.78, p = 0.021) — the most flow-exposed reefs are most thermally vulnerable
+- **But BVI is decoupled from rugosity (r = −0.14):** structurally complex, high-rugosity sites are NOT the high-BVI sites → **potential climate refugia**
+
+```{r slide3-fig-a, echo=FALSE, fig.width=12, fig.height=5, fig.cap="Slide 3 figure A — Growth form composition ordered by current speed (left) and branching coral proportion vs. flow (right)."}
+p_growthform_panel
+```
+
+```{r slide3-fig-b, echo=FALSE, fig.width=12, fig.height=5, fig.cap="Slide 3 figure B — BVI vs. current speed (A) and the complexity–vulnerability archetype quadrant plot (B)."}
+p_bvi_panel
+```
+
+---
+
+## Slide 4 — Depth Drives Species Richness *(~60 sec)*
+
+> *"Deeper sites support more coral species. Temperature looks related, but only because it tracks depth — once you account for depth, temperature adds nothing."*
+
+- Species richness varies significantly across sites (ANOVA: F₇,₈₅ = 4.1, p < 0.001)
+- Mixed model (site random intercept): depth is the **only** significant predictor
+  - β = +1.1 richness units per SD depth (t = 4.6, p < 0.001)
+  - Temperature: collinear with depth (r = −0.66), p = 0.69 when controlled
+
+```{r slide4-fig, echo=FALSE, fig.width=13, fig.height=5, fig.cap="Slide 4 figure — Alpha diversity (richness, Shannon, evenness) across sites, ordered by ascending mean."}
+p_alpha_panel
+```
+
+---
+
+## Slide 5 — Take-Home *(~30 sec)*
+
+> *"Two axes, two outcomes: depth structures who's there, flow structures what they look like — and the most structurally complex reefs are the least bleaching-vulnerable."*
+
+- **Depth → species richness:** more species at deeper, cooler sites
+- **Current speed → functional type:** branching corals dominate high-flow sites; massive corals dominate low-flow
+- **BVI and rugosity are orthogonal:** vulnerability and complexity gradients run on independent environmental axes
+- **Refugia:** deep, rugose, low-flow sites (Oki03) are both most complex AND least bleaching-vulnerable
+- Conservation implication: protect refugia first; outplant resistant genotypes to high-flow vulnerable sites
+
+```{r slide5-fig, echo=FALSE, fig.width=9, fig.height=7, fig.cap="Slide 5 figure — db-RDA triplot showing how depth and current speed axes pull communities in distinct directions, with environmental vectors overlaid."}
+p_dbrda
+```
