@@ -162,7 +162,7 @@ TotalSitePercentCoverMeta <- TotalSitePercentCover %>%
  
 
  
-TotalSiteHardCoralMeta <- TotalSitePercentCoverMeta %>%
+TotalSiteHardCoralMeta <- FunctionalSiteMeta %>%
   filter(FunctionalGroup == "Hard coral")
 
 ```
@@ -175,20 +175,20 @@ RelationshipPlots_fun <- function(Df, MetaVariable, PlotName)
 {
 
   ggplot(Df, aes(x= {{MetaVariable}}, y = value, color = SiteName)) +
-         geom_point() +
-     labs( y = "PercentCover") +
+         geom_point(size = 3) +
+     labs( y = "HardCoralPercentCover") +
     
   
   ggsave(here("Output", "SfM", PlotName))
 }
 
-RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanRug, PlotName = "HardCoralRug.png")
-RelationshipPlots_fun(HardCoralMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
-RelationshipPlots_fun(HardCoralMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
-RelationshipPlots_fun(HardCoralMeta, TempRange, PlotName = "HardCoralTempRange.png")
-RelationshipPlots_fun(HardCoralMeta, MeanSpeed, PlotName = "HardCoralMeanSpeed.png")
-RelationshipPlots_fun(HardCoralMeta, FlowRange, PlotName = "HardCoralFlowRange.png")
-RelationshipPlots_fun(HardCoralMeta, MaxSpeed, PlotName = "HardCoralMaxSpeed.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanRug, filename = here("Output/SfM/HardCoralRug.png"))
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, TempRange, PlotName = "HardCoralTempRange.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanSpeed, PlotName = "HardCoralMeanSpeed.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, FlowRange, PlotName = "HardCoralFlowRange.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MaxSpeed, PlotName = "HardCoralMaxSpeed.png")
 
 
 ```
