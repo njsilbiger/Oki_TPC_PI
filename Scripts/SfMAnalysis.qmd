@@ -50,7 +50,17 @@ MetaData <- SubstrateCoverData %>%
   mutate(TempRange = maxTemp - minTemp) %>%
   mutate(FlowRange = MaxSpeed - MinSpeed)
             
-            
+SiteMetaData <- SubstrateCoverData %>% 
+  dplyr::select(SiteName) %>%
+  group_by(SiteName) %>%
+  summarise(across(everything(), ~ paste(unique(.), collapse = ", ")), .groups = "drop") %>% #Collapse all the rows that have the same data across all columns
+  left_join(ComplexityData) %>%
+  left_join(FlowData) %>%
+  left_join(TempData) %>%
+  
+  
+  mutate(TempRange = maxTemp - minTemp) %>%
+  mutate(FlowRange = MaxSpeed - MinSpeed)            
 ```
 
 
@@ -69,17 +79,33 @@ SubstrateCoverDataWide <- SubstrateCoverData %>%
 SubstrateCoverDataWide$Total #making sure there is 100 
 ```
 
+```{r}
+SubstrateCoverDataWide <- SubstrateCoverData %>%
+
+  mutate(Count = 1) %>%
+    group_by(id, CoralNetAbb) %>%
+  select(id,CoralNetAbb, Count) %>%
+  pivot_wider(names_from = CoralNetAbb, values_from = Count,
+            values_fill = 0,
+            values_fn = sum) %>%
+  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
+  
+
+SubstrateCoverDataWide$Total #making sure there is 100 
+```
+
+
 Function to Creat Dataframes of everythign we want to graph, 
-DOnʻt think this was necessary can just use SbustrateCoverMetaData
+DOnʻt think this was necessary can just use SbustrateCover. 
 
 ```{r}
-PercentCover_Fun <- function(  G, rowx, rowy, GroupName) 
+PercentCover_Fun <- function( H, G, rowx, rowy, GroupName, MD) 
 {
   
 SubstrateCoverData %>%
     mutate(Count = 1) %>%
-    group_by(id, {{G}}) %>%
-    select(id, {{G}}, Count) %>%
+    group_by({{H}}, {{G}}) %>%
+    select({{H}}, {{G}}, Count) %>%
     pivot_wider(names_from = {{G}}, values_from = Count,
                 values_fill = 0,
                 values_fn = sum) %>%
@@ -87,11 +113,14 @@ SubstrateCoverData %>%
     mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
     pivot_longer(cols = {{rowx}}:{{rowy}}, 
                  names_to = GroupName) %>%
-    left_join(MetaData, by = join_by(id)) %>%
+    left_join(MD, by = join_by(H)) %>%
     filter(value != 0)
 }
 
-PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName = "CoralNetAbb")
+PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, Algae, Zoanthids, GroupName = "CoralNetAbb")
+
+SiteFunctionalPercentCover <- PercentCover_Fun(SiteName, FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup", SiteMetaData)
+
 
 #FunctionalGroupMeta <- PercentCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
 
@@ -106,7 +135,35 @@ PercentCoverMeta <- PercentCover_Fun( CoralNetAbb, TurfAl, Zoanthids, GroupName 
 HardCoralMeta <- PercentCoverMeta %>%
   filter(FunctionalGroup == "Hard coral") 
   
+SiteCover_Fun <- function(  G, rowx, rowy, GroupName) 
+{
+  
+SubstrateCoverData %>%
+    mutate(Count = 1) %>%
+    group_by(SiteName, {{G}}) %>%
+    select(SiteName, {{G}}, Count) %>%
+    pivot_wider(names_from = {{G}}, values_from = Count,
+                values_fill = 0,
+                values_fn = sum) %>%
+    mutate(Total = sum(c_across({{rowx}}:{{rowy}}), na.rm = TRUE)) %>%
+    mutate(across({{rowx}}:{{rowy}}, ~ (.x / Total))) %>%
+    pivot_longer(cols = {{rowx}}:{{rowy}}, 
+                 names_to = GroupName) %>%
+    left_join(SiteMetaData, by = join_by(SiteName)) %>%
+    filter(value != 0)
+}
 
+  
+FunctionalSiteMeta <- SiteCover_Fun( FunctionalGroup, Algae, Seagrass, GroupName = "FunctionalGroup")
+
+TotalSitePercentCoverMeta <- TotalSitePercentCover %>%
+  left_join(SiteMetaData, by = c("SiteName")) %>%
+  left_join(CoralNetReference)
+ 
+
+ 
+TotalSiteHardCoralMeta <- TotalSitePercentCoverMeta %>%
+  filter(FunctionalGroup == "Hard coral")
 
 ```
   
@@ -125,7 +182,7 @@ RelationshipPlots_fun <- function(Df, MetaVariable, PlotName)
   ggsave(here("Output", "SfM", PlotName))
 }
 
-RelationshipPlots_fun(HardCoralMeta, MeanRug, PlotName = "HardCoralRug.png")
+RelationshipPlots_fun(TotalSiteHardCoralMeta, MeanRug, PlotName = "HardCoralRug.png")
 RelationshipPlots_fun(HardCoralMeta, MeanHR, PlotName = "HardCoralHeightRange.png")
 RelationshipPlots_fun(HardCoralMeta, MeanDepth, PlotName = "HardCoralMeanDepth.png")
 RelationshipPlots_fun(HardCoralMeta, TempRange, PlotName = "HardCoralTempRange.png")
