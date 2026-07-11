@@ -9,7 +9,6 @@ editor: visual
 library(tidyverse)
 library(here)
 library(vegan)
-library(phyloseq)
 library(car)
 library(see)
 library(performance)
@@ -273,15 +272,16 @@ Make Correlation Plots
 library(psych)
 library(corrplot)
 
-#use coral diversity with one point for site here
+#if you want to you can use coral diversity with one point for site here
+#@ashley see above if Nyssa wants this
 CoralDiversitySite <- read.csv(here("Data/SfM/CoralNetDiversityMetricsSite.csv"))
 
-vars_means <- CoralDiversitySite |>
+vars_means <- CoralDiversity |>
   dplyr::select(
     richness,evenness,shannon,
     MeanSA,MeanRug,MeanFD,MeanHR,MeanDepth,MeanSpeed,meanTemp
     )
-vars_all <- CoralDiversitySite |>
+vars_all <- CoralDiversity |>
   dplyr::select(
     richness,
     evenness,
@@ -374,8 +374,8 @@ corr_plot <- ggplot(cor_plot_df, aes(x = var1, y = var2, fill = r)) +
   )
 
 #@ashley change this output and dimensions when saving all vs mean plots
-ggsave(here("Output", "SfM", "corr_all_sfm_variables.pdf"), corr_plot, h = 20, w = 20)
-#ggsave(here("Output", "SfM", "corr_mean_sfm_variables.pdf"), corr_plot, h = 10, w = 10)
+#ggsave(here("Output", "SfM", "corr_all_sfm_variables.pdf"), corr_plot, h = 20, w = 20)
+ggsave(here("Output", "SfM", "corr_means_sfm_variables.pdf"), corr_plot, h = 10, w = 10)
 ```
 
 Make Regression Plots
@@ -421,16 +421,16 @@ rich_temp <- ggplot(CoralDiversity) +
               method = "lm", se = T, color = "black", linewidth = 1.1)
 rich_temp
 
-# rich_rug <- ggplot(CoralDiversity) +
-#   geom_point(aes(x = MaxRug, y = richness, color = SiteName)) +
-#   scale_color_manual(values = site_colors)+
-#   theme_bw(base_size = 22) +
-#   labs(x = "Rugosity", 
-#        y = "Richness", 
-#        color = "Site") +
-#   geom_smooth(aes(x = MaxRug, y = richness, group = 1),
-#               method = "lm", se = T, color = "black", linewidth = 1.1)
-# rich_rug
+rich_rug <- ggplot(CoralDiversity) +
+  geom_point(aes(x = MeanRug, y = richness, color = SiteName)) +
+  scale_color_manual(values = site_colors)+
+  theme_bw(base_size = 22) +
+  labs(x = "Rugosity",
+       y = "Richness",
+       color = "Site") +
+  geom_smooth(aes(x = MeanRug, y = richness, group = 1),
+              method = "lm", se = T, color = "black", linewidth = 1.1)
+rich_rug
 
 ggsave(here("Output", "SfM", "rich_speed_scatter.pdf"), rich_speed, h = 5, w = 10)
 ggsave(here("Output", "SfM", "rich_depth_scatter.pdf"), rich_depth, h = 5, w = 10)
