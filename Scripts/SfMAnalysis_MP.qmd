@@ -1,0 +1,581 @@
+---
+title: "SfM Diversity Analysis"
+author: "Maya Powell"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(here)
+library(vegan)
+library(phyloseq)
+library(car)
+library(see)
+library(performance)
+library(emmeans)
+```
+
+Upload Data
+
+```{r}
+CoralNet <- read_csv(here("Data/SfM/CoralNetAnalysis.csv"))
+CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv")) 
+ComplexityData <- read_csv(here("Data/SfM/ComplexitySummaryStats.csv"))
+TempData <- read_csv(here("Data/SfM/TempMeans.csv"))
+FlowData <- read_csv(here("Data/SfM/FlowMetrics.csv"))
+```
+
+```{r}
+SubstrateCoverData <- 
+  left_join(CoralNet, CoralNetReference, by = c("CoralNetAbb")) %>% mutate(id = paste(SiteName, Quadrat)) %>%
+    select(id, everything()) 
+#view(SubstrateCoverData)
+```
+
+Creating Meta Data Frame with: UniqueID, Site, Quadrat, complexity average metrics for each site, flow average metrics for each site, and temperature average metrics for each site
+
+```{r}
+MetaData <- SubstrateCoverData %>% 
+  dplyr::select(id, SiteName, Year, Quadrat) %>%
+  group_by(id) %>%
+  summarise(across(everything(), ~ paste(unique(.), collapse = ", ")), .groups = "drop") %>% #Collapse all the rows that have the same data across all columns
+  left_join(ComplexityData) %>%
+  left_join(FlowData) %>%
+  left_join(TempData) %>%
+  mutate(TempRange = maxTemp - minTemp) %>%
+  mutate(FlowRange = MaxSpeed - MinSpeed)
+```
+
+DIVERSITY
+
+```{r}
+#data wrangling
+SubstrateCoverData <- 
+  left_join(CoralNet, CoralNetReference, by = c("CoralNetAbb")) %>% mutate(id = paste(SiteName, Quadrat)) %>%
+  select(id, everything()) 
+
+SubstrateCoverDataWide <- SubstrateCoverData %>%
+  mutate(Count = 1) %>%
+  group_by(id, CoralNetAbb) %>%
+  select(id,CoralNetAbb, Count) %>%
+  pivot_wider(names_from = CoralNetAbb, values_from = Count,
+              values_fill = 0,
+              values_fn = sum) %>%
+  mutate(Total = sum(c_across(TurfAl:Zoanthids), na.rm = TRUE)) 
+
+AbsoluteCount <- SubstrateCoverDataWide %>%
+  pivot_longer(cols = TurfAl:Zoanthids, 
+               names_to = "CoralNetAbb") %>%
+  left_join(MetaData, by = join_by(id)) %>%
+  left_join(CoralNetReference)
+
+CoralAbsoluteCount <- AbsoluteCount %>% filter(FunctionalGroup == "Hard coral")
+
+CoralAbsoluteCount_Wide <- pivot_wider(
+  CoralAbsoluteCount,
+  id_cols = c(id),
+  names_from = CoralNetAbb,
+  values_from = value,
+  values_fill = 0) %>%
+  left_join(MetaData, by = join_by(id))
+
+#calculate richness, shannon index, and evenness
+CoralDiversity <- CoralAbsoluteCount_Wide %>% 
+  mutate(richness = sum(c_across(porB:gop), na.rm = TRUE))
+
+sha <- CoralDiversity %>% select(id, porB:gop)
+sha <- column_to_rownames(sha, 'id')
+sha <- sha %>%
+  mutate_all(as.numeric)
+shan <- as.data.frame(diversity(sha,index = "shannon"))
+shan <- shan %>% 
+  rename(shannon = `diversity(sha, index = "shannon")`) %>% 
+  mutate(id = rownames(shan))
+
+CoralDiversity <- CoralDiversity %>% left_join(shan) %>%
+  mutate(evenness = shannon/log(richness))
+
+CoralDiversitySite <- CoralDiversity %>% group_by(SiteName) %>%
+  mutate(site_richness = mean(richness), site_evenness = mean(evenness), site_shannon = mean(shannon)) %>% ungroup() %>%
+  select(!(porB:gop)) %>%
+  distinct(SiteName, .keep_all = TRUE)
+
+#SAVE DIVERSITY DATAFRAME
+write.csv(CoralDiversity, file = here("Data/SfM/CoralNetDiversityMetrics.csv"), row.names = FALSE)
+
+write.csv(CoralDiversitySite, file = here("Data/SfM/CoralNetDiversityMetricsSite.csv"), row.names = FALSE)
+
+```
+
+```{r}
+#setup for diversity analysis
+CoralDiversity <- read.csv(here("Data/SfM/CoralNetDiversityMetrics.csv"))
+
+#se function to use throughout
+se_fun <- function(x) {
+  n <- sum(!is.na(x))
+  if (n <= 1) return(NA_real_)
+  sd(x, na.rm = TRUE) / sqrt(n)
+}
+
+#site colors to use throughout
+site_colors <- c(
+  "Oki02" = '#ba7999',
+  "Oki03" = '#dd4124',
+  "Oki04" = '#ed8b00',
+  "Oki07" = '#edd746',
+  "Oki09" = '#45681e',
+  "Oki11" = '#7bbcd5',
+  "Oki14" = '#00496f',
+  "Oki15" = '#9A32CD'
+)
+```
+
+Richness
+
+```{r}
+#first summarize data by site
+richness_summary <- CoralDiversity %>%
+  group_by(SiteName) %>%
+  summarise(n = sum(!is.na(richness)),
+            mean = mean(richness, na.rm = TRUE),
+            se = se_fun(richness),
+            .groups = "drop")
+
+#stats
+richness.site.mod <- lm(richness~SiteName, data = CoralDiversity)
+Anova(richness.site.mod)
+summary(richness.site.mod)
+check_model(richness.site.mod)
+
+#pairwise comparisons
+richness.emm_obj <- emmeans::emmeans(richness.site.mod, ~ SiteName)
+richness.emm_pairs <- pairs(richness.emm_obj) #look at pairs for pairwise comps
+```
+
+```{r}
+#reorder based on mean values
+richness.site.ordered <- CoralDiversity %>% 
+  left_join(richness_summary, by = "SiteName") %>% 
+  mutate(SiteName = fct_reorder(SiteName, mean))  # ascending by mean
+
+#plot
+richness.site.plot <- ggplot() +
+  geom_jitter(data = richness.site.ordered, aes(x = SiteName, y = richness, color = SiteName), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = richness_summary, aes(x = SiteName, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
+  geom_point(data = richness_summary, aes(x = SiteName, y = mean), size = 2) +
+  scale_color_manual(values = site_colors) +
+  #stat_summary(data = richness.site.ordered, aes(x = SiteName, y = richness), geom = "text", fun = max, vjust = -0.5, size = 8)+
+               #label = c("a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"))+ #can add labels if you want based on emmeans
+  theme_bw(base_size = 22)+
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  labs(x = "Site", color = "Site", y = "Richness")
+richness.site.plot
+
+ggsave(here("Output", "SfM", "richness.site.plot.pdf"), richness.site.plot, h = 5, w = 10)
+```
+
+Evenness
+
+```{r}
+#first summarize data by site
+evenness_summary <- CoralDiversity %>%
+  group_by(SiteName) %>%
+  summarise(n = sum(!is.na(evenness)),
+            mean = mean(evenness, na.rm = TRUE),
+            se = se_fun(evenness),
+            .groups = "drop")
+
+#stats
+evenness.site.mod <- lm(evenness~SiteName, data = CoralDiversity)
+Anova(evenness.site.mod)
+summary(evenness.site.mod)
+check_model(evenness.site.mod)
+
+#pairwise comparisons
+evenness.emm_obj <- emmeans::emmeans(evenness.site.mod, ~ SiteName)
+evenness.emm_pairs <- pairs(evenness.emm_obj) #look at pairs for pairwise comps
+```
+
+```{r}
+#reorder based on mean values
+evenness.site.ordered <- CoralDiversity %>% 
+  left_join(evenness_summary, by = "SiteName") %>% 
+  mutate(SiteName = fct_reorder(SiteName, mean))  # ascending by mean
+
+#plot
+evenness.site.plot <- ggplot() +
+  geom_jitter(data = evenness.site.ordered, aes(x = SiteName, y = evenness, color = SiteName), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = evenness_summary, aes(x = SiteName, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
+  geom_point(data = evenness_summary, aes(x = SiteName, y = mean), size = 2) +
+  scale_color_manual(values = site_colors) +
+  #stat_summary(data = evenness.site.ordered, aes(x = SiteName, y = evenness), geom = "text", fun = max, vjust = -0.5, size = 8)+
+  #label = c("a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"))+ #can add labels if you want based on emmeans
+  theme_bw(base_size = 22)+
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  labs(x = "Site", color = "Site", y = "Evenness")
+evenness.site.plot
+
+ggsave(here("Output", "SfM", "evenness.site.plot.pdf"), evenness.site.plot, h = 5, w = 10)
+```
+
+Shannon
+
+```{r}
+#first summarize data by site
+shannon_summary <- CoralDiversity %>%
+  group_by(SiteName) %>%
+  summarise(n = sum(!is.na(shannon)),
+            mean = mean(shannon, na.rm = TRUE),
+            se = se_fun(shannon),
+            .groups = "drop")
+
+#stats
+shannon.site.mod <- lm(shannon~SiteName, data = CoralDiversity)
+Anova(shannon.site.mod)
+summary(shannon.site.mod)
+check_model(shannon.site.mod)
+
+#pairwise comparisons
+shannon.emm_obj <- emmeans::emmeans(shannon.site.mod, ~ SiteName)
+shannon.emm_pairs <- pairs(shannon.emm_obj) #look at pairs for pairwise comps
+```
+
+```{r}
+#reorder based on mean values
+shannon.site.ordered <- CoralDiversity %>% 
+  left_join(shannon_summary, by = "SiteName") %>% 
+  mutate(SiteName = fct_reorder(SiteName, mean))  # ascending by mean
+
+#plot
+shannon.site.plot <- ggplot() +
+  geom_jitter(data = shannon.site.ordered, aes(x = SiteName, y = shannon, color = SiteName), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = shannon_summary, aes(x = SiteName, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
+  geom_point(data = shannon_summary, aes(x = SiteName, y = mean), size = 2) +
+  scale_color_manual(values = site_colors) +
+  #stat_summary(data = shannon.site.ordered, aes(x = SiteName, y = shannon), geom = "text", fun = max, vjust = -0.5, size = 8)+
+  #label = c("a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"))+ #can add labels if you want based on emmeans
+  theme_bw(base_size = 22)+
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  labs(x = "Site", color = "Site", y = "Shannon Index")
+shannon.site.plot
+
+ggsave(here("Output", "SfM", "shannon.site.plot.pdf"), shannon.site.plot, h = 5, w = 10)
+```
+
+Make Correlation Plots
+
+```{r}
+library(psych)
+library(corrplot)
+
+#use coral diversity with one point for site here
+CoralDiversitySite <- read.csv(here("Data/SfM/CoralNetDiversityMetricsSite.csv"))
+
+vars_means <- CoralDiversitySite |>
+  dplyr::select(
+    richness,evenness,shannon,
+    MeanSA,MeanRug,MeanFD,MeanHR,MeanDepth,MeanSpeed,meanTemp
+    )
+vars_all <- CoralDiversitySite |>
+  dplyr::select(
+    richness,
+    evenness,
+    shannon,
+    MeanSA,MinSA,MaxSA,RangeSA,
+    MeanRug,MinRug,MaxRug,RangeRug,
+    MeanFD,MinFD,MaxFD,RangeFD,
+    MeanHR,MinHR,MaxHR,RangeHR,
+    MeanDepth,MinDepth,MaxDepth,RangeDepth,
+    MeanSpeed,MinSpeed,MaxSpeed,
+    meanTemp,minTemp,maxTemp,TempRange,
+    FlowRange
+  )
+#prot_log)
+cor_out <- psych::corr.test(
+  vars_means, #@ashley change this to all or means or whatever you want
+  use    = "pairwise",   # handles NAs
+  method = "pearson",    # change to "spearman" if you prefer
+  adjust = "BH"          # Benjamini-Hochberg FDR correction
+)
+#colnames(CoralDiversity)
+```
+
+```{r}
+#plot
+cor_mat <- cor_out$r      # correlation coefficients
+p_mat   <- cor_out$p      # p-values (adjusted if adjust != "none")
+
+cor_long <- cor_mat %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("var1") %>%
+  pivot_longer(
+    cols      = -var1,
+    names_to  = "var2",
+    values_to = "r"
+  )
+
+p_long <- p_mat %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("var1") %>%
+  pivot_longer(
+    cols      = -var1,
+    names_to  = "var2",
+    values_to = "p"
+  )
+
+cor_plot_df <- cor_long %>%
+  left_join(p_long, by = c("var1", "var2")) %>%
+  mutate(
+    sig = case_when(
+      p < 0.001 ~ "***",
+      p < 0.01  ~ "**",
+      p < 0.05  ~ "*",
+      TRUE      ~ ""
+    ),
+    label = ifelse(
+      sig == "",
+      sprintf("%.2f", r),                    # just r
+      sprintf("%.2f\n%s", r, sig)            # r on first line, stars on second
+    )
+  )
+
+var_levels <- colnames(cor_mat)
+cor_plot_df <- cor_plot_df %>%
+  mutate(
+    var1 = factor(var1, levels = var_levels),
+    var2 = factor(var2, levels = var_levels)
+  )
+
+cor_plot_df <- cor_plot_df %>%
+  filter(as.numeric(var1) < as.numeric(var2))
+
+corr_plot <- ggplot(cor_plot_df, aes(x = var1, y = var2, fill = r)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    limit = c(-1, 1),
+    name  = "r"
+  ) +
+  geom_text(aes(label = label), size = 3.5) +
+  coord_fixed() +
+  scale_x_discrete(position = "top") +
+  labs(
+    x = NULL,
+    y = NULL,
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 0),
+    panel.grid  = element_blank()
+  )
+
+#@ashley change this output and dimensions when saving all vs mean plots
+ggsave(here("Output", "SfM", "corr_all_sfm_variables.pdf"), corr_plot, h = 20, w = 20)
+#ggsave(here("Output", "SfM", "corr_mean_sfm_variables.pdf"), corr_plot, h = 10, w = 10)
+```
+
+Make Regression Plots
+
+```{r}
+#richness vs MeanSpeed
+#richness vs MeanDepth
+#richness vs meanTemp
+#variables with significant correlations
+#@ashley if Nyssa wants these as single values for each site you can just change the dataframe to "CoralDiversitySite" instead of CoralDiversity, but then they are not significant correlations anymore
+#@ashley ofc can do this with any other variables of interest
+
+rich_speed <- ggplot(CoralDiversity) +
+  geom_point(aes(x = MeanSpeed, y = richness, color = SiteName)) +
+  scale_color_manual(values = site_colors)+
+  theme_bw(base_size = 22) +
+  labs(x = "Mean Current Speed (m/s)", 
+       y = "Richness", 
+       color = "Site") +
+  geom_smooth(aes(x = MeanSpeed, y = richness, group = 1),
+              method = "lm", se = T, color = "black", linewidth = 1.1)
+rich_speed
+
+rich_depth <- ggplot(CoralDiversity) +
+  geom_point(aes(x = MeanDepth, y = richness, color = SiteName)) +
+  scale_color_manual(values = site_colors)+
+  theme_bw(base_size = 22) +
+  labs(x = "Mean Depth (m)", 
+       y = "Richness", 
+       color = "Site") +
+  geom_smooth(aes(x = MeanDepth, y = richness, group = 1),
+              method = "lm", se = T, color = "black", linewidth = 1.1)
+rich_depth
+
+rich_temp <- ggplot(CoralDiversity) +
+  geom_point(aes(x = meanTemp, y = richness, color = SiteName)) +
+  scale_color_manual(values = site_colors)+
+  theme_bw(base_size = 22) +
+  labs(x = "Mean Temperature (°C)", 
+       y = "Richness", 
+       color = "Site") +
+  geom_smooth(aes(x = meanTemp, y = richness, group = 1),
+              method = "lm", se = T, color = "black", linewidth = 1.1)
+rich_temp
+
+# rich_rug <- ggplot(CoralDiversity) +
+#   geom_point(aes(x = MaxRug, y = richness, color = SiteName)) +
+#   scale_color_manual(values = site_colors)+
+#   theme_bw(base_size = 22) +
+#   labs(x = "Rugosity", 
+#        y = "Richness", 
+#        color = "Site") +
+#   geom_smooth(aes(x = MaxRug, y = richness, group = 1),
+#               method = "lm", se = T, color = "black", linewidth = 1.1)
+# rich_rug
+
+ggsave(here("Output", "SfM", "rich_speed_scatter.pdf"), rich_speed, h = 5, w = 10)
+ggsave(here("Output", "SfM", "rich_depth_scatter.pdf"), rich_depth, h = 5, w = 10)
+ggsave(here("Output", "SfM", "rich_temp_scatter.pdf"), rich_temp, h = 5, w = 10)
+
+```
+
+BETA DIVERSITY
+
+```{r}
+#remotes::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
+#create dataframe of just coral abundance data
+abund <- CoralDiversity %>% select(id, porB:gop)
+abund <- column_to_rownames(abund, 'id')
+abund <- sha %>%
+  mutate_all(as.numeric) #create dataframe to use in distance matrix
+
+#create distance matrix using bray curtis dissimilarity
+samdf <- CoralDiversity %>% select(!(porB:gop)) #sample data
+braydist <- vegdist(abund, method = "bray") #distance matrix, makes relative
+
+pcoa_result <- cmdscale(braydist, eig = TRUE, k = 2) #make PCoA
+
+points <- as.data.frame(pcoa_result$points)
+colnames(points) <- c("PCoA1", "PCoA2")
+points$id <- rownames(points) 
+points <- points %>% left_join(samdf) #join with sample data so you can plot and look at whatever you want
+variance <- round(100 * pcoa_result$eig / sum(pcoa_result$eig), 2)
+
+#plot
+pcoa_bray_site <- ggplot(points, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = site_colors)+
+  stat_ellipse(level = 0.95, linetype = 1, alpha = 0.5) +
+  labs(x = paste0("PCoA1 (", variance[1], "%)"),
+       y = paste0("PCoA2 (", variance[2], "%)")) +
+  theme_classic(base_size = 22)
+pcoa_bray_site
+
+ggsave(here("Output", "SfM", "pcoa_bray_site.pdf"), pcoa_bray_site, h = 5, w = 8)
+```
+
+```{r}
+#creating plot with environmental data stress arrows
+env_vars <- samdf %>% 
+  select(id,MeanSA,MeanRug,MeanFD,MeanHR,MeanDepth,MeanSpeed,meanTemp) %>% column_to_rownames('id')
+
+ef <- envfit(points[, c("PCoA1", "PCoA2")], env_vars, permutations = 999, na.rm = TRUE)
+
+#ef #can look at p-values of environmetnal fit data to see what is significant in driving differences
+
+env_scores <- as.data.frame(scores(ef, display = "vectors")) %>%
+  rename(raw1 = PCoA1, raw2 = PCoA2) %>%
+  mutate(variable = rownames(.),
+         PCoA1 = raw1 * mult,
+         PCoA2 = raw2 * mult)
+env_scores$pval <- ef$vectors$pvals #add p-values so can filter
+env_scores_sig <- env_scores %>% 
+  filter(pval < 0.05) #and keep only significant ones
+
+pcoa_bray_site_arrows <- ggplot(points, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = site_colors) +
+  stat_ellipse(level = 0.95, linetype = 1, alpha = 0.5) +
+  geom_segment(data = env_scores_sig,
+               aes(x = 0, y = 0, xend = PCoA1, yend = PCoA2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", inherit.aes = FALSE) +
+  geom_text(data = env_scores_sig,
+            aes(x = PCoA1 * 1.2, y = PCoA2 * 1.2, label = variable),
+            color = "black", size = 5, inherit.aes = FALSE) +
+  labs(
+    x = paste0("PCoA1 (", variance[1], "%)"),
+    y = paste0("PCoA2 (", variance[2], "%)")
+  ) +
+  theme_classic(base_size = 22)
+
+pcoa_bray_site_arrows
+
+ggsave(here("Output", "SfM", "pcoa_bray_site_environmental_arrows.pdf"), pcoa_bray_site_arrows, h = 5, w = 8)
+```
+
+```{r}
+#creating plot with taxa stress arrows
+
+#create dataframe with taxa info
+sp_ef <- envfit(points[, c("PCoA1", "PCoA2")], abund, permutations = 999, na.rm = TRUE)
+
+#extract scores
+sp_scores <- as.data.frame(scores(sp_ef, display = "vectors")) %>%
+  rename(raw1 = PCoA1, raw2 = PCoA2) %>%
+  mutate(taxon = rownames(.),
+         pval = sp_ef$vectors$pvals,
+         r2 = sp_ef$vectors$r)
+
+#make sure to filter bc there are many taxa
+#take top 10 here with highest r2 values
+sp_scores_sig <- sp_scores %>%
+  filter(pval < 0.05) %>%
+  arrange(desc(r2)) %>%
+  slice_head(n = 10)   # e.g., keep only the top 10 strongest taxa vectors
+
+# Scale for plotting, same approach as before
+mult_sp <- 0.7 * max(abs(points[, c("PCoA1","PCoA2")])) / max(abs(sp_scores_sig[, c("raw1","raw2")]))
+
+sp_scores_sig <- sp_scores_sig %>%
+  mutate(PCoA1 = raw1 * mult_sp,
+         PCoA2 = raw2 * mult_sp)
+
+#plot
+pcoa_bray_site_taxa <- ggplot(points, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = site_colors) +
+  stat_ellipse(level = 0.95, linetype = 1, alpha = 0.5) +
+  geom_segment(data = sp_scores_sig,
+               aes(x = 0, y = 0, xend = PCoA1, yend = PCoA2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", inherit.aes = FALSE) +
+  geom_text(data = sp_scores_sig,
+            aes(x = PCoA1 * 1.1, y = PCoA2 * 1.1, label = taxon),
+            color = "black", size = 5, inherit.aes = FALSE) +
+  labs(
+    x = paste0("PCoA1 (", variance[1], "%)"),
+    y = paste0("PCoA2 (", variance[2], "%)")
+  ) +
+  theme_classic(base_size = 22)
+
+pcoa_bray_site_taxa
+
+ggsave(here("Output", "SfM", "pcoa_bray_site_taxa_arrows.pdf"), pcoa_bray_site_taxa, h = 5, w = 8)
+```
+
+```{r}
+#stats for beta dispersion and diversity
+
+#beta dispersion comparisons
+bet.all <- betadisper(braydist,samdf$SiteName)
+anova(bet.all) #not sig yay so we know differences between sites are not just because of dispersion
+#plot(bet.all)
+#permutest(bet.all, pairwise = TRUE, permutations = 999)
+
+#beta diversity comparisons
+adonis2(braydist ~ SiteName, data=samdf, permutations=999) #sig but R2 only 0.3
+pairwise.adonis2(braydist ~ SiteName, data=samdf, permutations = 999)
+#all significantly different from eachother at varying levels except:
+#Oki07_vs_Oki14 are NOT significantly different from eachother
+```
