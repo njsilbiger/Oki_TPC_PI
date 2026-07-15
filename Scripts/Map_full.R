@@ -16,8 +16,12 @@ library(sf)
 
 hires <- st_read(here("Data", "Okinawa_Map", "N03-19_47_190101.shp"), quiet = TRUE) #hires map of okinawa prefectures
 
-sites<-read_csv(here("Data","TiltMeterData", "meta_clean.csv")) %>%
-  drop_na(Lat)
+# sites<-read_csv(here("Data","TiltMeterData", "meta_clean.csv")) %>%
+#   drop_na(Lat)
+
+sites <- read_csv(here("Data/TiltMeterData/MetaData.csv")) %>% 
+  dplyr::select(Site, Long, Lat) %>%
+  drop_na()
 
 pref_outline <- hires %>% 
   st_union() %>% #just take biggest shape for each island so cuts out prefecture smaller internal outlines
@@ -47,11 +51,12 @@ site_points<-st_as_sf(
 oki_outline_labels <- ggplot() +
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   #labs(title = "Okinawa Island, Japan") +
-  geom_sf(data = site_points, color = "red", size = 2)+
+  geom_sf(data = site_points, color = "red", size = 2.5)+
   #geom_sf_text(data = site_points,aes(label = Site), color = "red", size = 1.5)+
   theme_minimal() +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) + #make sure to set boundary for map after adding labels because coord system will make map big if not
-  theme(axis.title.y = element_blank(), axis.title.x = element_blank()) 
+  theme(axis.title.y = element_blank(), axis.title.x = element_blank()
+        , axis.text = element_text(size = 16, face = "bold")) 
 oki_outline_labels
 
 ggsave(here("Output", "Okinawa_map", "oki_outline_tiltsites.png"), oki_outline_labels, h = 8, w = 8)

@@ -243,6 +243,7 @@ Tilt7Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt7.jpg"))
 Tilt8Photo <- image_read(here("Output/TiltMeterData/TiltPhotos/Tilt8.jpg"))
 
 #Load Meta Data
+TiltMetaData <- write.csv(here("Data/TiltMeterData/MetaData.csv"))
 TiltMetaData <- read_csv(here("Data/TiltMeterData/MetaData.csv"))
 LatLong <- TiltMetaData %>% dplyr::select(Site, Long, Lat)
 
