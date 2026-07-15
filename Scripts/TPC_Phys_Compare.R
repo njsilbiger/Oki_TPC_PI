@@ -18,6 +18,17 @@ library(car)
 library(dplyr)
 library(ggplot2)
 library(powerjoin)
+library(forcats)
+library(car)
+library(emmeans)
+library(performance)
+library(purrr)
+library(rlang)
+library(tibble)
+library(here)
+library(psych)
+library(corrplot)
+library(ggpubr)
 
 ###### Initial Data Read In ########
 #TPC data with only the seven species that we have physio data for
@@ -46,45 +57,51 @@ se_fun <- function(x) {
 }
 
 ###Correlation coefficient plot####
-avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv")) #dw_mg_cm2
-avg_DW <- avg_DW %>% mutate(dw_log = log(dw_mg_cm2)) %>% dplyr::select(frag_ID, dw_mg_cm2,dw_log)
-chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv")) #chla_ug_cm2_mean
-chla_avg <- chla_avg %>% filter(frag_ID != "C07")#remove outlier
-chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean)) %>% dplyr::select(frag_ID, chla_ug_cm2_mean,chla_log)
-avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
-avg_sym <- avg_sym %>% filter(frag_ID != "C07") %>% filter(frag_ID != "D10") #remove crazy outliers!
-avg_sym <- avg_sym %>% mutate(sym_log = log(sym_cm2)) %>% dplyr::select(frag_ID, sym_cm2,sym_log)
-prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv")) #prot_ug_cm2
-prot <- prot %>% mutate(prot_log = log(prot_ug_cm2)) %>% dplyr::select(frag_ID, prot_ug_cm2,prot_log)
+#generated below - only need once
+# avg_AFDW <- read.csv(here("Data", "Physiology", "Average_Ash_Free_Dry_Weight.csv")) #afdw_mg_cm2
+# avg_AFDW <- avg_AFDW %>% mutate(afdw_log = log(afdw_mg_cm2)) %>% 
+#   mutate(dw_log = log(dw_mg_cm2)) %>%
+#   dplyr::select(frag_ID, dw_mg_cm2, dw_log, afdw_mg_cm2,afdw_log)
+# chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv")) #chla_ug_cm2_mean
+# chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean)) %>% 
+#   mutate(chla_sym_log = log(chla_pg_sym)) %>%
+#   dplyr::select(frag_ID, chla_ug_cm2_mean,chla_log, chla_pg_sym, chla_sym_log)
+# avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
+# avg_sym <- avg_sym %>% filter(frag_ID != "C07") %>% filter(frag_ID != "D10") #remove crazy outliers!
+# avg_sym <- avg_sym %>% mutate(sym_log = log(sym_cm2)) %>% dplyr::select(frag_ID, sym_cm2,sym_log)
+# prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv")) #prot_ug_cm2
+# prot <- prot %>% mutate(prot_log = log(prot_ug_cm2)) %>% dplyr::select(frag_ID, prot_ug_cm2,prot_log)
 
 #generate full dataframe
-result <- Reduce(function(x, y) merge(x, y, all = TRUE), list(topt_df,avg_DW,chla_avg,avg_sym,prot))
-#drop NA data from respo data because we donʻt have all reps
-all_data <- result %>% drop_na(rmax)
-write_csv(result, here("Data", "Physiology", "all_data_concatenated.csv"))
-all_data <- read_csv(here("Data", "Physiology", "all_data_concatenated.csv"))
+# result <- Reduce(function(x, y) merge(x, y, all = TRUE), list(topt_df,avg_AFDW,chla_avg,avg_sym,prot))
+# #drop NA data from respo data because we donʻt have all reps
+# all_data <- result %>% drop_na(rmax)
+# write_csv(result, here("Data", "Physiology", "all_data_concatenated.csv"))
 
-sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
-data_7sp <- all_data %>% filter(species %in% sp_keep)
+##Read in concatenated data (made above)
+all_data <- read_csv(here("Data", "Physiology", "all_data_concatenated.csv"))
 
 gp_data <- all_data %>% filter(PR == "GrossPhoto")
 np_data <- all_data %>% filter(PR == "NetPhoto")
 r_data <- all_data %>% filter(PR == "Respiration")
 
-library(psych)
-library(corrplot)
-vars <- np_data |>
+###Correlation plot
+vars <- r_data |>
   dplyr::select(
     rmax,
     topt,
     dw_mg_cm2,
-    #dw_log,
+    dw_log,
+    afdw_mg_cm2,
+    afdw_log,
     chla_ug_cm2_mean,
-    #chla_log,
+    chla_log,
+    chla_pg_sym,
+    chla_sym_log,
     sym_cm2,
-    #sym_log,
-    prot_ug_cm2)
-    #prot_log)
+    sym_log,
+    prot_ug_cm2,
+    prot_log)
 cor_out <- psych::corr.test(
   vars,
   use    = "pairwise",   # handles NAs
@@ -170,36 +187,381 @@ corr_plot <- ggplot(cor_plot_df, aes(x = var1, y = var2, fill = r)) +
 #   insig       = "blank"    # hide non-significant correlations
 # )
 
-ggsave(here("Output", "Physiology", "corr_np.pdf"), corr_plot, h = 6, w = 6)
+ggsave(here("Output", "Physiology", "corr_r.pdf"), corr_plot, h = 10, w = 10)
+
+####Topt and rmax graphs####
+#np graphs
+
+##Topt
+#summary
+np_topt_summary <- np_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(topt)),
+    mean = mean(topt, na.rm = TRUE),
+    se   = se_fun(topt),
+    .groups = "drop")
+#model
+np_topt.mod.spp <- lm(topt~full_species, data = np_data)
+Anova(np_topt.mod.spp) #ns
+summary(np_topt.mod.spp)
+check_model(np_topt.mod.spp)
+
+#order data
+means <- np_data %>% group_by(species) %>% summarize(m = mean(topt, na.rm = TRUE), .groups = "drop")
+np_topt_ordered <- np_data %>% left_join(np_topt_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+np_topt_plot <- ggplot() +
+  geom_jitter(data = np_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = np_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = np_topt_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  #stat_summary(data = np_topt_ordered, aes(x = full_species, y = np_topt), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "ab", "ab", "ab", "abc", "abc", "bc", "bc", "bc", "c"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Net Photosynthesis",
+       x = "Species", color = "Species",
+       y = "Thermal Optimum (°C)")
+np_topt_plot
+ggsave(here("Output", "Physiology", "np_topt_species_jitter.pdf"), np_topt_plot, h = 5, w = 10)
+
+##np_rmax
+#summary
+np_rmax_summary <- np_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(rmax)),
+    mean = mean(rmax, na.rm = TRUE),
+    se   = se_fun(rmax),
+    .groups = "drop")
+#model
+np_rmax.mod.spp <- lm(rmax~full_species, data = np_data)
+Anova(np_rmax.mod.spp) #0.01727 *
+summary(np_rmax.mod.spp)
+# Residual standard error: 0.2259 on 39 degrees of freedom
+# Multiple R-squared:  0.3784,	Adjusted R-squared:  0.235 
+# F-statistic: 2.638 on 9 and 39 DF,  p-value: 0.01727
+check_model(np_rmax.mod.spp)
+#pairwise comparisons
+emm_obj <- emmeans::emmeans(np_rmax.mod.spp, ~ full_species)
+emm_pairs <- pairs(emm_obj)
+# Echinopora lamellosa - Montipora aequituberculata     0.4840 0.143 39   3.388  0.0458
+# Favites complanata - Montipora aequituberculata       0.5440 0.143 39   3.808  0.0155
+#almost:
+# Montipora aequituberculata - Pachyseris rugosa       -0.4720 0.143 39  -3.304  0.0563
+
+#order data
+means <- np_data %>% group_by(species) %>% summarize(m = mean(rmax, na.rm = TRUE), .groups = "drop")
+np_rmax_ordered <- np_data %>% left_join(np_rmax_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+np_rmax_plot <- ggplot() +
+  geom_jitter(data = np_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = np_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = np_rmax_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  stat_summary(data = np_rmax_ordered, aes(x = full_species, y = rmax), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "ab", "ab", "ab", "ab", "ab", "ab", "ab", "b", "b"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Net Photosynthesis",
+       x = "Species", color = "Species",
+       y = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})))
+np_rmax_plot
+ggsave(here("Output", "Physiology", "np_rmax_species_jitter.pdf"), np_rmax_plot, h = 5, w = 10)
 
 
+#gp graphs
 
-####DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
+##Topt
+#summary
+gp_topt_summary <- gp_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(topt)),
+    mean = mean(topt, na.rm = TRUE),
+    se   = se_fun(topt),
+    .groups = "drop")
+#model
+gp_topt.mod.spp <- lm(topt~full_species, data = gp_data)
+Anova(gp_topt.mod.spp) #ns p = 0.1014
+summary(gp_topt.mod.spp)
+check_model(gp_topt.mod.spp)
+
+#order data
+means <- gp_data %>% group_by(species) %>% summarize(m = mean(topt, na.rm = TRUE), .groups = "drop")
+gp_topt_ordered <- gp_data %>% left_join(gp_topt_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+gp_topt_plot <- ggplot() +
+  geom_jitter(data = gp_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = gp_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = gp_topt_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  #stat_summary(data = gp_topt_ordered, aes(x = full_species, y = gp_topt), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "ab", "ab", "ab", "abc", "abc", "bc", "bc", "bc", "c"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Gross Photosynthesis",
+       x = "Species", color = "Species",
+       y = "Thermal Optimum (°C)")
+gp_topt_plot
+ggsave(here("Output", "Physiology", "gp_topt_species_jitter.pdf"), gp_topt_plot, h = 5, w = 10)
+
+##gp_rmax
+#summary
+gp_rmax_summary <- gp_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(rmax)),
+    mean = mean(rmax, na.rm = TRUE),
+    se   = se_fun(rmax),
+    .groups = "drop")
+#model
+gp_rmax.mod.spp <- lm(rmax~full_species, data = gp_data)
+Anova(gp_rmax.mod.spp) #0.008926 **
+summary(gp_rmax.mod.spp)
+# Residual standard error: 0.2895 on 39 degrees of freedom
+# Multiple R-squared:  0.4055,	Adjusted R-squared:  0.2683 
+# F-statistic: 2.956 on 9 and 39 DF,  p-value: 0.008926
+check_model(gp_rmax.mod.spp)
+#pairwise comparisons
+emm_obj <- emmeans::emmeans(gp_rmax.mod.spp, ~ full_species)
+emm_pairs <- pairs(emm_obj)
+# Montipora aequituberculata - Porites cylindrica      -0.6520 0.183 39  -3.560  0.0297
+# Montipora aequituberculata - Porites rus             -0.7020 0.183 39  -3.833  0.0144
+# Montipora aequituberculata - Pachyseris rugosa       -0.6160 0.183 39  -3.364  0.0486
+# Favites complanata - Montipora aequituberculata       0.7260 0.183 39   3.965  0.0101
+# Echinopora lamellosa - Montipora aequituberculata     0.6260 0.183 39   3.418  0.0425
+
+#order data
+means <- gp_data %>% group_by(species) %>% summarize(m = mean(rmax, na.rm = TRUE), .groups = "drop")
+gp_rmax_ordered <- gp_data %>% left_join(gp_rmax_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+gp_rmax_plot <- ggplot() +
+  geom_jitter(data = gp_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = gp_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = gp_rmax_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  stat_summary(data = gp_rmax_ordered, aes(x = full_species, y = rmax), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "ab", "ab", "ab", "ab", "b", "b", "b", "b", "b"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Gross Photosynthesis",
+       x = "Species", color = "Species",
+       y = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})))
+gp_rmax_plot
+ggsave(here("Output", "Physiology", "gp_rmax_species_jitter.pdf"), gp_rmax_plot, h = 5, w = 10)
+
+
+#r graphs
+
+##Topt
+#summary
+r_topt_summary <- r_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(topt)),
+    mean = mean(topt, na.rm = TRUE),
+    se   = se_fun(topt),
+    .groups = "drop")
+#model
+r_topt.mod.spp <- lm(topt~full_species, data = r_data)
+Anova(r_topt.mod.spp) #ns p = 0.4578
+summary(r_topt.mod.spp)
+check_model(r_topt.mod.spp)
+
+#order data
+means <- r_data %>% group_by(species) %>% summarize(m = mean(topt, na.rm = TRUE), .groups = "drop")
+r_topt_ordered <- r_data %>% left_join(r_topt_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+r_topt_plot <- ggplot() +
+  geom_jitter(data = r_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = r_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = r_topt_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  #stat_summary(data = r_topt_ordered, aes(x = full_species, y = r_topt), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "ab", "ab", "ab", "abc", "abc", "bc", "bc", "bc", "c"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Respiration",
+       x = "Species", color = "Species",
+       y = "Thermal Optimum (°C)")
+r_topt_plot
+ggsave(here("Output", "Physiology", "r_topt_species_jitter.pdf"), r_topt_plot, h = 5, w = 10)
+
+##r_rmax
+#summary
+r_rmax_summary <- r_data %>%
+  group_by(full_species) %>%
+  summarise(
+    n    = sum(!is.na(rmax)),
+    mean = mean(rmax, na.rm = TRUE),
+    se   = se_fun(rmax),
+    .groups = "drop")
+#model
+r_rmax.mod.spp <- lm(rmax~full_species, data = r_data)
+Anova(r_rmax.mod.spp) #ns 0.7863
+summary(r_rmax.mod.spp)
+check_model(r_rmax.mod.spp) #bad
+
+#order data
+means <- r_data %>% group_by(species) %>% summarize(m = mean(rmax, na.rm = TRUE), .groups = "drop")
+r_rmax_ordered <- r_data %>% left_join(r_rmax_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
+
+#graph
+r_rmax_plot <- ggplot() +
+  geom_jitter(data = r_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = r_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
+  geom_point(data = r_rmax_summary, aes(x = full_species, y = mean), size = 2) +
+  theme_bw(base_size = 22) +
+  #stat_summary(data = r_rmax_ordered, aes(x = full_species, y = rmax), geom = "text", fun = max, vjust = -0.5, size = 8,
+  #             label = c("a", "ab", "ab", "ab", "ab", "b", "b", "b", "b", "b"))+
+  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #ylim(0,4100)+
+  labs(title = "Gross Photosynthesis",
+       x = "Species", color = "Species",
+       y = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})))
+r_rmax_plot
+ggsave(here("Output", "Physiology", "r_rmax_species_jitter.pdf"), r_rmax_plot, h = 5, w = 10)
+
+####Significant topt and rmax relationship plots based on corr plots####
+#np topt and chla pg sym
+#np topt and chla ug cm2
+#gp rmax and chla pg sym
+#gp rmax and chla ug cm2
+#r topt and prot ug cm2
+
+#np topt and chla pg sym
+np_topt_chla_sym_scatter <- ggplot(np_data) +
+  geom_point(aes(y = topt, x = chla_pg_sym, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = topt, x = chla_pg_sym, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_topt_chla_sym_scatter
+ggsave(here("Output", "Physiology", "np_topt_chla_sym_scatter.pdf"), np_topt_chla_sym_scatter, h = 5, w = 10)
+
+#np topt and chla ug cm
+np_topt_chla_scatter <- ggplot(np_data) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_topt_chla_scatter
+ggsave(here("Output", "Physiology", "np_topt_chla_scatter.pdf"), np_topt_chla_scatter, h = 5, w = 10)
+
+
+#gp rmax and chla pg sym
+gp_rmax_chla_sym_scatter <- ggplot(gp_data) +
+  geom_point(aes(y = rmax, x = chla_pg_sym, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = rmax, x = chla_pg_sym, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+gp_rmax_chla_sym_scatter
+ggsave(here("Output", "Physiology", "gp_rmax_chla_sym_scatter.pdf"), gp_rmax_chla_sym_scatter, h = 5, w = 10)
+
+#gp rmax and chla ug cm
+gp_rmax_chla_scatter <- ggplot(gp_data) +
+  geom_point(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+gp_rmax_chla_scatter
+ggsave(here("Output", "Physiology", "gp_rmax_chla_scatter.pdf"), gp_rmax_chla_scatter, h = 5, w = 10)
+
+#r topt and prot ug cm
+r_topt_prot_scatter <- ggplot(r_data) +
+  geom_point(aes(y = topt, x = prot_ug_cm2, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = topt, x = prot_ug_cm2, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Protein Content" ~ (mu*g ~ cm^{-2})),
+       y = "Thermal optimum (°C)",
+       color = "Species")
+r_topt_prot_scatter
+ggsave(here("Output", "Physiology", "r_topt_prot_scatter.pdf"), r_topt_prot_scatter, h = 5, w = 10)
+
+
+###Stats
+#np topt and chla
+np_topt_chla_mod <- lm(topt~chla_ug_cm2_mean, data = np_data)
+Anova(np_topt_chla_mod)
+summary(np_topt_chla_mod) 
+#Residual standard error: 0.8391 on 47 degrees of freedom
+#Multiple R-squared:  0.1288,	Adjusted R-squared:  0.1103 
+#F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
+check_model(np_topt_chla_mod)
+
+#gp topt and chla
+gp_topt_chla_mod <- lm(topt~chla_pg_sym, data = gp_data)
+Anova(gp_topt_chla_mod)
+summary(gp_topt_chla_mod) 
+#Residual standard error: 0.8391 on 47 degrees of freedom
+#Multiple R-squared:  0.1288,	Adjusted R-squared:  0.1103 
+#F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
+check_model(gp_topt_chla_mod)
+
+#######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now
 all_data <- read_csv(here("Data", "Physiology", "all_data_concatenated.csv"))
+gp_data <- all_data %>% filter(PR == "GrossPhoto")
 np_data <- all_data %>% filter(PR == "NetPhoto")
+r_data <- all_data %>% filter(PR == "Respiration")
 
 #write for loop - for column, test species
-
-library(dplyr)
-library(ggplot2)
-library(forcats)
-library(car)
-library(emmeans)
-library(performance)
-library(purrr)
-library(rlang)
-library(tibble)
-library(here)
-
-columns <- c("rmax","topt","dw_mg_cm2","chla_ug_cm2_mean","sym_cm2","prot_ug_cm2")
+columns <- c("rmax","topt","dw_mg_cm2", "afdw_mg_cm2","chla_ug_cm2_mean","chla_pg_sym","sym_cm2","prot_ug_cm2")
 
 # Optional: nicer y-axis labels per variable
 y_labels <- list(
   rmax              = "Maximum rate (Rmax)",
   topt              = "Thermal optimum (Topt, °C)",
-  dw_mg_cm2         = expression("Tissue biomass" ~ (mg ~ cm^{-2})),
+  dw_mg_cm2         = expression("Dry Weight" ~ (mg ~ cm^{-2})),
+  afdw_mg_cm2       = expression("Biomass" ~ (mg ~ cm^{-2})),
   chla_ug_cm2_mean  = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})),
+  chla_pg_sym       = expression("Chlorophyll a content" ~ (pg ~ cm^{-2})),
   sym_cm2           = expression("Symbiont density" ~ (cells ~ cm^{-2})),
   prot_ug_cm2       = expression("Host protein content" ~ (mu*g ~ cm^{-2}))
 )
@@ -317,465 +679,3 @@ results <- columns %>%
 # results[["chla_ug_cm2_mean"]]$anova     # ANOVA table
 # results[["chla_ug_cm2_mean"]]$emm_pairs # emmeans pairs (if significant)
 # results[["chla_ug_cm2_mean"]]$plot      # ggplot object
-
-
-#DW chla scatter
-avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
-avg_DW <- avg_DW %>% rename_at('species_long', ~'full_species')
-avg_DW <- avg_DW %>% mutate(dw_log = log(dw_mg_cm2))
-
-chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
-chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean))
-
-chla_dw <- power_full_join(chla_avg, avg_DW, by = "frag_ID", conflict = coalesce_xy) %>% 
-  drop_na()
-
-dw_chla_scat <- ggplot(chla_dw) +
-  geom_point(aes(x = dw_mg_cm2, y = chla_ug_cm2_mean, color = full_species)) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  labs(x = expression("Tissue biomass" ~ (mg ~ cm^{-2})), 
-       y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       color = "Species") +
-  geom_smooth(aes(x = dw_mg_cm2, y = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
-dw_chla_scat
-
-ggsave(here("Output", "Physiology", "dryweight_chla_scatter.pdf"), dw_chla_scat, h = 6, w = 10)
-
-##### dry weight #####
-#avg_DW <- read.csv(here("Data", "Physiology", "Average_Dry_Weight.csv"))
-#avg_DW <- avg_DW %>% rename_at('species_long', ~'full_species')
-
-library(powerjoin)
-DW_topt <- power_full_join(avg_DW, topt_df, by = "frag_ID", conflict = coalesce_xy) %>% 
-  drop_na() %>%
-  filter(PR != "Respiration")
-
-#scatterplot of dw and topt params
-
-#topt
-dw_topt_scatter <- ggplot(filter(all_data, PR == "NetPhoto")) +
-  geom_point(aes(y = topt, x = dw_mg_cm2, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  #coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  geom_smooth(aes(y = topt, x = dw_mg_cm2, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Tissue biomass" ~ (mg ~ cm^{-2})), 
-       y = "Thermal optimum (°C)",
-       color = "Species")
-dw_topt_scatter
-
-by(DW_topt, DW_topt$PR, function(d) summary(lm(topt ~ dw_mg_cm2, data = d))) #*
-library(performance)
-check_model(lm(topt ~ dw_mg_cm2, data = filter(DW_topt, PR == "NetPhoto")))
-by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(topt ~ dw_mg_cm2, data = d)))
-dw_topt_mod <- lm(topt ~ dw_mg_cm2, data = filter(DW_topt, PR == "NetPhoto"))
-summary(dw_topt_mod)
-anova(dw_topt_mod)
-
-#topt net photo
-#dw_log        0.5526     0.2563   2.156   0.0395 * 
-#topt GP
-#dw_log        0.1981     0.1701   1.165    0.252
-
-#topt
-#DW_topt$PR: GrossPhoto
-#dw_mg_cm2    0.006035   0.002387   2.528   0.0172 *  significant
-#none individual sig dif
-
-ggsave(here("Output", "Physiology", "dryweight_topt_np.pdf"), dw_topt_scatter, h = 5, w = 10)
-
-#rmax
-
-dw_rmax_scatter <- ggplot(filter(DW_topt, PR == "NetPhoto")) +
-  geom_point(aes(y = rmax, x = dw_mg_cm2, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  #geom_smooth(aes(y = rmax, x = dw_mg_cm2, group = 1),
-  #            method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Tissue biomass" ~ (mg ~ cm^{-2})), 
-       y = expression("Rmax" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
-       color = "Species")
-dw_rmax_scatter
-
-ggsave(here("Output", "Physiology", "dryweight_rmax_log.pdf"), dw_rmax_scatter, h = 4, w = 12)
-
-by(DW_topt, DW_topt$PR, function(d) summary(lm(rmax ~ dw_mg_cm2, data = d))) #ns
-by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(rmax ~ dw_mg_cm2, data = d)))
-#none sig
-
-#e
-dw_e_scatter <- ggplot(filter(DW_topt, PR == "GrossPhoto")) +
-  geom_point(aes(y = e, x = dw_mg_cm2, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  #geom_smooth(aes(y = e, x = dw_mg_cm2, group = 1),
-  #            method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Tissue biomass" ~ (mg ~ cm^{-2})), 
-       y = ("E (eV)"),  
-       color = "Species")
-dw_e_scatter
-
-ggsave(here("Output", "Physiology", "dryweight_e_log.pdf"), dw_e_scatter, h = 4, w = 12)
-
-by(DW_topt, DW_topt$PR, function(d) summary(lm(e ~ dw_log, data = d)))
-by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(e ~ dw_mg_cm2, data = d)))
-
-#e DW_topt$PR: GrossPhoto
-#dw_log      -0.16421    0.07198  -2.281  0.03307 * 
-
-#e
-#DW_topt$PR: GrossPhoto
-#dw_mg_cm2   -0.0019061  0.0007072  -2.695   0.0136 *  
-#none significant
-
-
-#breadth
-dw_breadth_scatter <- ggplot(filter(DW_topt, PR == "GrossPhoto")) +
-  geom_point(aes(y = breadth, x = dw_mg_cm2, color = full_species), alpha = 1) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  geom_smooth(aes(y = breadth, x = dw_mg_cm2, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Tissue biomass" ~ (mg ~ cm^{-2})), 
-       y = expression("Breadth (°C)"), 
-       color = "Species")
-dw_breadth_scatter
-
-dw_breadth_scatter <- dw_breadth_scatter +
-  #species-specific regression lines
-  #geom_smooth(aes(y = breadth, x = dw_mg_cm2, color = full_species),
-  #            method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = breadth, x = dw_log, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "dryweight_breadth_log.pdf"), dw_breadth_scatter, h = 4, w = 12, dpi = 300)
-
-by(DW_topt, DW_topt$PR, function(d) summary(lm(breadth ~ dw_log, data = d))) #ns
-by(DW_topt, list(DW_topt$PR, DW_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(breadth ~ dw_mg_cm2, data = d)))
-
-#breadth DW_topt$PR: GrossPhoto
-#dw_log        0.6504     0.2504   2.598   0.0146 *  
-
-#breadth
-#DW_topt$PR: GrossPhoto
-#dw_mg_cm2   0.005614   0.002442   2.299   0.0289 * 
-
-#breadth
-#GrossPhoto
-#Turbinaria frondens
-#dw_mg_cm2   0.035475   0.008652    4.10   0.0262 *
-
-
-library(ggpubr)
-dw_topt_log <- ggarrange(dw_rmax_scatter, dw_topt_scatter, dw_e_scatter, dw_breadth_scatter, 
-                           nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
-dw_topt_log
-
-ggsave(here("Output","TPC","Graphs","dw_topt_log_np.pdf"), dw_topt_log, h = 8, w = 14, dpi = 300)
-
-
-##### chlorophyll a #####
-chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
-
-chla_topt <- power_full_join(topt_df, chla_avg, by = "frag_ID", conflict = coalesce_xy) %>% 
-  drop_na() %>%
-  filter(PR != "Respiration")
-
-#scatterplot of chla and topt params
-
-#topt
-chla_topt_scatter <- ggplot(filter(all_data, PR == "GrossPhoto"))+
-  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species)) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free_y")+
-  #ylim(25,250)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), y = "Thermal optimum (°C)", color = "Species")
-chla_topt_scatter
-
-chla_topt_scatter <- chla_topt_scatter +
-  #species-specific regression lines
-  #geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, color = full_species),
-  #            method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "chla_topt_scatter_reg.pdf"), chla_topt_scatter, h = 4, w = 12)
-
-by(all_data, all_data$PR, function(d) summary(lm(topt ~ chla_log, data = d))) #ns
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(topt ~ chla_ug_cm2_mean, data = d))) #ns
-
-#rmax
-chla_rmax_scatter <- ggplot(filter(all_data, PR == "GrossPhoto"))+
-  geom_point(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species)) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       y = expression("Rate Maximum" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
-       color = "Species")
-chla_rmax_scatter
-
-chla_rmax_scatter <- chla_rmax_scatter +
-  #species-specific regression lines
-  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "chla_rmax_scatter_reglines.pdf"), chla_rmax_scatter, h = 4, w = 12)
-
-by(all_data, all_data$PR, function(d) summary(lm(rmax ~ chla_ug_cm2_mean, data = d))) #ns
-by(all_data, list(all_data$PR, all_data$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(rmax ~ chla_ug_cm2_mean, data = d)))
-
-#rmax chla
-#GrossPhoto Echinopora lamellosa
-#chla_ug_cm2_mean  0.13595    0.01915   7.098  0.00575 **
-
-#e
-chla_e_scatter <- ggplot(chla_topt) +
-  geom_point(aes(y = e, x = chla_ug_cm2_mean, color = full_species)) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       y = ("Activation energy (eV)"), 
-       color = "Species")
-chla_e_scatter
-
-chla_e_scatter <- chla_e_scatter +
-  #species-specific regression lines
-  geom_smooth(aes(y = e, x = chla_ug_cm2_mean, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = e, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "chla_e_scatter_reglines.pdf"), chla_e_scatter, h = 4, w = 12)
-
-by(all_data, all_data$PR, function(d) summary(lm(e ~ chla_log, data = d))) #ns
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(e ~ chla_ug_cm2_mean, data = d))) #ns
-
-
-#breadth
-chla_breadth_scatter <- ggplot(chla_topt) +
-  geom_point(aes(y = breadth, x = chla_ug_cm2_mean, color = full_species)) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  facet_wrap(~PR, scales = "free")+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       y = expression("Thermal performance breadth (°C)"), 
-       color = "Species")
-chla_breadth_scatter
-
-
-chla_breadth_scatter <- chla_breadth_scatter +
-  #species-specific regression lines
-  geom_smooth(aes(y = breadth, x = chla_ug_cm2_mean, color = full_species),
-              method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = breadth, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black",
-              linetype = "longdash", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "chla_breadth_scatter_reglines.pdf"), chla_breadth_scatter, h = 4, w = 12)
-
-by(chla_topt, chla_topt$PR, function(d) summary(lm(breadth ~ chla_ug_cm2_mean, data = d))) #ns
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(breadth ~ chla_ug_cm2_mean, data = d))) #ns
-
-#sym density
-by(all_data, all_data$PR, function(d) summary(lm(topt ~ sym_log, data = d))) #ns
-by(all_data, all_data$PR, function(d) summary(lm(rmax ~ sym_log, data = d))) #ns
-by(all_data, all_data$PR, function(d) summary(lm(e ~ sym_log, data = d))) #ns
-
-#protein
-by(all_data, all_data$PR, function(d) summary(lm(topt ~ prot_log, data = d))) #ns
-by(all_data, all_data$PR, function(d) summary(lm(rmax ~ prot_log, data = d))) #ns
-by(all_data, all_data$PR, function(d) summary(lm(e ~ prot_log, data = d))) #ns
-
-#####MAYA DELETE THIS BS
-
-
-chla_topt <- power_full_join(avg_chla, topt_df, by = "frag_ID", conflict = coalesce_xy) %>% 
-  drop_na() %>%
-  filter(PR != "Respiration")
-
-#scatterplot of chla and topt params
-
-#topt
-chla_topt_scatter <- ggplot(filter(chla_topt, PR == "NetPhoto")) +
-  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       y = "Thermal optimum (°C)",
-       color = "Species")
-chla_topt_scatter
-
-chla_topt_scatter <- chla_topt_scatter +
-  #species-specific regression lines
-  #geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, color = full_species),
-  #            method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
-
-by(chla_topt, chla_topt$PR, function(d) summary(lm(topt ~ chla_log, data = d))) #*
-library(performance)
-check_model(lm(topt ~ chla_ug_cm2_mean, data = filter(chla_topt, PR == "NetPhoto")))
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(topt ~ chla_log, data = d)))
-
-#topt net photo
-#chla_ug_cm2_mean        0.5526     0.2563   2.156   0.0395 * 
-
-#topt
-#chla_topt$PR: NetPhoto
-#chla_ug_cm2_mean    0.006035   0.002387   2.528   0.0172 *  significant
-#none individual sig dif
-
-ggsave(here("Output", "Physiology", "dryweight_topt_log_np.pdf"), chla_topt_scatter, h = 6, w = 10)
-
-#rmax
-
-chla_rmax_scatter <- ggplot(filter(chla_topt, PR == "NetPhoto")) +
-  geom_point(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       y = expression("Rmax" ~ (mu*mol ~ cm^{-2} ~ h^{-1})), 
-       color = "Species")
-chla_rmax_scatter
-
-chla_rmax_scatter <- chla_rmax_scatter +
-  #species-specific regression lines
-  # geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species),
-  #             method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "dryweight_rmax_log.pdf"), chla_rmax_scatter, h = 4, w = 12)
-
-by(chla_topt, chla_topt$PR, function(d) summary(lm(rmax ~ chla_log, data = d))) #ns
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(rmax ~ chla_ug_cm2_mean, data = d)))
-#none sig
-
-#e
-chla_e_scatter <- ggplot(filter(chla_topt, PR == "NetPhoto")) +
-  geom_point(aes(y = e, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  #geom_smooth(aes(y = e, x = chla_ug_cm2_mean, group = 1),
-  #            method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       y = ("E (eV)"),  
-       color = "Species")
-chla_e_scatter
-
-chla_e_scatter <- chla_e_scatter +
-  #species-specific regression lines
-  #geom_smooth(aes(y = e, x = chla_ug_cm2_mean, color = full_species),
-  #            method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = e, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = FALSE, color = "black", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "dryweight_e_log.pdf"), chla_e_scatter, h = 4, w = 12)
-
-by(chla_topt, chla_topt$PR, function(d) summary(lm(e ~ chla_log, data = d)))
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(e ~ chla_ug_cm2_mean, data = d)))
-
-#e chla_topt$PR: GrossPhoto
-#chla_ug_cm2_mean      -0.16421    0.07198  -2.281  0.03307 * 
-
-#e
-#chla_topt$PR: GrossPhoto
-#chla_ug_cm2_mean   -0.0019061  0.0007072  -2.695   0.0136 *  
-#none significant
-
-
-#breadth
-chla_breadth_scatter <- ggplot(filter(chla_topt, PR == "NetPhoto")) +
-  geom_point(aes(y = breadth, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
-  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  theme_bw(base_size = 22) +
-  coord_transform(x = "log")+
-  #facet_wrap(~PR, scales = "free")+
-  geom_smooth(aes(y = breadth, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1) +
-  labs(x = expression("Dry weight" ~ (mg ~ cm^{-2})), 
-       y = expression("Breadth (°C)"), 
-       color = "Species")
-chla_breadth_scatter
-
-chla_breadth_scatter <- chla_breadth_scatter +
-  #species-specific regression lines
-  #geom_smooth(aes(y = breadth, x = chla_ug_cm2_mean, color = full_species),
-  #            method = "lm", se = FALSE, linewidth = 1) +
-  #overall regression line within each facet
-  geom_smooth(aes(y = breadth, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1)
-
-ggsave(here("Output", "Physiology", "dryweight_breadth_log.pdf"), chla_breadth_scatter, h = 4, w = 12)
-
-by(chla_topt, chla_topt$PR, function(d) summary(lm(breadth ~ chla_log, data = d))) #ns
-by(chla_topt, list(chla_topt$PR, chla_topt$full_species),
-   function(d) if(nrow(d) > 1) summary(lm(breadth ~ chla_ug_cm2_mean, data = d)))
-
-#breadth chla_topt$PR: NetPhoto
-#chla_ug_cm2_mean        0.6504     0.2504   2.598   0.0146 *  
-
-#breadth
-#chla_topt$PR: NetPhoto
-#chla_ug_cm2_mean   0.005614   0.002442   2.299   0.0289 * 
-
-#breadth
-#NetPhoto
-#Turbinaria frondens
-#chla_ug_cm2_mean   0.035475   0.008652    4.10   0.0262 *
-
-
-library(ggpubr)
-chla_topt_log <- ggarrange(chla_rmax_scatter, chla_topt_scatter, chla_e_scatter, chla_breadth_scatter, 
-                         nrow = 2, ncol = 2, legend = "right", common.legend = TRUE)
-chla_topt_log
-
-ggsave(here("Output","TPC","Graphs","chla_topt_log_np.pdf"), chla_topt_log, h = 8, w = 12)
-

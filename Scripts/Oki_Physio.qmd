@@ -27,6 +27,10 @@ library(performance)
 library(emmeans)
 library(ggplot2)
 library(ggpubr)
+
+phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
+all_data <- all_data %>% select(-species,-full_species) %>%
+  left_join(phys_meta, by = "frag_ID")
 ```
 
 Assign species colors for all plots
@@ -107,7 +111,7 @@ avg_AFDW <- DW %>%
   left_join(avg_DW, by = "frag_ID") %>%
   left_join(phys_meta, by = "frag_ID")
 
-write.csv(avg_AFDW, here("Data", "Physiology", "Average_Ash_Free)Dry_Weight.csv"), row.names = FALSE)
+write.csv(avg_AFDW, here("Data", "Physiology", "Average_Ash_Free_Dry_Weight.csv"), row.names = FALSE)
 ```
 
 Generate dry weight summary data
@@ -226,12 +230,13 @@ Read in data
 ```{r}
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 
-chla_avg <- chla_avg %>% 
-  #filter(full_species %in% sp_keep) %>% 
-  filter(frag_ID != "E04", frag_ID != "E05") %>% #remove outlier frag
-  mutate(chla_ug_total = (chla_mean*50)) %>% #multiply by slurry volume to get total chla
-  mutate(chla_pg_sym = (chla_ug_total/sym_total)*1000000) #divide by total symbionts and multiply by 1000000 to get pg
-
+#just did this once to calculate and remove outliers, can always re-calculate above
+# chla_avg <- chla_avg %>% 
+#   #filter(full_species %in% sp_keep) %>% 
+#   filter(frag_ID != "E04", frag_ID != "E05") %>% #remove outlier frag
+#   mutate(chla_ug_total = (chla_mean*50)) %>% #multiply by slurry volume to get total chla
+#   mutate(chla_pg_sym = (chla_ug_total/sym_total)*1000000) #divide by total symbionts and multiply by 1000000 to get pg
+#write_csv(chla_avg, here("Data", "Physiology", "Chla_avg.csv"))
 ```
 
 #### Chla/cm2
