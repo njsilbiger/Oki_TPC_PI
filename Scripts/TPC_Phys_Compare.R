@@ -34,7 +34,9 @@ library(ggpubr)
 #TPC data with only the seven species that we have physio data for
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 topt_df <- topt_df %>% filter(sample_ID != "B08_TPC")
-topt_df <- topt_df %>% dplyr::select(rmax, topt, e, PR, frag_ID, species, full_species)
+topt_df <- topt_df %>% dplyr::select(rmax, topt, e, PR, frag_ID)
+phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
+topt_df <- topt_df %>% left_join(phys_meta, by = "frag_ID")
 
 #additional setup
 sp_cols <- c(
@@ -58,25 +60,25 @@ se_fun <- function(x) {
 
 ###Correlation coefficient plot####
 #generated below - only need once
-# avg_AFDW <- read.csv(here("Data", "Physiology", "Average_Ash_Free_Dry_Weight.csv")) #afdw_mg_cm2
-# avg_AFDW <- avg_AFDW %>% mutate(afdw_log = log(afdw_mg_cm2)) %>% 
-#   mutate(dw_log = log(dw_mg_cm2)) %>%
-#   dplyr::select(frag_ID, dw_mg_cm2, dw_log, afdw_mg_cm2,afdw_log)
-# chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv")) #chla_ug_cm2_mean
-# chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean)) %>% 
-#   mutate(chla_sym_log = log(chla_pg_sym)) %>%
-#   dplyr::select(frag_ID, chla_ug_cm2_mean,chla_log, chla_pg_sym, chla_sym_log)
-# avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
-# avg_sym <- avg_sym %>% filter(frag_ID != "C07") %>% filter(frag_ID != "D10") #remove crazy outliers!
-# avg_sym <- avg_sym %>% mutate(sym_log = log(sym_cm2)) %>% dplyr::select(frag_ID, sym_cm2,sym_log)
-# prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv")) #prot_ug_cm2
-# prot <- prot %>% mutate(prot_log = log(prot_ug_cm2)) %>% dplyr::select(frag_ID, prot_ug_cm2,prot_log)
+avg_AFDW <- read.csv(here("Data", "Physiology", "Average_Ash_Free_Dry_Weight.csv")) #afdw_mg_cm2
+avg_AFDW <- avg_AFDW %>% mutate(afdw_log = log(afdw_mg_cm2)) %>%
+  mutate(dw_log = log(dw_mg_cm2)) %>%
+  dplyr::select(frag_ID, dw_mg_cm2, dw_log, afdw_mg_cm2,afdw_log)
+chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv")) #chla_ug_cm2_mean
+chla_avg <- chla_avg %>% mutate(chla_log = log(chla_ug_cm2_mean)) %>%
+  mutate(chla_sym_log = log(chla_pg_sym)) %>%
+  dplyr::select(frag_ID, chla_ug_cm2_mean,chla_log, chla_pg_sym, chla_sym_log)
+avg_sym <- read.csv(here("Data", "Physiology", "Average_Sym_Density.csv"))
+avg_sym <- avg_sym %>% filter(frag_ID != "C07") %>% filter(frag_ID != "D10") #remove crazy outliers!
+avg_sym <- avg_sym %>% mutate(sym_log = log(sym_cm2)) %>% dplyr::select(frag_ID, sym_cm2,sym_log)
+prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv")) #prot_ug_cm2
+prot <- prot %>% mutate(prot_log = log(prot_ug_cm2)) %>% dplyr::select(frag_ID, prot_ug_cm2,prot_log)
 
 #generate full dataframe
-# result <- Reduce(function(x, y) merge(x, y, all = TRUE), list(topt_df,avg_AFDW,chla_avg,avg_sym,prot))
-# #drop NA data from respo data because we donʻt have all reps
-# all_data <- result %>% drop_na(rmax)
-# write_csv(result, here("Data", "Physiology", "all_data_concatenated.csv"))
+result <- Reduce(function(x, y) merge(x, y, all = TRUE), list(topt_df,avg_AFDW,chla_avg,avg_sym,prot))
+#drop NA data from respo data because we donʻt have all reps
+all_data <- result %>% drop_na(rmax)
+write_csv(result, here("Data", "Physiology", "all_data_concatenated.csv"))
 
 ##Read in concatenated data (made above)
 all_data <- read_csv(here("Data", "Physiology", "all_data_concatenated.csv"))
@@ -469,7 +471,7 @@ np_topt_chla_scatter <- ggplot(np_data) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
   #coord_transform(x = "log", y = "log")+
-  #facet_wrap(~full_species, scales = "free")+
+  facet_wrap(~morphology, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
   labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
@@ -478,6 +480,41 @@ np_topt_chla_scatter <- ggplot(np_data) +
 np_topt_chla_scatter
 ggsave(here("Output", "Physiology", "np_topt_chla_scatter.pdf"), np_topt_chla_scatter, h = 5, w = 10)
 
+#np topt and chla ug cm by tissue biomass
+np_topt_chla_afdw <- ggplot(np_data) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = afdw_mg_cm2), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  scale_size_continuous(name = expression("Tissue biomass" ~ (mg ~ cm^{-2}))) +
+  xlim(2,25) +
+  ylim(25,32)+
+  facet_wrap(~species, scales = "free")+
+  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_topt_chla_afdw
+ggsave(here("Output", "Physiology", "np_topt_chla_afdw.pdf"), np_topt_chla_afdw, h = 10, w = 10)
+
+#np topt and chla ug cm by protein
+np_topt_chla_prot <- ggplot(np_data) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = prot_ug_cm2), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  scale_size_continuous(name = expression("Protein Content" ~ (mu*g ~ cm^{-2}))) +
+  facet_wrap(~species, scales = "free")+
+  xlim(2,25) +
+  ylim(25,32)+
+  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_topt_chla_prot
+ggsave(here("Output", "Physiology", "np_topt_chla_prot.pdf"), np_topt_chla_prot, h = 10, w = 10)
 
 #gp rmax and chla pg sym
 gp_rmax_chla_sym_scatter <- ggplot(gp_data) +
@@ -543,6 +580,33 @@ summary(gp_topt_chla_mod)
 #Multiple R-squared:  0.1288,	Adjusted R-squared:  0.1103 
 #F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
 check_model(gp_topt_chla_mod)
+
+
+####
+
+#read in data
+respo_constant_temps <- read_csv(here("Data", "RespoFiles","TPC", "respo_constant_temps.csv"))
+phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
+respo_constant_temps <- respo_constant_temps %>% left_join(phys_meta, by = "frag_ID") %>%
+  filter(frag_ID != "B03") #remove extreme outlier
+respo_pared_temps <- respo_constant_temps %>% 
+  filter(temp_c_value == "24.5" | temp_c_value == "28" | temp_c_value == "31" | temp_c_value == "34")
+
+#quick plots to look at things
+PR_plot <- ggplot(data = respo_pared_temps) +
+  geom_jitter(aes(x = full_species, y = NPR, color = full_species), width = 0.15, alpha = 0.8) +
+  theme_bw(base_size = 22) +
+  theme(axis.text.x = element_blank())+
+  #facet_wrap(~species, ncol = 5) +
+  facet_wrap(~temp_c_value) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  labs(color = "Species",
+       y = "NP:R",
+       x = "Species")
+       #x = "Temperature (°C)")
+PR_plot
+ggsave(here("Output", "Physiology", "PR_temp_facet.pdf"), PR_plot, h = 8, w = 15)
 
 #######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now

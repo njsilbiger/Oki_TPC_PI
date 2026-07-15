@@ -27,10 +27,6 @@ library(performance)
 library(emmeans)
 library(ggplot2)
 library(ggpubr)
-
-phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
-all_data <- all_data %>% select(-species,-full_species) %>%
-  left_join(phys_meta, by = "frag_ID")
 ```
 
 Assign species colors for all plots

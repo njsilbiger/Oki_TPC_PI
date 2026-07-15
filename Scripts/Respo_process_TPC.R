@@ -938,6 +938,8 @@ se_fun <- function(x) {
   sd(x, na.rm = TRUE) / sqrt(n)
 }
 
+#use PnR_clean to calculate NP:R for every single fragment at select temperatures
+#do 26, 29, and 32
 PnR_28 <- PnR_clean %>% filter(temp_c_value == 28)
 PnR_28_summary <- PnR_28 %>%
   group_by(species, PR) %>%
@@ -946,15 +948,20 @@ PnR_28_summary <- PnR_28 %>%
             se = se_fun(Values),
             .groups = "drop")
 
-GP_28 <- PnR_28 %>% filter(PR == "GrossPhoto")
-NP_28 <- PnR_28 %>% filter(PR == "NetPhoto")
-R_28 <- PnR_28 %>% filter(PR == "Respiration")
+R <- PnR_clean %>% filter(PR == "Respiration") %>%
+  select(frag_ID, temp_c_value, Values) %>% rename(R = Values)
+NP <- PnR_clean %>% filter(PR == "NetPhoto") %>%
+  select(frag_ID, temp_c_value, Values) %>% rename(NP = Values)
+GP <- PnR_clean %>% filter(PR == "GrossPhoto") %>%
+  select(frag_ID, temp_c_value, Values) %>% rename(GP = Values)
 
-GP_31 <- PnR_31 %>% filter(PR == "GrossPhoto")
-NP_31 <- PnR_31 %>% filter(PR == "NetPhoto")
-R_31 <- PnR_31 %>% filter(PR == "Respiration")
+respo_constant_temps <- df_list %>% reduce(left_join)
+respo_constant_temps <- respo_constant_temps %>% drop_na(NP) %>%
+  mutate(NPR = NP/R,
+         GPR = GP/R)
+write_csv(respo_constant_temps, here("Data", "RespoFiles","TPC", "respo_constant_temps.csv"))
 
-sp_mod <- lm(Values~species, data = GP_31)
+sp_mod <- lm(Values~species, data = GP_28)
 Anova(sp_mod)
 #summary(sp_mod)
 #check_model(sp_mod)
