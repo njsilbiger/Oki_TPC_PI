@@ -444,11 +444,43 @@ r_rmax_plot
 ggsave(here("Output", "Physiology", "r_rmax_species_jitter.pdf"), r_rmax_plot, h = 5, w = 10)
 
 ####Significant topt and rmax relationship plots based on corr plots####
+#np rmax and chla pg sym
+#np rmax and chla ug cm2
 #np topt and chla pg sym
 #np topt and chla ug cm2
 #gp rmax and chla pg sym
 #gp rmax and chla ug cm2
 #r topt and prot ug cm2
+
+#np rmax and chla pg sym
+np_rmax_chla_sym_scatter <- ggplot(np_data) +
+  geom_point(aes(y = rmax, x = chla_pg_sym, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~full_species, scales = "free")+
+  geom_smooth(aes(y = rmax, x = chla_pg_sym, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_rmax_chla_sym_scatter
+ggsave(here("Output", "Physiology", "np_rmax_chla_sym_scatter.pdf"), np_rmax_chla_sym_scatter, h = 5, w = 10)
+
+#np rmax and chla ug cm
+np_rmax_chla_scatter <- ggplot(np_data) +
+  geom_point(aes(y = rmax, x = chla_ug_cm2_mean, color = full_species), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  #facet_wrap(~species, scales = "free")+
+  geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_rmax_chla_scatter
+ggsave(here("Output", "Physiology", "np_rmax_chla_scatter.pdf"), np_rmax_chla_scatter, h = 5, w = 10)
 
 #np topt and chla pg sym
 np_topt_chla_sym_scatter <- ggplot(np_data) +
@@ -471,7 +503,7 @@ np_topt_chla_scatter <- ggplot(np_data) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
   #coord_transform(x = "log", y = "log")+
-  facet_wrap(~morphology, scales = "free")+
+  #facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
   labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
@@ -496,7 +528,7 @@ np_topt_chla_afdw <- ggplot(np_data) +
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_afdw
-ggsave(here("Output", "Physiology", "np_topt_chla_afdw.pdf"), np_topt_chla_afdw, h = 10, w = 10)
+ggsave(here("Output", "Physiology", "np_topt_chla_afdw.pdf"), np_topt_chla_afdw, h = 10, w = 20)
 
 #np topt and chla ug cm by protein
 np_topt_chla_prot <- ggplot(np_data) +
@@ -514,7 +546,7 @@ np_topt_chla_prot <- ggplot(np_data) +
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_prot
-ggsave(here("Output", "Physiology", "np_topt_chla_prot.pdf"), np_topt_chla_prot, h = 10, w = 10)
+ggsave(here("Output", "Physiology", "np_topt_chla_prot.pdf"), np_topt_chla_prot, h = 10, w = 20)
 
 #gp rmax and chla pg sym
 gp_rmax_chla_sym_scatter <- ggplot(gp_data) +
@@ -561,7 +593,6 @@ r_topt_prot_scatter <- ggplot(r_data) +
 r_topt_prot_scatter
 ggsave(here("Output", "Physiology", "r_topt_prot_scatter.pdf"), r_topt_prot_scatter, h = 5, w = 10)
 
-
 ###Stats
 #np topt and chla
 np_topt_chla_mod <- lm(topt~chla_ug_cm2_mean, data = np_data)
@@ -572,15 +603,33 @@ summary(np_topt_chla_mod)
 #F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
 check_model(np_topt_chla_mod)
 
-#gp topt and chla
-gp_topt_chla_mod <- lm(topt~chla_pg_sym, data = gp_data)
-Anova(gp_topt_chla_mod)
-summary(gp_topt_chla_mod) 
-#Residual standard error: 0.8391 on 47 degrees of freedom
-#Multiple R-squared:  0.1288,	Adjusted R-squared:  0.1103 
-#F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
-check_model(gp_topt_chla_mod)
+#np rmax and chla
+np_rmax_chla_mod <- lm(rmax~chla_ug_cm2_mean, data = np_data)
+Anova(np_rmax_chla_mod)
+summary(np_rmax_chla_mod) 
+# Residual standard error: 0.2411 on 47 degrees of freedom
+# Multiple R-squared:  0.1463,	Adjusted R-squared:  0.1281 
+# F-statistic: 8.055 on 1 and 47 DF,  p-value: 0.00668 **
+check_model(np_rmax_chla_mod)
 
+#gp rmax and chla
+gp_rmax_chla_mod <- lm(rmax~chla_pg_sym, data = gp_data)
+Anova(gp_rmax_chla_mod)
+summary(gp_rmax_chla_mod) 
+# Residual standard error: 0.3211 on 47 degrees of freedom
+# Multiple R-squared:  0.1187,	Adjusted R-squared:  0.09992 
+# F-statistic: 6.329 on 1 and 47 DF,  p-value: 0.01535
+check_model(gp_rmax_chla_mod)
+
+#r topt and prot
+r_topt_prot_mod <- lm(topt~prot_ug_cm2, data = r_data)
+Anova(r_topt_prot_mod)
+summary(r_topt_prot_mod) 
+# Residual standard error: 0.8712 on 14 degrees of freedom
+# (1 observation deleted due to missingness)
+# Multiple R-squared:  0.3958,	Adjusted R-squared:  0.3526 
+# F-statistic: 9.171 on 1 and 14 DF,  p-value: 0.009029 **
+check_model(r_topt_prot_mod)
 
 ####
 
@@ -594,11 +643,11 @@ respo_pared_temps <- respo_constant_temps %>%
 
 #quick plots to look at things
 PR_plot <- ggplot(data = respo_pared_temps) +
-  geom_jitter(aes(x = full_species, y = NPR, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(aes(x = temp_c_value, y = NPR, color = full_species), width = 0.15, alpha = 0.8) +
   theme_bw(base_size = 22) +
   theme(axis.text.x = element_blank())+
   #facet_wrap(~species, ncol = 5) +
-  facet_wrap(~temp_c_value) +
+  facet_wrap(~stress) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   labs(color = "Species",
@@ -606,7 +655,7 @@ PR_plot <- ggplot(data = respo_pared_temps) +
        x = "Species")
        #x = "Temperature (°C)")
 PR_plot
-ggsave(here("Output", "Physiology", "PR_temp_facet.pdf"), PR_plot, h = 8, w = 15)
+ggsave(here("Output", "Physiology", "PR_temp_facet.pdf"), PR_plot, h = 10, w = 10)
 
 #######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now
