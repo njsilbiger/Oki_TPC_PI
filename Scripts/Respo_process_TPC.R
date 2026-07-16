@@ -948,12 +948,45 @@ PnR_28_summary <- PnR_28 %>%
             se = se_fun(Values),
             .groups = "drop")
 
+R_26 <- PnR_clean %>% filter(temp_c_value == 26) %>% filter(PR == "Respiration") %>%
+  select(Values, frag_ID) %>% rename(R_26 = Values)
+R_29 <- PnR_clean %>% filter(temp_c_value == 29) %>% filter(PR == "Respiration") %>%
+  select(Values, frag_ID) %>% rename(R_29 = Values)
+R_32 <- PnR_clean %>% filter(temp_c_value == 32) %>% filter(PR == "Respiration") %>%
+  select(Values, frag_ID) %>% rename(R_32 = Values)
+
+NP_26 <- PnR_clean %>% filter(temp_c_value == 26) %>% filter(PR == "NetPhoto") %>%
+  select(Values, frag_ID) %>% rename(NP_26 = Values)
+NP_29 <- PnR_clean %>% filter(temp_c_value == 29) %>% filter(PR == "NetPhoto") %>%
+  select(Values, frag_ID) %>% rename(NP_29 = Values)
+NP_32 <- PnR_clean %>% filter(temp_c_value == 32) %>% filter(PR == "NetPhoto") %>%
+  select(Values, frag_ID) %>% rename(NP_32 = Values)
+
+GP_26 <- PnR_clean %>% filter(temp_c_value == 26) %>% filter(PR == "GrossPhoto") %>%
+  select(Values, frag_ID) %>% rename(GP_26 = Values)
+GP_29 <- PnR_clean %>% filter(temp_c_value == 29) %>% filter(PR == "GrossPhoto") %>%
+  select(Values, frag_ID) %>% rename(GP_29 = Values)
+GP_32 <- PnR_clean %>% filter(temp_c_value == 32) %>% filter(PR == "GrossPhoto") %>%
+  select(Values, frag_ID) %>% rename(GP_32 = Values)
+
+df_full_list <- list(R_26, R_29, R_32, NP_26, NP_29, NP_32, GP_26, GP_29, GP_32)
+
+respo_select_temps <- df_full_list %>% reduce(left_join)
+respo_select_temps <- respo_select_temps %>% drop_na(NP_26) %>%
+  mutate(NPR_26 = NP_26/R_26,
+         NPR_29 = NP_29/R_29,
+         NPR_32 = NP_32/R_32)
+write_csv(respo_select_temps, here("Data", "RespoFiles","TPC", "respo_select_temps.csv"))
+
+
 R <- PnR_clean %>% filter(PR == "Respiration") %>%
   select(frag_ID, temp_c_value, Values) %>% rename(R = Values)
 NP <- PnR_clean %>% filter(PR == "NetPhoto") %>%
   select(frag_ID, temp_c_value, Values) %>% rename(NP = Values)
 GP <- PnR_clean %>% filter(PR == "GrossPhoto") %>%
   select(frag_ID, temp_c_value, Values) %>% rename(GP = Values)
+
+df_list <- list(R, NP, GP)
 
 respo_constant_temps <- df_list %>% reduce(left_join)
 respo_constant_temps <- respo_constant_temps %>% drop_na(NP) %>%

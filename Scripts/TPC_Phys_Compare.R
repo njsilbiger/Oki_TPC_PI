@@ -87,23 +87,53 @@ gp_data <- all_data %>% filter(PR == "GrossPhoto")
 np_data <- all_data %>% filter(PR == "NetPhoto")
 r_data <- all_data %>% filter(PR == "Respiration")
 
+#use these for correlation plots
+
+##Additional correlations with specific temperature data
+respo_select_temps <- read_csv(here("Data", "RespoFiles","TPC", "respo_select_temps.csv"))
+respo_select_temps <- respo_select_temps %>% left_join(all_data, by = "frag_ID")
+gp_data <- respo_select_temps %>% filter(PR == "GrossPhoto") %>%
+  select(frag_ID,rmax,topt,e) %>% rename(gp_rmax = rmax,
+                                 gp_topt = topt,
+                                 gp_e = e)
+np_data <- respo_select_temps %>% filter(PR == "NetPhoto") %>%
+  select(-PR) %>% rename(np_rmax = rmax,
+                         np_topt = topt,
+                         np_e = e)
+r_data <- respo_select_temps %>% filter(PR == "Respiration") %>%
+  select(frag_ID,rmax,topt,e) %>%
+  rename(r_rmax = rmax,
+         r_topt = topt,
+         r_e = e)
+respo_list <- list(np_data, gp_data, r_data)
+respo_phys_full <- respo_list %>% reduce(left_join)
+
+write_csv(respo_phys_full, here("Data", "RespoFiles","TPC", "Respo_Physiology_GP_NP_R_AllRates.csv"))
+respo_phys_full <- read_csv(here("Data", "RespoFiles","TPC", "Respo_Physiology_GP_NP_R_AllRates.csv"))
+
 ###Correlation plot
-vars <- r_data |>
+vars <- respo_phys_full |>
   dplyr::select(
-    rmax,
-    topt,
+    gp_rmax, gp_topt, gp_e,
+    np_rmax, np_topt, np_e,
+    r_rmax, r_topt, r_e,
+    NP_26, NP_29, NP_32,
+    GP_26, GP_29, GP_32,
+    R_26, R_29, R_32,
+    NPR_26, NPR_29, NPR_32,
     dw_mg_cm2,
-    dw_log,
+    #dw_log,
     afdw_mg_cm2,
-    afdw_log,
+    #afdw_log,
     chla_ug_cm2_mean,
-    chla_log,
+    #chla_log,
     chla_pg_sym,
-    chla_sym_log,
+    #chla_sym_log,
     sym_cm2,
-    sym_log,
-    prot_ug_cm2,
-    prot_log)
+    #sym_log,
+    prot_ug_cm2)
+    #prot_log)
+
 cor_out <- psych::corr.test(
   vars,
   use    = "pairwise",   # handles NAs
@@ -189,7 +219,7 @@ corr_plot <- ggplot(cor_plot_df, aes(x = var1, y = var2, fill = r)) +
 #   insig       = "blank"    # hide non-significant correlations
 # )
 
-ggsave(here("Output", "Physiology", "corr_r.pdf"), corr_plot, h = 10, w = 10)
+ggsave(here("Output", "Physiology", "Correlations_Physio_GP_NP_R.pdf"), corr_plot, h = 15, w = 15)
 
 ####Topt and rmax graphs####
 #np graphs
@@ -514,13 +544,13 @@ ggsave(here("Output", "Physiology", "np_topt_chla_scatter.pdf"), np_topt_chla_sc
 
 #np topt and chla ug cm by tissue biomass
 np_topt_chla_afdw <- ggplot(np_data) +
-  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = afdw_mg_cm2, shape = life_history), alpha = 0.5) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = afdw_mg_cm2), alpha = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
   #coord_transform(x = "log", y = "log")+
   scale_size_continuous(name = expression("Tissue biomass" ~ (mg ~ cm^{-2}))) +
-  xlim(2,25) +
-  ylim(25,32)+
+  #xlim(2,25) +
+  #ylim(25,32)+
   facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
@@ -535,9 +565,10 @@ np_topt_chla_lifehx <- ggplot(np_data) +
   geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, shape = life_history), alpha = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
+  scale_shape_discrete(name = "Life History Strategy") +
   #coord_transform(x = "log", y = "log")+
-  xlim(2,25) +
-  ylim(25,32)+
+  #xlim(2,25) +
+  #ylim(25,32)+
   facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
@@ -545,7 +576,7 @@ np_topt_chla_lifehx <- ggplot(np_data) +
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_lifehx
-ggsave(here("Output", "Physiology", "np_topt_chla_lifehx.pdf"), np_topt_chla_lifehx, h = 8, w = 10)
+ggsave(here("Output", "Physiology", "np_topt_chla_lifehx.pdf"), np_topt_chla_lifehx, h = 8, w = 15)
 
 #np topt and chla ug cm by protein
 np_topt_chla_prot <- ggplot(np_data) +
@@ -648,10 +679,7 @@ summary(r_topt_prot_mod)
 # F-statistic: 9.171 on 1 and 14 DF,  p-value: 0.009029 **
 check_model(r_topt_prot_mod)
 
-####
-
-unique(r_data$full_species)
-"Porites cylindrica","Montipora vietnamensis","Favites complanata","Porites rus","Pachyseris rugosa","Echinopora lamellosa","Montipora aequituberculata","Turbinaria frondens"  
+####P:R ratios
 
 #read in data
 respo_constant_temps <- read_csv(here("Data", "RespoFiles","TPC", "respo_constant_temps.csv"))
@@ -662,20 +690,20 @@ respo_pared_temps <- respo_constant_temps %>%
   filter(temp_c_value == "24.5" | temp_c_value == "28" | temp_c_value == "31" | temp_c_value == "34")
 
 #quick plots to look at things
-PR_plot <- ggplot(data = respo_pared_temps) +
+PR_plot <- ggplot(data = respo_constant_temps) +
   geom_jitter(aes(x = temp_c_value, y = NPR, color = full_species), width = 0.15, alpha = 0.8) +
   theme_bw(base_size = 22) +
-  theme(axis.text.x = element_blank())+
-  #facet_wrap(~species, ncol = 5) +
-  facet_wrap(~stress) +
+  #theme(axis.text.x = element_blank())+
+  #facet_wrap(~species, ncol = 5, scales = "free") +
+  facet_wrap(~life_history) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   labs(color = "Species",
        y = "NP:R",
-       x = "Species")
-       #x = "Temperature (°C)")
+       #x = "Species")
+       x = "Temperature (°C)")
 PR_plot
-ggsave(here("Output", "Physiology", "PR_temp_facet.pdf"), PR_plot, h = 10, w = 10)
+ggsave(here("Output", "Physiology", "PR_temp_lifehx.pdf"), PR_plot, h = 8, w = 15)
 
 #######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now
