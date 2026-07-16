@@ -215,7 +215,7 @@ np_topt_ordered <- np_data %>% left_join(np_topt_summary, by = "full_species") %
 
 #graph
 np_topt_plot <- ggplot() +
-  geom_jitter(data = np_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = np_topt_ordered, aes(x = full_species, y = topt, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = np_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = np_topt_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -262,7 +262,7 @@ np_rmax_ordered <- np_data %>% left_join(np_rmax_summary, by = "full_species") %
 
 #graph
 np_rmax_plot <- ggplot() +
-  geom_jitter(data = np_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = np_rmax_ordered, aes(x = full_species, y = rmax, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = np_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = np_rmax_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -302,7 +302,7 @@ gp_topt_ordered <- gp_data %>% left_join(gp_topt_summary, by = "full_species") %
 
 #graph
 gp_topt_plot <- ggplot() +
-  geom_jitter(data = gp_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = gp_topt_ordered, aes(x = full_species, y = topt, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = gp_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = gp_topt_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -350,7 +350,7 @@ gp_rmax_ordered <- gp_data %>% left_join(gp_rmax_summary, by = "full_species") %
 
 #graph
 gp_rmax_plot <- ggplot() +
-  geom_jitter(data = gp_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = gp_rmax_ordered, aes(x = full_species, y = rmax, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = gp_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = gp_rmax_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -390,7 +390,7 @@ r_topt_ordered <- r_data %>% left_join(r_topt_summary, by = "full_species") %>% 
 
 #graph
 r_topt_plot <- ggplot() +
-  geom_jitter(data = r_topt_ordered, aes(x = full_species, y = topt, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = r_topt_ordered, aes(x = full_species, y = topt, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = r_topt_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = r_topt_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -427,7 +427,7 @@ r_rmax_ordered <- r_data %>% left_join(r_rmax_summary, by = "full_species") %>% 
 
 #graph
 r_rmax_plot <- ggplot() +
-  geom_jitter(data = r_rmax_ordered, aes(x = full_species, y = rmax, color = full_species), width = 0.15, alpha = 0.8) +
+  geom_jitter(data = r_rmax_ordered, aes(x = full_species, y = rmax, color = full_species, shape = life_history), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = r_rmax_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = r_rmax_summary, aes(x = full_species, y = mean), size = 2) +
   theme_bw(base_size = 22) +
@@ -461,8 +461,8 @@ np_rmax_chla_sym_scatter <- ggplot(np_data) +
   #facet_wrap(~full_species, scales = "free")+
   geom_smooth(aes(y = rmax, x = chla_pg_sym, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
-       y = "Thermal optimum (°C)",
+  labs(x = expression("Chlorophyll a" ~ (pg ~ symbiont^{-1})), 
+       y = expression("Rate Max" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})),
        color = "Species")
 np_rmax_chla_sym_scatter
 ggsave(here("Output", "Physiology", "np_rmax_chla_sym_scatter.pdf"), np_rmax_chla_sym_scatter, h = 5, w = 10)
@@ -476,8 +476,8 @@ np_rmax_chla_scatter <- ggplot(np_data) +
   #facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       y = "Thermal optimum (°C)",
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
+       y = expression("Rate Max" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})),
        color = "Species")
 np_rmax_chla_scatter
 ggsave(here("Output", "Physiology", "np_rmax_chla_scatter.pdf"), np_rmax_chla_scatter, h = 5, w = 10)
@@ -491,7 +491,7 @@ np_topt_chla_sym_scatter <- ggplot(np_data) +
   #facet_wrap(~full_species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_pg_sym, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
+  labs(x = expression("Chlorophyll a" ~ (pg ~ symbiont^{-1})), 
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_sym_scatter
@@ -506,7 +506,7 @@ np_topt_chla_scatter <- ggplot(np_data) +
   #facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_scatter
@@ -514,7 +514,7 @@ ggsave(here("Output", "Physiology", "np_topt_chla_scatter.pdf"), np_topt_chla_sc
 
 #np topt and chla ug cm by tissue biomass
 np_topt_chla_afdw <- ggplot(np_data) +
-  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = afdw_mg_cm2), alpha = 0.5) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, size = afdw_mg_cm2, shape = life_history), alpha = 0.5) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
   #coord_transform(x = "log", y = "log")+
@@ -524,11 +524,28 @@ np_topt_chla_afdw <- ggplot(np_data) +
   facet_wrap(~species, scales = "free")+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_afdw
 ggsave(here("Output", "Physiology", "np_topt_chla_afdw.pdf"), np_topt_chla_afdw, h = 10, w = 20)
+
+#np topt and chla ug cm by life history
+np_topt_chla_lifehx <- ggplot(np_data) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, shape = life_history), alpha = 0.5) +
+  scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  theme_bw(base_size = 22) +
+  #coord_transform(x = "log", y = "log")+
+  xlim(2,25) +
+  ylim(25,32)+
+  facet_wrap(~species, scales = "free")+
+  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
+       y = "Thermal optimum (°C)",
+       color = "Species")
+np_topt_chla_lifehx
+ggsave(here("Output", "Physiology", "np_topt_chla_lifehx.pdf"), np_topt_chla_lifehx, h = 8, w = 10)
 
 #np topt and chla ug cm by protein
 np_topt_chla_prot <- ggplot(np_data) +
@@ -542,7 +559,7 @@ np_topt_chla_prot <- ggplot(np_data) +
   ylim(25,32)+
   geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_prot
@@ -557,8 +574,8 @@ gp_rmax_chla_sym_scatter <- ggplot(gp_data) +
   #facet_wrap(~full_species, scales = "free")+
   geom_smooth(aes(y = rmax, x = chla_pg_sym, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-1})), 
-       y = "Thermal optimum (°C)",
+  labs(x = expression("Chlorophyll a" ~ (pg ~ symbiont^{-1})), 
+       y = expression("Rate Max" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})),
        color = "Species")
 gp_rmax_chla_sym_scatter
 ggsave(here("Output", "Physiology", "gp_rmax_chla_sym_scatter.pdf"), gp_rmax_chla_sym_scatter, h = 5, w = 10)
@@ -572,8 +589,8 @@ gp_rmax_chla_scatter <- ggplot(gp_data) +
   #facet_wrap(~full_species, scales = "free")+
   geom_smooth(aes(y = rmax, x = chla_ug_cm2_mean, group = 1),
               method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
-  labs(x = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2})), 
-       y = "Thermal optimum (°C)",
+  labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
+       y = expression("Rate Max" ~ (mu*mol ~ cm^{-2} ~ hr^{-1})),
        color = "Species")
 gp_rmax_chla_scatter
 ggsave(here("Output", "Physiology", "gp_rmax_chla_scatter.pdf"), gp_rmax_chla_scatter, h = 5, w = 10)
@@ -632,6 +649,9 @@ summary(r_topt_prot_mod)
 check_model(r_topt_prot_mod)
 
 ####
+
+unique(r_data$full_species)
+"Porites cylindrica","Montipora vietnamensis","Favites complanata","Porites rus","Pachyseris rugosa","Echinopora lamellosa","Montipora aequituberculata","Turbinaria frondens"  
 
 #read in data
 respo_constant_temps <- read_csv(here("Data", "RespoFiles","TPC", "respo_constant_temps.csv"))
