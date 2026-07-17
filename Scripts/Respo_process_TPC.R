@@ -675,7 +675,7 @@ topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 topt_df <- topt_df %>% filter(sample_ID != "B08_TPC")
 
 #convert to long so you can plot everything at once
-metrics <- c("topt", "rmax", "e", "breadth") #select metrics
+metrics <- c("topt", "rmax", "e", "breadth", "ctmin", "ctmax") #select metrics
 grouping_vars <- c("species", "PR", "frag_ID", "full_species") #select grouping variables
 
 topt_long <- topt_df %>% #make long dataframe

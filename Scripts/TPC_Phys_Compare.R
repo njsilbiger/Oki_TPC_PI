@@ -34,7 +34,7 @@ library(ggpubr)
 #TPC data with only the seven species that we have physio data for
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 topt_df <- topt_df %>% filter(sample_ID != "B08_TPC")
-topt_df <- topt_df %>% dplyr::select(rmax, topt, e, PR, frag_ID)
+#topt_df <- topt_df %>% dplyr::select(rmax, topt, e, PR, frag_ID)
 phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
 topt_df <- topt_df %>% left_join(phys_meta, by = "frag_ID")
 
@@ -73,6 +73,10 @@ avg_sym <- avg_sym %>% filter(frag_ID != "C07") %>% filter(frag_ID != "D10") #re
 avg_sym <- avg_sym %>% mutate(sym_log = log(sym_cm2)) %>% dplyr::select(frag_ID, sym_cm2,sym_log)
 prot <- read.csv(here("Data", "Physiology", "protein_all_summary.csv")) #prot_ug_cm2
 prot <- prot %>% mutate(prot_log = log(prot_ug_cm2)) %>% dplyr::select(frag_ID, prot_ug_cm2,prot_log)
+physio_list <- list(avg_AFDW,chla_avg,avg_sym,prot)
+all_physio <- physio_list %>% reduce(left_join)
+write_csv(all_physio, here("Data", "Physiology", "all_physio_data.csv"))
+all_physio <- read_csv(here("Data", "Physiology", "all_physio_data.csv"))
 
 #generate full dataframe
 result <- Reduce(function(x, y) merge(x, y, all = TRUE), list(topt_df,avg_AFDW,chla_avg,avg_sym,prot))
@@ -704,6 +708,165 @@ PR_plot <- ggplot(data = respo_constant_temps) +
        x = "Temperature (°C)")
 PR_plot
 ggsave(here("Output", "Physiology", "PR_temp_lifehx.pdf"), PR_plot, h = 8, w = 15)
+
+
+###Ordination plots###
+#load physio data
+
+#load metadata
+phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
+#load topt data
+topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
+topt_df <- topt_df %>% filter(sample_ID != "B08_TPC") %>% select(-ctmin,-eh,-q10,-thermal_tolerance,-skewness) %>%
+  drop_na(e) #cleanup dataframe so things will run, all parameters taken out have too many NAs or infinity values
+topt_matrix <- topt_df %>% select(rmax:frag_ID) #generate data for matrix
+#separate out data, make sure to put frag_ID as rownames so you can re-join with metadata later
+topt_r_data <- topt_matrix %>% filter(PR == "Respiration") %>% select(-PR) %>% column_to_rownames("frag_ID")
+topt_np_data <- topt_matrix %>% filter(PR == "NetPhoto") %>% select(-PR) %>% column_to_rownames("frag_ID")
+topt_gp_data <- topt_matrix %>% filter(PR == "GrossPhoto") %>% select(-PR) %>% column_to_rownames("frag_ID")
+#make them matrices
+topt_r <- as.matrix(topt_r_data)
+topt_np <- as.matrix(topt_np_data)
+topt_gp <- as.matrix(topt_gp_data)
+#quick glance at data to look for strong patterns
+pairs(x = topt_gp, gap = 0, cex.labels = 0.5) #look similar even between metrics
+#scale across variable types
+topt_r <- scale(topt_r)
+topt_np <- scale(topt_np)
+topt_g <- scale(topt_gp)
+#generate pca data
+pca_topt_r <- prcomp(topt_r)
+pca_topt_np <- prcomp(topt_np)
+pca_topt_gp <- prcomp(topt_gp)
+#collapse PCA data
+pc_axes_r <- as.data.frame(pca_topt_r$x)
+pc_axes_np <- as.data.frame(pca_topt_np$x)
+pc_axes_gp <- as.data.frame(pca_topt_gp$x)
+#add frag_ID back
+pc_axes_r$frag_ID <- rownames(pc_axes_r) 
+pc_axes_np$frag_ID <- rownames(pc_axes_np) 
+pc_axes_gp$frag_ID <- rownames(pc_axes_gp) 
+#put it back with metadata
+pca_r <- pc_axes_r %>% left_join(phys_meta, by = "frag_ID")
+pca_np <- pc_axes_np %>% left_join(phys_meta, by = "frag_ID")
+pca_gp <- pc_axes_gp %>% left_join(phys_meta, by = "frag_ID")
+
+#plot
+pca_spp <- ggplot(pca_r, aes(x = PC1, y = PC2, color = full_species, linetype = perf_imperf)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = sp_cols) +
+  stat_ellipse(aes(group = perf_imperf), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  theme_classic(base_size = 22)
+pca_spp
+
+ggsave(here("Output", "Physiology", "r_topt_params_pc_spp_perf.pdf"), pca_spp, h = 5, w = 8)
+
+topt_fit_r <- envfit(pca_topt_r$x[, c("PC1", "PC2")], topt_r_data, permutations = 999, na.rm = TRUE)
+topt_fit_np <- envfit(pca_topt_np$x[, c("PC1", "PC2")], topt_np_data, permutations = 999, na.rm = TRUE)
+topt_fit_gp <- envfit(pca_topt_gp$x[, c("PC1", "PC2")], topt_gp_data, permutations = 999, na.rm = TRUE)
+
+#topt_fit #can look at p-values of data to see what is significant in driving differences
+
+topt_scores_r <- as.data.frame(scores(topt_fit_r, display = "vectors")) %>% mutate(variable = rownames(.))
+topt_scores_np <- as.data.frame(scores(topt_fit_np, display = "vectors")) %>% mutate(variable = rownames(.))
+topt_scores_gp <- as.data.frame(scores(topt_fit_gp, display = "vectors")) %>% mutate(variable = rownames(.))
+
+pca_spp_arrows <- ggplot(pca_np, aes(x = PC1, y = PC2, color = full_species)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = sp_cols) +
+  stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)+
+  #stat_ellipse(aes(group = perf_imperf), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  geom_segment(data = topt_scores_r,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", inherit.aes = FALSE) +
+  geom_text(data = topt_scores_r,
+            aes(x = PC1 * 1.2, y = PC2 * 1.2, label = variable),
+            color = "black", size = 5, inherit.aes = FALSE) +
+  theme_classic(base_size = 22)
+
+pca_spp_arrows
+
+ggsave(here("Output", "Physiology", "np_topt_params_spp_arrows.pdf"), pca_spp_arrows, h = 5, w = 8)
+
+
+#ordination of physio data
+#load physio data and generate dataframe with id as rownames
+all_physio <- read_csv(here("Data", "Physiology", "all_physio_data.csv"))
+all_physio_data <- all_physio %>% select(-dw_log,-afdw_log,-chla_log,-chla_sym_log,-sym_log,-prot_log) %>% 
+  column_to_rownames("frag_ID") %>% drop_na()
+all_physio_data_log <- all_physio %>% select(frag_ID,dw_log,afdw_log,chla_log,chla_sym_log,sym_log,prot_log) %>% 
+  column_to_rownames("frag_ID") %>% drop_na()
+#make them matrices
+all_physio_mat <- as.matrix(all_physio_data)
+all_physio_log_mat <- as.matrix(all_physio_data_log)
+#quick glance at data to look for strong patterns
+#pairs(x = all_physio_mat, gap = 0, cex.labels = 0.5) #look similar even between metrics
+#scale across variable types
+all_physio_mat <- scale(all_physio_mat)
+all_physio_log_mat <- scale(all_physio_log_mat)
+#generate pca data
+pca_all_physio <- prcomp(all_physio_mat)
+pca_all_physio_log <- prcomp(all_physio_log_mat)
+#collapse PCA data
+pc_axes_physio <- as.data.frame(pca_all_physio$x)
+pc_axes_physio_log <- as.data.frame(pca_all_physio_log$x)
+#add frag_ID back
+pc_axes_physio$frag_ID <- rownames(pc_axes_physio) 
+pc_axes_physio_log$frag_ID <- rownames(pc_axes_physio_log) 
+#put it back with metadata
+pca_physio <- pc_axes_physio %>% left_join(phys_meta, by = "frag_ID")
+pca_physio_log <- pc_axes_physio_log %>% left_join(phys_meta, by = "frag_ID")
+
+#plot
+pca_physio_spp <- ggplot(pca_physio_log, aes(x = PC1, y = PC2, color = full_species, linetype = perf_imperf)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = sp_cols) +
+  #stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)
+  stat_ellipse(aes(group = perf_imperf), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  theme_classic(base_size = 22)
+pca_physio_spp
+
+ggsave(here("Output", "Physiology", "physio_params_log_pc_spp_perf.pdf"), pca_physio_spp, h = 5, w = 8)
+
+physio_fit <- envfit(pca_all_physio$x[, c("PC1", "PC2")], all_physio_data, permutations = 999, na.rm = TRUE)
+physio_log_fit <- envfit(pca_all_physio_log$x[, c("PC1", "PC2")], all_physio_data_log, permutations = 999, na.rm = TRUE)
+
+physio_scores <- as.data.frame(scores(physio_fit, display = "vectors")) %>% mutate(variable = rownames(.))
+physio_log_scores <- as.data.frame(scores(physio_log_fit, display = "vectors")) %>% mutate(variable = rownames(.))
+
+pca_physio_spp_arrows <- ggplot(pca_physio, aes(x = PC1, y = PC2, color = full_species)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = sp_cols) +
+  stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)+
+  #stat_ellipse(aes(group = morphology), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  geom_segment(data = physio_scores,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", inherit.aes = FALSE) +
+  geom_text(data = physio_scores,
+            aes(x = PC1 * 1.2, y = PC2 * 1.2, label = variable),
+            color = "black", size = 5, inherit.aes = FALSE) +
+  theme_classic(base_size = 22)
+
+pca_physio_spp_arrows
+
+ggsave(here("Output", "Physiology", "physio_params_spp_arrows.pdf"), pca_physio_spp_arrows, h = 10, w = 15)
+
+
+#stats for beta dispersion and diversity
+
+#beta dispersion comparisons
+bet.all <- betadisper(braydist,samdf$SiteName)
+anova(bet.all) #not sig yay so we know differences between sites are not just because of dispersion
+#plot(bet.all)
+#permutest(bet.all, pairwise = TRUE, permutations = 999)
+
+#beta diversity comparisons
+adonis2(braydist ~ SiteName, data=samdf, permutations=999) #sig but R2 only 0.3
+pairwise.adonis2(braydist ~ SiteName, data=samdf, permutations = 999)
+#all significantly different from eachother at varying levels except:
+#Oki07_vs_Oki14 are NOT significantly different from eachother
 
 #######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now
