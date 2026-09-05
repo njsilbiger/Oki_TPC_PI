@@ -29,11 +29,14 @@ library(here)
 library(psych)
 library(corrplot)
 library(ggpubr)
+library(vegan)
+#remotes::install_github("pmartinezarbizu/pairwiseAdonis/pairwiseAdonis")
+library(pairwiseAdonis)
 
 ###### Initial Data Read In ########
 #TPC data with only the seven species that we have physio data for
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
-topt_df <- topt_df %>% filter(sample_ID != "B08_TPC")
+topt_df <- topt_df %>% filter(sample_ID != "B08_TPC") %>% select(-species,-full_species,-SA_cm2)
 #topt_df <- topt_df %>% dplyr::select(rmax, topt, e, PR, frag_ID)
 phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
 topt_df <- topt_df %>% left_join(phys_meta, by = "frag_ID")
@@ -90,6 +93,7 @@ all_data <- read_csv(here("Data", "Physiology", "all_data_concatenated.csv"))
 gp_data <- all_data %>% filter(PR == "GrossPhoto")
 np_data <- all_data %>% filter(PR == "NetPhoto")
 r_data <- all_data %>% filter(PR == "Respiration")
+write_csv(np_data, here("Data", "Physiology", "np_data.csv"))
 
 #use these for correlation plots
 
@@ -564,23 +568,24 @@ np_topt_chla_afdw <- ggplot(np_data) +
 np_topt_chla_afdw
 ggsave(here("Output", "Physiology", "np_topt_chla_afdw.pdf"), np_topt_chla_afdw, h = 10, w = 20)
 
-#np topt and chla ug cm by life history
+#np topt and chla ug cm by morphology
 np_topt_chla_lifehx <- ggplot(np_data) +
-  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species, shape = life_history), alpha = 0.5) +
+  geom_point(aes(y = topt, x = chla_ug_cm2_mean, color = full_species), alpha = 1) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   theme_bw(base_size = 22) +
-  scale_shape_discrete(name = "Life History Strategy") +
+  #scale_shape_discrete(name = "Life History Strategy") +
   #coord_transform(x = "log", y = "log")+
   #xlim(2,25) +
   #ylim(25,32)+
-  facet_wrap(~species, scales = "free")+
-  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  facet_wrap(~full_species, scales = "free", ncol = 4)+
+  theme(strip.text = element_text(face = "italic"), legend.position = "none") +
+  #geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+  #            method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
   labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
        y = "Thermal optimum (°C)",
        color = "Species")
 np_topt_chla_lifehx
-ggsave(here("Output", "Physiology", "np_topt_chla_lifehx.pdf"), np_topt_chla_lifehx, h = 8, w = 15)
+ggsave(here("Output", "Physiology", "np_topt_chla_spp_facet.pdf"), np_topt_chla_lifehx, h = 8, w = 16)
 
 #np topt and chla ug cm by protein
 np_topt_chla_prot <- ggplot(np_data) +
@@ -592,8 +597,8 @@ np_topt_chla_prot <- ggplot(np_data) +
   facet_wrap(~species, scales = "free")+
   xlim(2,25) +
   ylim(25,32)+
-  geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
-              method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
+  #geom_smooth(aes(y = topt, x = chla_ug_cm2_mean, group = 1),
+  #            method = "lm", se = TRUE, color = "black", linewidth = 1.1)+
   labs(x = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2})), 
        y = "Thermal optimum (°C)",
        color = "Species")
@@ -646,10 +651,177 @@ r_topt_prot_scatter
 ggsave(here("Output", "Physiology", "r_topt_prot_scatter.pdf"), r_topt_prot_scatter, h = 5, w = 10)
 
 ###Stats
-#np topt and chla
+#maya trying to figure out effect size plot
+sp_data <- np_data %>% filter(morphology == "branch/tabular")
+np_topt_chla_mod <- lm(topt~chla_ug_cm2_mean, data = sp_data)
+Anova(np_topt_chla_mod)
+summary(np_topt_chla_mod) 
+#"Pcyl" 0.2491
+#"Mvie" 0.0151 *
+#"Fcom" 0.2468
+#"Prus" 0.009783 **
+#"Peyd" 0.9732
+#"Prug" 0.9157
+#"Elam" 0.9743
+#"Maeq" 0.07218 .
+#"Tfro" 0.9265
+#"Ahya" 0.7798
+
+models<- np_data %>%
+  nest(.by = species) %>% # nest all the data by species
+  mutate(fit = map(data, ~lm(topt~chla_ug_cm2_mean, data = .)))
+#column of dataframes is called data 
+# "." is like "i" with the for loop
+#
+models
+
+#effect size function:
+get_effect_sizes <- function(data, response, predictor, group_var) {
+  form <- as.formula(paste0("scale(", response, ") ~ scale(", predictor, ")"))
+  
+  data %>%
+    filter(!is.na(.data[[response]]), !is.na(.data[[predictor]])) %>%
+    nest(.by = all_of(group_var)) %>%
+    mutate(
+      n     = map_int(data, nrow),
+      fit   = map(data, ~ lm(form, data = .x)),
+      coeffs = map(fit, tidy, conf.int = TRUE)
+    ) %>%
+    select(-data, -fit) %>%
+    unnest(coeffs) %>%
+    filter(str_detect(term, "^scale\\(")) %>%   # keep only the slope term
+    mutate(response = response, predictor = predictor)
+}
+
+morph_effects <- get_effect_sizes(np_data, response  = "topt", predictor = "chla_ug_cm2_mean", group_var = "morphology")
+morph_effects
+
+species_effects <- get_effect_sizes(np_data, response  = "topt", predictor = "chla_ug_cm2_mean", group_var = "full_species")
+species_effects
+
+effect_plot <- morph_effects %>%
+  ggplot(aes(x = estimate, y = morphology, color = morphology)) +
+  geom_vline(xintercept = 0) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), width = 0.2) +
+  geom_point(size = 3) +
+  #scale_color_manual(values = sp_cols)+
+  scale_color_manual(values = morph_colors) +
+  labs(x = "Standardized effect size\n(Chl a vs Thermal optimum)") +
+  theme_bw(base_size = 16) +
+  theme(legend.position = "none", axis.title.y = element_blank())
+  #theme(legend.position = "none", axis.title.y = element_blank(), axis.text.y = element_text(face = "italic"))
+effect_plot
+
+ggsave(here("Output", "Physiology", "effect_size_chla_topt_morphology.pdf"), effect_plot, h = 5, w = 5)
+
+predictors_to_test <- c("chla_ug_cm2_mean", "prot_ug_cm2", "sym_cm2", "afdw_mg_cm2")
+
+all_species_effects <- map_dfr(
+  predictors_to_test,
+  ~ get_effect_sizes(np_data, response = "topt", predictor = .x,
+                     group_var = "full_species")
+) %>%
+  left_join(species_meta, by = "full_species")
+
+all_morph_effects <- map_dfr(
+  predictors_to_test,
+  ~ get_effect_sizes(np_data, response = "topt", predictor = .x,
+                     group_var = "morphology")
+)
+
+multi_effect_plot <- all_species_effects %>%
+  ggplot(aes(x = estimate, y = morphology, color = morphology)) +
+  #ggplot(aes(x = estimate, y = full_species, color = full_species)) +
+  geom_vline(xintercept = 0) +
+  geom_point(alpha = 0.3, size = 2) +
+  scale_color_manual(values = morph_colors) +
+  #scale_color_manual(values = sp_cols) +
+  stat_summary(fun.data = mean_se, geom = "pointrange", size = 0.7) +
+  #geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), width = 0.2) +
+  labs(x = "Standardized effect size on thermal optimum", y = "") +
+  facet_wrap(~predictor, scales = "free_x", nrow = 1) +
+  theme_bw(base_size = 22) +
+  theme(legend.position = "none", axis.title.y = element_blank())
+  #theme(legend.position = "none", axis.title.y = element_blank(), axis.text.y = element_text(face = "italic"))
+multi_effect_plot
+
+ggsave(here("Output","Physiology","physio_topt_effectsize_morphology_meanse.pdf"), multi_effect_plot, height = 5, width = 15)
+
+
+#testing 
+morph_interaction <- lm(scale(topt) ~ scale(chla_ug_cm2_mean) * morphology,
+                        data = np_data)
+tidy(morph_interaction, conf.int = TRUE)
+
+species_interaction <- lm(scale(topt) ~ scale(chla_ug_cm2_mean) * full_species,
+                          data = np_data)
+tidy(species_interaction, conf.int = TRUE)
+
+# A significant interaction term (e.g. "scale(chla_ug_cm2_mean):morphologyplating")
+# means that group's slope differs significantly from the reference level.
+# For an omnibus test of "does the slope differ across ALL groups" (not just
+# vs. the reference), compare models with/without the interaction:
+anova(lm(scale(topt) ~ scale(chla_ug_cm2_mean), data = np_data),
+      species_interaction)
+
+
+
+#####Model to look at inter vs intraspecific variation in physiology
+library(lme4)
+
+# 1. Null model: species as random intercept only
+null_model <- lmer(topt ~ 1 + (1 | species/morphology), data = np_data)
+summary(null_model)
+# Groups             Name        Variance Std.Dev.
+# morphology:species (Intercept) 0.05581  0.2362 species within morphology
+# species            (Intercept) 0.04948  0.2224 species overall
+# Residual                       0.69535  0.8339 majority of variance
+
+vc_null <- as.data.frame(VarCorr(null_model))
+var_species     <- vc_null$vcov[vc_null$grp == "full_species"]
+var_resid_null  <- vc_null$vcov[vc_null$grp == "Residual"]
+total_var       <- var_species + var_resid_null
+
+# 2. Add chla as a fixed effect, same random-intercept structure
+full_model <- lmer(rmax ~ scale(chla_ug_cm2_mean) + scale(sym_cm2) + scale(afdw_mg_cm2) + scale(prot_ug_cm2) + (1 | full_species), data = np_data)
+summary(full_model)
+
+vc_full        <- as.data.frame(VarCorr(full_model))
+var_resid_full <- vc_full$vcov[vc_full$grp == "Residual"]
+
+# 3. Variance "eaten up" by chla = the drop in residual variance
+var_explained_by_physio <- var_resid_null - var_resid_full
+var_unexplained        <- var_resid_full
+
+# 4. Build the three-way variance table
+variance_table <- data.frame(
+  component  = c("Interspecific (species)",
+                 "Intraspecific \u2013 explained by physio",
+                 "Intraspecific \u2013 unexplained"),
+  variance   = c(var_species, var_explained_by_physio, var_unexplained)
+) %>%
+  mutate(proportion = variance / sum(variance))
+
+variance_table
+
+#topt
+#                             component  variance proportion
+# 1             Interspecific (species) 0.1052947  0.1315124
+# 2 Intraspecific – explained by physio 0.2647873  0.3307176
+# 3         Intraspecific – unexplained 0.4305626  0.5377699
+
+#rmax
+#                             component   variance proportion
+# 1             Interspecific (species) 0.01700589  0.2502145
+# 2 Intraspecific – explained by physio 0.01897803  0.2792314
+# 3         Intraspecific – unexplained 0.03198132  0.4705541
+
+
+##np topt and chla
 np_topt_chla_mod <- lm(topt~chla_ug_cm2_mean, data = np_data)
 Anova(np_topt_chla_mod)
 summary(np_topt_chla_mod) 
+coeffs<-tidy(np_topt_chla_mod)
 #Residual standard error: 0.8391 on 47 degrees of freedom
 #Multiple R-squared:  0.1288,	Adjusted R-squared:  0.1103 
 #F-statistic: 6.949 on 1 and 47 DF,  p-value: 0.01133 *
@@ -710,14 +882,93 @@ PR_plot
 ggsave(here("Output", "Physiology", "PR_temp_lifehx.pdf"), PR_plot, h = 8, w = 15)
 
 
-###Ordination plots###
+####Morphology plots#####
+gp_data <- all_data %>% filter(PR == "GrossPhoto")
+np_data <- all_data %>% filter(PR == "NetPhoto")
+r_data <- all_data %>% filter(PR == "Respiration")
+physio_data_meta <- all_physio %>% left_join(phys_meta, by = "frag_ID")
+
+rmax_summary <- np_data %>%
+  group_by(morphology) %>%
+  summarise(n = sum(!is.na(rmax)),
+            mean = mean(rmax, na.rm = TRUE),
+            se = se_fun(rmax),
+            .groups = "drop")
+rmax_morph_mod <- lm(rmax~morphology, data = np_data)
+Anova(rmax_morph_mod) 
+
+#chla pg sym 0.0007025 ***
+#prot 0.02302 *
+
+#0.0001898 ***
+
+#species difs
+#prot 0.01727 *
+#e 0.0006691 ***
+
+#morph difs
+#prot 0.0001898 ***
+
+summary(rmax_morph_mod)
+check_model(rmax_morph_mod)
+emm_obj <- emmeans::emmeans(rmax_morph_mod, ~ morphology)
+emm_pairs <- pairs(emm_obj)
+
+#prot
+# contrast                         estimate  SE df t.ratio p.value
+# (branch/tabular) - (massive/sub)     -246 152 92  -1.627  0.2397
+# (branch/tabular) - plating           -495 180 92  -2.746  0.0197
+# (massive/sub) - plating              -249 183 92  -1.360  0.3662
+
+#rmax
+# morphology         n  mean     se
+# <chr>          <int> <dbl>  <dbl>
+#   1 branch/tabular    19 0.864 0.0345
+# 2 massive/sub       20 1.05  0.0548
+# 3 plating           10 0.666 0.0855
+
+#rmax
+# contrast                         estimate     SE df t.ratio p.value
+# (branch/tabular) - (massive/sub)   -0.182 0.0701 46  -2.592  0.0335
+# (branch/tabular) - plating          0.198 0.0855 46   2.311  0.0642
+# (massive/sub) - plating             0.380 0.0848 46   4.475  0.0001
+
+#chla
+# contrast                         estimate    SE df t.ratio p.value
+# (branch/tabular) - (massive/sub)   -0.592 0.285 95  -2.076  0.1002
+# (branch/tabular) - plating          0.761 0.348 95   2.188  0.0785
+# (massive/sub) - plating             1.353 0.345 95   3.924  0.0005
+
+means <- physio_data_meta %>% group_by(morphology) %>% summarize(m = mean(prot_ug_cm2, na.rm = TRUE), .groups = "drop")
+
+physio_data_ordered <- physio_data_meta %>% 
+  left_join(prot_summary, by = "morphology") %>% 
+  mutate(morphology = fct_reorder(morphology, mean))  # ascending by mean
+
+prot_plot <- ggplot() +
+  geom_jitter(data = physio_data_ordered, aes(x = morphology, y = prot_ug_cm2, color = morphology), width = 0.15, alpha = 0.8) +
+  geom_errorbar(data = prot_summary, aes(x = morphology, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
+  geom_point(data = prot_summary, aes(x = morphology, y = mean), size = 2) +
+  stat_summary(data = physio_data_ordered, aes(x = morphology, y = prot_ug_cm2), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("a", "b", "c"))+
+  theme_bw(base_size = 22)+
+  ylim(1,10)+
+  theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
+  scale_color_manual(values = morph_colors, name = "Morphology", labels = c("Encrusting/Plating", "Branching/Tabular", "Massive/Submassive")) +
+  labs(y = expression("Chlorophyll a" ~ (pg ~ symbiont^{-2})))
+prot_plot
+
+ggsave(here("Output", "Physiology", "prot_sym_morphology_jitter.pdf"), prot_plot, h = 5, w = 10)
+
+#####Ordination plots#####
 #load physio data
 
 #load metadata
 phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
 #load topt data
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
-topt_df <- topt_df %>% filter(sample_ID != "B08_TPC") %>% select(-ctmin,-eh,-q10,-thermal_tolerance,-skewness) %>%
+topt_df <- topt_df %>% filter(sample_ID != "B08_TPC") %>% select(-ctmin,-eh,-q10,-thermal_tolerance,-skewness,-thermal_safety_margin) %>%
   drop_na(e) #cleanup dataframe so things will run, all parameters taken out have too many NAs or infinity values
 topt_matrix <- topt_df %>% select(rmax:frag_ID) #generate data for matrix
 #separate out data, make sure to put frag_ID as rownames so you can re-join with metadata later
@@ -759,7 +1010,7 @@ pca_spp <- ggplot(pca_r, aes(x = PC1, y = PC2, color = full_species, linetype = 
   theme_classic(base_size = 22)
 pca_spp
 
-ggsave(here("Output", "Physiology", "r_topt_params_pc_spp_perf.pdf"), pca_spp, h = 5, w = 8)
+#ggsave(here("Output", "Physiology", "r_topt_params_pc_spp_perf.pdf"), pca_spp, h = 5, w = 8)
 
 topt_fit_r <- envfit(pca_topt_r$x[, c("PC1", "PC2")], topt_r_data, permutations = 999, na.rm = TRUE)
 topt_fit_np <- envfit(pca_topt_np$x[, c("PC1", "PC2")], topt_np_data, permutations = 999, na.rm = TRUE)
@@ -771,24 +1022,31 @@ topt_scores_r <- as.data.frame(scores(topt_fit_r, display = "vectors")) %>% muta
 topt_scores_np <- as.data.frame(scores(topt_fit_np, display = "vectors")) %>% mutate(variable = rownames(.))
 topt_scores_gp <- as.data.frame(scores(topt_fit_gp, display = "vectors")) %>% mutate(variable = rownames(.))
 
-pca_spp_arrows <- ggplot(pca_np, aes(x = PC1, y = PC2, color = full_species)) +
+morph_colors <- c(
+  "branch/tabular" = "#d6604d",
+  "massive/sub" = "#4393c3",
+  "plating" = "#74c476")
+
+pca_spp_arrows <- ggplot(pca_np, aes(x = PC1, y = PC2, color = morphology, fill = morphology)) +
   geom_point(size = 3) +
-  scale_color_manual(values = sp_cols) +
-  stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)+
+  scale_color_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  scale_fill_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  #scale_color_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #scale_fill_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  stat_ellipse(geom = "polygon", alpha = 0.1)+
   #stat_ellipse(aes(group = perf_imperf), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
   geom_segment(data = topt_scores_r,
-               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               aes(x = 0, y = 0, xend = PC1*2, yend = PC2*2),
                arrow = arrow(length = unit(0.25, "cm")),
                color = "black", inherit.aes = FALSE) +
-  geom_text(data = topt_scores_r,
-            aes(x = PC1 * 1.2, y = PC2 * 1.2, label = variable),
-            color = "black", size = 5, inherit.aes = FALSE) +
+  #geom_text(data = topt_scores_r,
+  #          aes(x = PC1 * 2.2, y = PC2 * 2.2, label = variable),
+  #          color = "black", size = 5, inherit.aes = FALSE) +
   theme_classic(base_size = 22)
 
 pca_spp_arrows
 
-ggsave(here("Output", "Physiology", "np_topt_params_spp_arrows.pdf"), pca_spp_arrows, h = 5, w = 8)
-
+ggsave(here("Output", "Physiology", "np_topt_params_morph_arrows_nolabel.pdf"), pca_spp_arrows, h = 8, w = 12)
 
 #ordination of physio data
 #load physio data and generate dataframe with id as rownames
@@ -827,7 +1085,7 @@ pca_physio_spp <- ggplot(pca_physio_log, aes(x = PC1, y = PC2, color = full_spec
   theme_classic(base_size = 22)
 pca_physio_spp
 
-ggsave(here("Output", "Physiology", "physio_params_log_pc_spp_perf.pdf"), pca_physio_spp, h = 5, w = 8)
+#ggsave(here("Output", "Physiology", "physio_params_log_pc_spp_perf.pdf"), pca_physio_spp, h = 5, w = 8)
 
 physio_fit <- envfit(pca_all_physio$x[, c("PC1", "PC2")], all_physio_data, permutations = 999, na.rm = TRUE)
 physio_log_fit <- envfit(pca_all_physio_log$x[, c("PC1", "PC2")], all_physio_data_log, permutations = 999, na.rm = TRUE)
@@ -835,38 +1093,114 @@ physio_log_fit <- envfit(pca_all_physio_log$x[, c("PC1", "PC2")], all_physio_dat
 physio_scores <- as.data.frame(scores(physio_fit, display = "vectors")) %>% mutate(variable = rownames(.))
 physio_log_scores <- as.data.frame(scores(physio_log_fit, display = "vectors")) %>% mutate(variable = rownames(.))
 
-pca_physio_spp_arrows <- ggplot(pca_physio, aes(x = PC1, y = PC2, color = full_species)) +
+pca_physio_spp_arrows <- ggplot(pca_physio, aes(x = PC1, y = PC2, color = morphology, fill = morphology)) +
   geom_point(size = 3) +
-  scale_color_manual(values = sp_cols) +
-  stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)+
-  #stat_ellipse(aes(group = morphology), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  scale_color_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  scale_fill_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  #scale_color_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  #scale_fill_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  stat_ellipse(geom = "polygon", alpha = 0.1)+
+  #stat_ellipse(level = 0.95, alpha = 0.5, linewidth = 0.8)+
+  #stat_ellipse(aes(fill = group), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
   geom_segment(data = physio_scores,
-               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               aes(x = 0, y = 0, xend = PC1*3, yend = PC2*3),
                arrow = arrow(length = unit(0.25, "cm")),
                color = "black", inherit.aes = FALSE) +
-  geom_text(data = physio_scores,
-            aes(x = PC1 * 1.2, y = PC2 * 1.2, label = variable),
-            color = "black", size = 5, inherit.aes = FALSE) +
+  #geom_text(data = physio_scores,
+  #          aes(x = PC1 * 3.2, y = PC2 * 3.2, label = variable),
+  #          color = "black", size = 5, inherit.aes = FALSE) +
   theme_classic(base_size = 22)
 
 pca_physio_spp_arrows
 
-ggsave(here("Output", "Physiology", "physio_params_spp_arrows.pdf"), pca_physio_spp_arrows, h = 10, w = 15)
+ggsave(here("Output", "Physiology", "physio_params_morph_arrows_nolabels.pdf"), pca_physio_spp_arrows, h = 8, w = 12)
 
 
 #stats for beta dispersion and diversity
 
-#beta dispersion comparisons
-bet.all <- betadisper(braydist,samdf$SiteName)
-anova(bet.all) #not sig yay so we know differences between sites are not just because of dispersion
-#plot(bet.all)
-#permutest(bet.all, pairwise = TRUE, permutations = 999)
+#generate distance matrix
+physio_dist <- vegdist(pca_all_physio$x, method = "euclidean")
 
-#beta diversity comparisons
-adonis2(braydist ~ SiteName, data=samdf, permutations=999) #sig but R2 only 0.3
-pairwise.adonis2(braydist ~ SiteName, data=samdf, permutations = 999)
-#all significantly different from eachother at varying levels except:
-#Oki07_vs_Oki14 are NOT significantly different from eachother
+#beta dispersion comparisons
+bet.phys <- betadisper(physio_dist,pca_physio$species)
+anova(bet.phys) 
+#species: p= 0.01511 *
+#morphology: p = 0.1687
+#lifehx: p = 0.001415 **
+#perf: p = 0.196
+#plot(bet.phys)
+permutest(bet.phys, pairwise = TRUE, permutations = 999)
+#significant different dispersion between species:
+# Ahya               Elam      Fcom      Maeq      Mvie      Pcyl      Peyd      Prug      Prus  Tfro
+# Ahya           0.2270000 0.0380000 0.0820000 0.0430000 0.0040000 0.6900000 0.0090000 0.0110000 0.059
+# Elam 0.2243857           0.1480000 0.7190000 0.1660000 0.0130000 0.1690000 0.0630000 0.0520000 0.466
+# Fcom 0.0460584 0.1683633           0.1960000 0.9210000 0.6300000 0.0570000 0.8020000 0.7730000 0.393
+# Maeq 0.0899390 0.7288105 0.1947960           0.2060000 0.0140000 0.0690000 0.0930000 0.0700000 0.636
+# Mvie 0.0526044 0.1693093 0.9214060 0.2063258           0.6970000 0.0620000 0.8920000 0.8520000 0.378
+# Pcyl 0.0032141 0.0213470 0.6087902 0.0253814 0.6963382           0.0050000 0.7670000 0.8380000 0.078
+# Peyd 0.6568682 0.1694244 0.0690225 0.0761317 0.0724571 0.0078358           0.0190000 0.0180000 0.048
+# Prug 0.0154313 0.0737466 0.8142147 0.0913770 0.9001915 0.7673487 0.0266018           0.9400000 0.216
+# Prus 0.0147479 0.0677470 0.7740440 0.0820575 0.8556820 0.8318837 0.0265848 0.9445994           0.180
+# Tfro 0.0688079 0.4424315 0.3836850 0.5849779 0.3488034 0.0826819 0.0697288 0.2048564 0.1877570     
+
+physio_perm <- adonis2(physio_dist ~ perf_imperf, data = pca_physio, permutations = 999)
+physio_perm
+#species: R2 = 0.41614, F= 6.4939,p=0.001 ***
+#morphology: R2 =  0.06089,   F = 2.8852 p = 0.014 *
+#lifehx R2 = 0.25432, F = 10.004, p = 0.001 ***
+#perf R2 = 0.04086, F = 3.8345, p = 0.02 *
+
+pairwise.adonis2(physio_dist ~ morphology, data=pca_physio, permutations = 999)
+#branch/tabular_vs_massive/sub 0.272
+#branch/tabular_vs_plating 0.035 *
+#massive/sub_vs_plating 0.004 **
+
+####TOPT
+#generate distance matrix
+np_dist <- vegdist(pca_topt_np$x, method = "euclidean")
+
+#beta dispersion comparisons
+bet.np <- betadisper(np_dist,pca_np$perf_imperf)
+anova(bet.np) 
+#species: p= 0.307
+#morphology: p = 0.6865
+#lifehx: p = 0.1694
+#perf: p = 0.1142
+#plot(bet.phys)
+#permutest(bet.phys, pairwise = TRUE, permutations = 999)
+
+np_perm <- adonis2(np_dist ~ morphology, data = pca_np, permutations = 999)
+np_perm
+#species: R2 = 0.36631, F = 2.3765, p = 0.001 ***
+#morphology: R2 =  0.11404,   F = 2.8318 p = 0.003 **
+#lifehx R2 = 0.11652, F = 1.8903, p = 0.044 *
+#perf: R2 = 0.01904, F= 0.8736, p=0.503
+pairwise.adonis2(np_dist ~ morphology, data=pca_np, permutations = 999)
+#species differences
+#Elam_vs_Fcom 0.018 *
+#Elam_vs_Peyd 0.047 *
+#Elam_vs_Mvie 0.021 *
+#Elam_vs_Maeq 0.009 **
+#Elam_vs_Prus 0.028 *
+#Elam_vs_Pcyl 0.027 *
+#Fcom_vs_Ahya 0.044 *
+#Fcom_vs_Tfro 0.017 *
+#Fcom_vs_Maeq 0.009 **
+#Fcom_vs_Prus 0.049 *
+#Prug_vs_Maeq 0.015 *
+#Peyd_vs_Ahya 0.006 **
+#Peyd_vs_Mvie 0.034 *
+#Peyd_vs_Maeq 0.05 *
+#Ahya_vs_Maeq 0.023 *
+#Ahya_vs_Prus 0.029 *
+#Ahya_vs_Pcyl 0.009 **
+#Mvie_vs_Maeq 0.009 **
+#Mvie_vs_Prus 0.034 *
+#Maeq_vs_Pcyl 0.008 **
+
+#massive/sub_vs_branch/tabular p = 0.239
+#massive/sub_vs_plating p = 0.001 ***
+#branch/tabular_vs_plating p = 0.029 *
 
 #######DO QUICK PHYSIOLOGY PLOTS AND CHECK STATS FOR PAIRED DOWN DATASET####
 #use NP dataset for now

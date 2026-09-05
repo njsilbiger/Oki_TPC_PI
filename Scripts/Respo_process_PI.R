@@ -102,6 +102,9 @@ RespoR <- tibble(.rows =length(filenames_final)*n_light_levels,
 ############################################
 
 ###forloop#####
+#to diagnose - you can set i = 1 and run through the loop line by line
+#if you run through the loop and it fails:
+#type "i" into the console and it will tell you what sample it failed on
 for(i in 1:length(filenames_final)) {
   FRow <- as.numeric(which(Sample_Info$FileID_csv==filenames_final[i])) # stringsplit this renames our file
  
@@ -271,6 +274,7 @@ Blank_only <- RespoR2 %>%
 #############################
 write_csv(RespoR_Normalized , here("Data","RespoFiles","PI","Respo_RNormalized_AllPIRates.csv"))  
 
+RespoR_Normalized <- read_csv(here("Data","RespoFiles","PI","Respo_RNormalized_AllPIRates.csv"))
 
 ## Plot the blanks across treatments to make sure nothing is funky
 Blank_only %>%
@@ -283,6 +287,118 @@ basic_PI_plot <- RespoR_Normalized %>%
   geom_point()+
   geom_line()+
   facet_wrap(~species, scales = "free")
+basic_PI_plot
 ggsave(here("Output","PI","basic_PI_plot.pdf"), basic_PI_plot)
 
 ### run an nls model for PI curve and extract Ik for each species ###
+
+##### PLOTTING CURVES #####
+##### Nonlinear Least Squares regression of a non-rectangular hyperbola (Marshall & Biscoe, 1980)
+#using nls multstart
+library(nls.multstart)
+library(ggpubr)
+
+#set up species colors
+sp_cols <- c(
+  "Acropora hyacinthus" = '#d8aedd',
+  "Echinopora lamellosa" = '#ba7999',
+  "Favites complanata"   = '#dd4124',
+  "Montipora aequituberculata" = '#ed8b00',
+  "Montipora vietnamensis" = '#efbc82',
+  "Pachyseris rugosa" = '#edd746',
+  "Pocillopora eydouxi" = '#d0e2af',
+  "Porites cylindrica" = '#45681e',
+  "Porites rus" = '#7bbcd5',
+  "Turbinaria frondens" = '#00496f'
+)
+
+#read in data
+RespoR_Normalized <- read_csv(here("Data","RespoFiles","PI","Respo_RNormalized_AllPIRates.csv"))
+sp_names <- read_csv(here("Data/species_names.csv"))
+RespoR_Normalized <- RespoR_Normalized %>% left_join(sp_names, by = "species")
+
+#full_species list:
+#ahya, elam, fcom, maeq, mvie, pcyl, peyo, prug, prus, tfro
+
+#define nrh model & function to make sure all variables are not saved from previous runs
+nrh_model <- function(Light_value, Am, AQY, Rd, theta) {
+  (1/(2*theta)) * (AQY*Light_value + Am - sqrt((AQY*Light_value + Am)^2 - 4*AQY*theta*Am*Light_value)) - Rd
+}
+
+make_nrh_fun <- function(Am, AQY, Rd, theta) {
+  force(Am); force(AQY); force(Rd); force(theta)
+  function(x) nrh_model(x, Am, AQY, Rd, theta)
+}
+
+#create plot list and a coefficient table list
+plot_list <- list()
+coef_list <- list()
+
+#for loop to calculate ik and plot
+#Set i = "Maeq" or whatever you want to look at for each full_species as you go through
+for (i in unique(RespoR_Normalized$full_species)) {
+  data <- RespoR_Normalized %>% filter(full_species == i)
+  
+  #use nls_multstart to calculate the curve
+  curve.nlslrc <- nls_multstart(
+    umol.cm2.hr ~ nrh_model(Light_value, Am, AQY, Rd, theta), #@haley you can just swap out this model with different ones here that you define above
+    data = data,
+    iter = 500,
+    #Am (max photosynthetic rate) should be positive based on range of umol.cm2.hr - here ~0-2
+    #AQY (apparent quantum yield) should be positive and between 0-1 (often much smaller)
+    #Rd should be negative and usually between -2-0 but can adjust if larger
+    #theta is between 0 and 1 
+    #IF YOU ARE NORMALIZING TO G INSTEAD OF CM2 OR ANOTHER METRIC YOU SHOULD LOOK AT YOUR DATA FIRST TO SEE BOUNDS FOR AM, AQY AND RD
+    start_lower = c(Am = 0,     AQY = 0,    Rd = -2,  theta = 0),
+    start_upper = c(Am = max(data$umol.cm2.hr) * 2, AQY = 1,    Rd = 0,    theta = 1),
+    lower = c(Am = 0, AQY = 0, Rd = -Inf, theta = 0),
+    supp_errors = 'Y'
+  )
+  
+  coefs <- coef(curve.nlslrc)
+  coef_print <- coefs %>%
+    t() %>%
+    as.data.frame() %>%
+    rename(Pmax.gross = Am) %>%
+    mutate(Ik = Pmax.gross/AQY,
+           Ic = Rd/AQY,
+           Pmax.net = Pmax.gross - Rd,
+           full_species = i)
+  
+  #get Ik value (and force so that it updates each loop)
+  ik_val <- coef_print$Ik
+  force(ik_val)
+  
+  fitted_fun <- make_nrh_fun(coefs["Am"], coefs["AQY"], coefs["Rd"], coefs["theta"])
+  
+  basic_PI_plot <- data %>%
+    ggplot(aes(x = Light_value, y = umol.cm2.hr, color = sp_cols[i], group = frag_ID))+
+    geom_point(shape = 21, color = sp_cols[i],)+
+    #geom_line()+
+    theme_classic(base_size = 15) +
+    geom_vline(xintercept = ik_val, color = sp_cols[i], lty = 2, linewidth = 1) +
+    annotate("text", x = ik_val + 100, y = 0, label = paste0("Ik = ", round(ik_val))) +
+    #you can change ik plus however much you need to get the spacing correct
+    stat_function(fun = fitted_fun, linewidth = 1, color = sp_cols[i]) +
+    labs(x = expression("Irradiance ("*mu*"mol photons "*m^-2*s^-1*")"),
+         y = expression(Rate*" ("*mu*"mol "*O[2]*" "*cm^-2*h^-1*")"),
+         title = i)+
+    theme(legend.position = "none", plot.title = element_text(face = "italic"))
+  
+  plot_list[[i]] <- basic_PI_plot
+  coef_list[[i]] <- coef_print
+  nls_model_coef_all <- bind_rows(coef_list)
+  
+}
+
+all_nls_PI_plots <- ggarrange(plotlist = plot_list, ncol = 5, nrow = 2)
+all_nls_PI_plots
+ggsave(here("Output/PI/ikonik_publishable_plot.pdf"), all_nls_PI_plots, width = 20, height = 8)
+View(nls_model_coef_all)
+write.csv(nls_model_coef_all, here("Output/PI/nls_model_coef_all.csv"))
+
+###Get temperature data across all runs
+median(Respo.Data1$Temp) #28.653
+mean(Respo.Data1$Temp) #28.6435
+max(Respo.Data1$Temp) #28.789
+min(Respo.Data1$Temp) #28.497
