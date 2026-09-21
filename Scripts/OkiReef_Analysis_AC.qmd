@@ -82,6 +82,12 @@ CoralNetReference <- read_csv(here("Data/SfM/CoralNetGrowthForms.csv"), show_col
 ComplexityData    <- read_csv(here("Data/SfM/ComplexitySummaryStats.csv"), show_col_types = FALSE)
 TempData          <- read_csv(here("Data/SfM/TempMeans.csv"),           show_col_types = FALSE)
 FlowData          <- read_csv(here("Data/SfM/FlowMetrics.csv"),         show_col_types = FALSE)
+AllComplexityData <- read_csv(here("Data/SfM/ComplexityData.csv"), show_col_types = 
+                                FALSE)
+
+AllTiltData <- read_csv(here("Data/SfM/AllTiltData.csv"), show_col_types = FALSE)
+AllTempData <- read_csv(here("Data/SfM/AllTempData.csv"), 
+                        show_col_types = FALSE)
 ```
 
 # Data Wrangling
@@ -174,7 +180,7 @@ write_csv(CoralDiversitySite, here("Data/SfM/CoralNetDiversityMetricsSite.csv"))
 #| label: tbl-env
 #| tbl-cap: "Summary of environmental and complexity metrics across the 8 Okinawa reef sites."
 
-MetaData |>
+ MetaData |>
   distinct(SiteName, MeanDepth, meanTemp, TempRange, MeanSpeed, MeanRug, MeanFD) |>
   arrange(SiteName) |>
   gt() |>
@@ -240,9 +246,164 @@ p_cover
 ggsave(here("Output/SfM/SubstrateCover_Site.pdf"), last_plot(), width = 7, height = 6)
 ```
 
+# Environmental Factors Composition
+
+```{r}
+# PRep Data # 
+
+AllTempDataClean <- AllTempData %>%
+  select(-Time, -Long, -Lat)
+
+AllTiltDataClean <- AllTiltData %>%
+  select(-Time, -TiltMeter)
+
+TempTiltData<- AllTempDataClean %>%
+  left_join(AllTiltDataClean, by = c("Site", "DateTime")) %>%
+  distinct() %>%
+  rename(SiteName = Site)
+
+
+
+make_site_plot <- function(df, metric, ylabel, summary_df) {
+  
+  df_ord <- df |>
+    left_join(summary_df, by = "SiteName") |>
+    mutate(SiteName = fct_reorder(SiteName, mean))
+  
+  ggplot() +
+    geom_jitter(
+      data = df_ord, 
+      aes(x = SiteName, y = .data[[metric]], color = SiteName), 
+      width = 0.15, alpha = 0.6, size = 1.2) + 
+    
+    geom_errorbar(
+      data = summary_df |> mutate(SiteName = factor(SiteName, levels = levels(df_ord$SiteName))), 
+      aes(x = SiteName, ymin = mean -se, ymax = mean +se), 
+      width = 0.25, linewidth = 0.7) +
+    
+    geom_point(
+      data = summary_df |> mutate(SiteName = factor(SiteName, levels = levels(df_ord$SiteName))), 
+      aes(x = SiteName, y = mean), 
+      size = 2.5, shape = 21, fill = "white", stroke= 1.2 ) +
+    
+         scale_color_manual(values = site_colors) +
+    theme_presentation() +
+    theme(
+      legend.position = "none",
+      axis.text.x     = element_text(angle = 35, hjust = 1)
+    ) +
+    labs(x = NULL, y = ylabel)
+    
+  
+}
+
+#Summaries#
+
+temp_summary <- TempTiltData |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(Temperature, na.rm = TRUE), se = se_fun(Temperature), .groups = "drop")
+
+speed_summary <- TempTiltData |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(Speed, na.rm = TRUE), se = se_fun(Speed), .groups = "drop")
+
+rugosity_summary <- AllComplexityData |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(Rugosity, na.rm = TRUE), se = se_fun(Rugosity), .groups = "drop")
+
+height_summary <- AllComplexityData |>
+  group_by(SiteName) |>
+  summarise(n = n(), mean = mean(HeightRange, na.rm = TRUE), se = se_fun(HeightRange), .groups = "drop")
+
+#Plots#
+
+p_temp     <- make_site_plot(TempTiltData, "Temperature", "Temperature (°C)", temp_summary) 
+
+p_temp <- p_temp + stat_summary(data = TempTiltData, aes(x = SiteName, y = Temperature), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("ab", "a", "b", "ab", "a", "a", "ab", "b")) +
+  ylim(27,30.8)
+ 
+
+
+p_speed    <- make_site_plot(TempTiltData, "Speed", "Current Speed (cm/s)", speed_summary) 
+
+p_speed <- p_speed + stat_summary(data = TempTiltData, aes(x = SiteName, y = Speed), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("cd", "b", "e", "g", "d", "a", "f", "c")) +
+  ylim(0,25)
+ 
+
+
+
+p_rugosity <- make_site_plot(AllComplexityData, "Rugosity", "Rugosity", rugosity_summary)
+
+p_rugosity <- p_rugosity + stat_summary(data = AllComplexityData, aes(x = SiteName, y = Rugosity), geom = "text", fun = max, vjust = -0.7, size = 8,
+               label = c("abc","c", "a", "a", "abc", "ab", "a", "b" )) +
+  scale_y_continuous(limits = c(0, 13.5), breaks = seq(2.5, 12.5, by = 2.5))
+
+
+
+p_height   <- make_site_plot(AllComplexityData, "HeightRange", "Height Range (m)", height_summary)
+
+p_height <- p_height + stat_summary(data = AllComplexityData, aes(x = SiteName, y = HeightRange), geom = "text", fun = max, vjust = -0.5, size = 8,
+               label = c("bc", "d", "ab", "a", "bc", "ab", "ab", "c")) +
+  ylim(0,3.75)
+
+
+#COMBINE Plots#
+
+EnvironmentalSite_Figure <- (p_temp | p_speed) / (p_rugosity | p_height) +
+  plot_annotation(tag_levels = "A")
+
+EnvironmentalSite_Figure
+
+ggsave(
+  here("Output/SfM/EnvironmentalSiteFigure.pdf"),
+  EnvironmentalSite_Figure,
+  width = 12, height = 10
+)
+
+```
+
+Run Emmeans tests to see significant site differences
+
+```{r}
+
+temp_mod  <- lm(Temperature  ~ SiteName, data = TempTiltData)
+Speed_mod  <- lm(Speed  ~ SiteName, data = TempTiltData)
+Rugosity_mod   <- lm(Rugosity  ~ SiteName, data = AllComplexityData)
+HR_mod <-  lm(HeightRange  ~ SiteName, data = AllComplexityData)
+
+
+# Assumption check — run interactively as needed
+# check_model(richness_mod)
+
+# Pairwise comparisons
+Temp_pairs <- pairs(emmeans(temp_mod, ~ SiteName), adjust = "tukey")
+Speed_pairs <- pairs(emmeans(Speed_mod, ~ SiteName), adjust = "tukey")
+Rugosity_pairs  <- pairs(emmeans(Rugosity_mod,  ~ SiteName), adjust = "tukey")
+HR_pairs <- pairs(emmeans(HR_mod,  ~ SiteName), adjust = "tukey")
+
+Temp_pairs
+Speed_pairs
+Rugosity_pairs
+HR_pairs
+
+emm_tbl <- as_tibble(summary(Speed_pairs, infer = TRUE)) 
+
+
+# # ANOVA tables
+# cat("=== Richness ANOVA ===\n")
+# Anova(richness_mod) |> tidy() |> print()
+# cat("\n=== Evenness ANOVA ===\n")
+# Anova(evenness_mod) |> tidy() |> print()
+# cat("\n=== Shannon ANOVA ===\n")
+# Anova(shannon_mod)  |> tidy() |> print()
+
+```
+
 # Functional Group Composition
 
-Beyond simple richness and diversity, *which types* of corals are present matters ecologically. We group hard coral taxa into three functional categories based on growth form — branching/arborescent, massive/submassive, and encrusting/plating — and ask whether their relative dominance tracks the environmental gradients identified above.
+Beyond simple richness and diversity, *which types* of corals are present matters ecologically. We group hard coral taxa into three functional categories based on growth form — branching/Tabular, massive/submassive, and encrusting/plating — and ask whether their relative dominance tracks the environmental gradients identified above.
 
 ```{r growth-form-wrangle}
 # Aggregate CoralNetReference growth forms into three broad groups
@@ -250,7 +411,7 @@ growth_cover_grouped <- SubstrateCoverData |>
   filter(!is.na(GrowthForm), FunctionalGroup == "Hard coral") |>
   mutate(
     GrowthGroup = case_when(
-      GrowthForm %in% c("Branching", "Corymbose", "Digitate", "Tabular") ~ "Branching/Arborescent",
+      GrowthForm %in% c("Branching", "Corymbose", "Digitate", "Tabular") ~ "Branching/Tabular",
       GrowthForm %in% c("Encrusting", "Plating", "Foliose")              ~ "Encrusting/Plating",
       GrowthForm %in% c("Massive", "Submassive")                         ~ "Massive/Submassive",
       TRUE                                                                 ~ "Other"
@@ -266,19 +427,19 @@ site_order_flow <- FlowData |> arrange(MeanSpeed) |> pull(SiteName)
 
 # Branching proportion per site, joined with flow data
 branch_prop <- growth_cover_grouped |>
-  filter(GrowthGroup == "Branching/Arborescent") |>
+  filter(GrowthGroup == "Branching/Tabular") |>
   select(SiteName, branch_prop = prop) |>
   left_join(FlowData, by = "SiteName")
 ```
 
 ```{r growth-form-plot}
 #| label: fig-growthform
-#| fig-cap: "A) Hard coral community composition by growth form, sites ordered by increasing current speed. B) Branching/arborescent coral cover increases with current speed (Pearson r = 0.72)."
+#| fig-cap: "A) Hard coral community composition by growth form, sites ordered by increasing current speed. B) Branching/Tabular coral cover increases with current speed (Pearson r = 0.72)."
 #| fig-width: 12
 #| fig-height: 5
 
 gf_palette <- c(
-  "Branching/Arborescent" = "#d6604d",
+  "Branching/Tabular" = "#d6604d",
   "Massive/Submassive"    = "#4393c3",
   "Encrusting/Plating"    = "#74c476",
   "Other"                 = "#bdbdbd"
@@ -296,21 +457,39 @@ p_gf <- growth_cover_grouped |>
   annotate("segment", x = 0.4, xend = 8.6, y = -6, yend = -6,
            arrow = arrow(length = unit(0.25, "cm"), ends = "last"), color = "grey40") +
   annotate("text", x = 4.5, y = -11,
-           label = "Increasing current speed \u2192", size = 4, color = "gray20") +
+           label = "Increasing current speed \u2192", size = 8, color = "gray20") +
   coord_cartesian(ylim = c(-15, 100), clip = "off") +
   theme_presentation() +
   theme(axis.text.x = element_text(angle = 35, hjust = 1),
         plot.margin = margin(t = 5, r = 5, b = 30, l = 5)) +
-  labs(x = NULL, y = "(%) of Hard Coral Cover", fill = "Growth Form")
+  labs(x = NULL, y = "(%) of Hard Coral Cover", fill = "Growth Form") +
+  theme(axis.title = element_text (size = 16), 
+axis.text = element_text(size = 16))
 
 p_branch <- ggplot(branch_prop, aes(x = MeanSpeed, y = branch_prop, color = SiteName)) +
-  geom_point(size = 4) +
+  geom_point(size = 6) +
   geom_smooth(aes(group = 1), method = "lm", se = TRUE,
               color = "grey20", linewidth = 0.9) +
+  
+  ggrepel::geom_label_repel(
+    aes(label = SiteName),
+    size = 5,                 # label text size
+    fontface = "bold",
+    label.size = 0.3,         # border thickness around label
+    fill = "white",
+    show.legend = FALSE,
+    seed = 42 ) +
+  
+  
   scale_color_manual(values = site_colors, guide = "none") +
   theme_presentation() +
+  theme(axis.title = element_text (size = 16), 
+axis.text = element_text(size = 13)) +
+
+    
   labs(x = "Mean current speed (cm/s)",
-       y = "Branching/Arborescent\nCoral Cover (%)")
+       y = "Branching/Tabular\nCoral Cover (%)")
+
 
 p_growthform_panel <- (p_gf | p_branch) +
   plot_annotation(tag_levels = "A") &
@@ -340,14 +519,22 @@ ggsave(
 )
 ```
 
-**Interpretation.** Branching and arborescent corals (including *Acropora* and *Montipora* branching morphs) increase markedly at high-flow sites — from \~11% of hard coral cover at slow-current sites (Oki03, Oki11) to \~55–57% at the fastest sites (Oki14, Oki07). Massive and submassive morphs dominate at low-flow sites. This functional gradient is consistent with the well-documented dependence of branching *Acropora* on strong unidirectional flow for mass transfer and carbonate deposition, and adds a mechanistic biological layer to the community-level pattern captured by db-RDA.
+```{r}
+ggsave(
+  here("Output/SfM/growth_form.pdf"),
+  (p_gf),
+  width = 12, height = 10
+)
+```
+
+**Interpretation.** Branching and Tabular corals (including *Acropora* and *Montipora* branching morphs) increase markedly at high-flow sites — from \~11% of hard coral cover at slow-current sites (Oki03, Oki11) to \~55–57% at the fastest sites (Oki14, Oki07). Massive and submassive morphs dominate at low-flow sites. This functional gradient is consistent with the well-documented dependence of branching *Acropora* on strong unidirectional flow for mass transfer and carbonate deposition, and adds a mechanistic biological layer to the community-level pattern captured by db-RDA.
 
 # Bleaching Vulnerability Index
 
-High-flow sites are dominated by branching and arborescent corals — growth forms known from the global bleaching literature to suffer the highest mortality during thermal stress events (Loya et al. 2001 *Ecology Letters*; Hughes et al. 2018 *Science*; Darling et al. 2012 *Ecology Letters*). We quantify this risk using a **Bleaching Vulnerability Index (BVI)**: the community-weighted mean thermal susceptibility of each quadrat, scored by growth form on a 1–5 scale derived from published bleaching outcomes.
+High-flow sites are dominated by branching and Tabular corals — growth forms known from the global bleaching literature to suffer the highest mortality during thermal stress events (Loya et al. 2001 *Ecology Letters*; Hughes et al. 2018 *Science*; Darling et al. 2012 *Ecology Letters*). We quantify this risk using a **Bleaching Vulnerability Index (BVI)**: the community-weighted mean thermal susceptibility of each quadrat, scored by growth form on a 1–5 scale derived from published bleaching outcomes.
 
 | Growth form | BVI score | Rationale |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Tabular | 5.0 | Acropora tabulate — highest bleaching mortality globally |
 | Branching | 4.5 | Acropora, Montipora, Porites branching |
 | Corymbose | 4.5 | Pocillopora — consistently high bleaching susceptibility |
@@ -399,14 +586,16 @@ cat("Site BVI vs. rugosity (r =",
 p_bvi_flow_fig <- ggplot(bvi_site, aes(x = MeanSpeed, y = mean_BVI)) +
   geom_smooth(aes(group = 1), method = "lm", se = TRUE,
               color = "grey30", linewidth = 0.9, fill = "grey80") +
-  geom_point(aes(color = SiteName), size = 5) +
+  geom_point(aes(color = SiteName), size = 6) +
   geom_label_repel(aes(label = SiteName, color = SiteName),
-                   size = 3.2, label.size = 0.3, label.padding = 0.18,
+                   size = 6, label.size = 0.3, label.padding = 0.18,
                    min.segment.length = 0.2, box.padding = 0.4, show.legend = FALSE) +
-  annotate("text", x = 0.8, y = 3.95, hjust = 0, size = 3.8, fontface = "italic",
+  annotate("text", x = 0.8, y = 3.95, hjust = 0, size = 6, fontface = "italic",
            color = "grey30", label = "r = 0.78,  p = 0.021") +
   scale_color_manual(values = site_colors, guide = "none") +
   theme_presentation() +
+      theme(axis.title = element_text (size = 16), 
+axis.text = element_text(size = 16)) +
   labs(x = "Mean Current Speed (cm/s)", y = "Bleaching Vulnerability Index")
 
 rug_mid <- mean(bvi_site$MeanRug)
@@ -417,18 +606,20 @@ p_archetype_fig <- ggplot(bvi_site, aes(x = MeanRug, y = mean_BVI)) +
            fill = "#1a9641", alpha = 0.08) +
   annotate("rect", xmin = -Inf,   xmax = rug_mid, ymin = bvi_mid, ymax = Inf,
            fill = "#d7191c",  alpha = 0.08) +
-  annotate("text", x = 4.2, y = 2.88, size = 3, hjust = 0.5, fontface = "italic",
+  annotate("text", x = 4.1, y = 2.88, size = 4.5, hjust = 0.5, fontface = "bold",
            color = "#1a9641", label = "High complexity\nLow vulnerability\n(potential refugia)") +
-  annotate("text", x = 2.85, y = 3.50, size = 3, hjust = 0.5, fontface = "italic",
+  annotate("text", x = 2.80, y = 3.50, size = 4.5, hjust = 0.5, fontface = "bold",
            color = "#d7191c", label = "Low complexity\nHigh vulnerability") +
   geom_hline(yintercept = bvi_mid, linetype = "dashed", color = "grey55", linewidth = 0.5) +
   geom_vline(xintercept = rug_mid, linetype = "dashed", color = "grey55", linewidth = 0.5) +
   geom_point(aes(color = MeanSpeed, size = site_richness)) +
-  geom_label_repel(aes(label = SiteName), color = "grey20", size = 3,
+  geom_label_repel(aes(label = SiteName), color = "grey20", size = 4,
                    label.size = 0, min.segment.length = 0.2, box.padding = 0.35) +
   scale_color_gradient(low = "#abd9e9", high = "#d7191c", name = "Current\nspeed (cm/s)") +
   scale_size_continuous(name = "Species\nrichness", range = c(3, 9)) +
   theme_presentation() +
+    theme(axis.title = element_text (size = 16), 
+axis.text = element_text(size = 16)) +
   labs(x = "Mean Rugosity", y = "Bleaching Vulnerability Index")
 
 p_bvi_panel <- (p_bvi_flow_fig | p_archetype_fig) +
@@ -460,6 +651,16 @@ ggsave(
 )
 ```
 
+```{r}
+
+#| include: false
+ggsave(
+    here("Output/SfM/bivflowPlot.pdf"),
+    p_bvi_flow_fig,
+    width = 12, height = 12
+)
+```
+
 ```{r save-vulnPlot}
 
 #| include: false
@@ -470,7 +671,7 @@ ggsave(
 )
 ```
 
-**Interpretation.** Current speed is the dominant predictor of community-level thermal vulnerability (r = 0.78, p = 0.021): high-flow sites (Oki07, Oki14) supporting \>55% branching and arborescent coral cover carry the highest BVI scores (3.6–3.8), placing them at greatest risk during bleaching events. Okinawa experienced mass bleaching in 2023 and again in summer 2024–2025, contemporaneous with this sampling period.
+**Interpretation.** Current speed is the dominant predictor of community-level thermal vulnerability (r = 0.78, p = 0.021): high-flow sites (Oki07, Oki14) supporting \>55% branching and Tabular coral cover carry the highest BVI scores (3.6–3.8), placing them at greatest risk during bleaching events. Okinawa experienced mass bleaching in 2023 and again in summer 2024–2025, contemporaneous with this sampling period.
 
 Crucially, BVI is **statistically decoupled from structural complexity** (r = −0.14, p = 0.73). The most rugose sites — Oki03 and Oki15 — have below- or near-average BVI despite their high complexity. This is ecologically significant: the vulnerability gradient and the complexity gradient run along **different environmental axes** (flow and depth, respectively). High-rugosity, low-vulnerability sites may constitute thermal refugia — structurally complex reefs capable of retaining diverse communities through bleaching disturbance — rather than being the reefs most at risk.
 
@@ -662,14 +863,14 @@ ggplot(points_df, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
     linewidth   = 0.8,
     inherit.aes = FALSE
   ) +
-  geom_label(
-    data        = env_scores_sig,
-    aes(x = PCoA1 * 1.25, y = PCoA2 * 1.25, label = label),
-    color       = "grey20",
-    size        = 3.5,
-    label.size  = 0,
-    inherit.aes = FALSE
-  ) +
+  # geom_label(
+  #   data        = env_scores_sig,
+  #   aes(x = PCoA1 * 1.25, y = PCoA2 * 1.25, label = label),
+  #   color       = "grey20",
+  #   size        = 5,
+  #   label.size  = 0,
+  #   inherit.aes = FALSE
+  # ) +
   scale_color_manual(values = site_colors) +
   theme_presentation() +
   labs(
@@ -682,8 +883,8 @@ ggplot(points_df, aes(x = PCoA1, y = PCoA2, color = SiteName)) +
 ```{r save-pcoa}
 #| include: false
 ggsave(
-  here("Output/SfM/pcoa_bray_envfit.pdf"),
-  last_plot(), width = 8, height = 6
+  here("Output/SfM/pcoa_bray.pdf"),
+  last_plot(), width = 12, height = 10
 )
 ```
 
@@ -1254,7 +1455,7 @@ Active coral restoration — transplanting nursery-raised corals to reef sites �
 
 **High-flow, bleaching-vulnerable sites (Oki07, Oki14) are candidates for outplanting thermally resistant coral genotypes.** The ecological rationale is threefold:
 
-1.  **Structural insurance.** These sites are dominated by branching and arborescent *Acropora* that provide the highest structural complexity per unit cover, but collapse structurally after bleaching mortality. Outplanting massive *Porites* or encrusting *Faviidae* — which survive bleaching events with far higher frequency — would maintain a structural skeleton at the site even when the branching community bleaches, preserving habitat for reef-associated fish and invertebrates through the disturbance.
+1.  **Structural insurance.** These sites are dominated by branching and Tabular *Acropora* that provide the highest structural complexity per unit cover, but collapse structurally after bleaching mortality. Outplanting massive *Porites* or encrusting *Faviidae* — which survive bleaching events with far higher frequency — would maintain a structural skeleton at the site even when the branching community bleaches, preserving habitat for reef-associated fish and invertebrates through the disturbance.
 
 2.  **Flow as partial thermal protection.** High-current environments promote turbulent mixing that can moderate local temperatures during bleaching events, providing a partial physical buffer. Outplanted corals at these sites may benefit from this mixing even during regional thermal anomalies — though this effect is likely small relative to a DHW \> 8 °C-week event.
 
@@ -1306,7 +1507,7 @@ p_cover
 -   Variance partitioning decomposes this into three independent signals:
 
 | Predictor group | Unique R² | p |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Structural complexity (rugosity, fractal dim., height range) | 7.9% | 0.001 |
 | Thermal (mean temp, temp range) | 6.8% | 0.001 |
 | Physical exposure (current speed, depth) | 5.0% | 0.001 |
@@ -1325,7 +1526,7 @@ p_varpart
 
 -   Growth form composition shifts cleanly along the current speed gradient:
     -   Low flow (Oki03, Oki11, 0.8 cm/s): \~85% massive/submassive, \~11% branching
-    -   High flow (Oki07, Oki14, 5.4–6.3 cm/s): \~55–57% branching/arborescent
+    -   High flow (Oki07, Oki14, 5.4–6.3 cm/s): \~55–57% branching/Tabular
 -   Branching coral cover vs. mean current speed: Pearson **r = 0.72** across sites
 -   **BVI** tracks current speed (r = 0.78, p = 0.021) — the most flow-exposed reefs are most thermally vulnerable
 -   **But BVI is decoupled from rugosity (r = −0.14):** structurally complex, high-rugosity sites are NOT the high-BVI sites → **potential climate refugia**
