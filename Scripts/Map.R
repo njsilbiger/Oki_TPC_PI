@@ -1,7 +1,7 @@
 ######Making a map of Okinawa ####
 ##Also then added temperature data
 #Maya Powell
-#October 2nd, 2025
+#September 2026
 
 #####Load packages####
 library(here)
@@ -14,12 +14,14 @@ library(patchwork)
 library(png)
 library(grid)
 library(ggpubr)
+library(ggspatial)
 
 #map using shape file from this link:
 #https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_3.html
 
 #data saved in Data/Okinawa_Map folder for hi-res data
 #only need to make shape files of outlines once - takes a long time
+#THESE FILES ARE NOT ON THIS GITHUB BUT YOU CAN FIND THEM AT THE LINK ABOVE IF YOU NEED THE FULL SHAPE FILES
 # hires <- st_read(here("Data", "Okinawa_Map", "N03-19_47_190101.shp"), quiet = TRUE) #hires map of okinawa prefectures
 # jp <- st_read(here("Data", "Okinawa_Map", "N03-19_190101.shp"), quiet = TRUE) #hires map of japan
 # 
@@ -45,6 +47,7 @@ jp <- st_read(here("Data", "Okinawa_Map", "Japan_outline.shp"), quiet = TRUE) #h
 oki_outline <- ggplot() + #generate map of just outline
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) +
+  ggspatial::annotation_scale(location = 'tl') + 
   #labs(title = "Okinawa Island, Japan") +
   theme_classic(base_size = 22)
 oki_outline
@@ -56,7 +59,7 @@ crs_target <- st_crs(jp) #assign coordinate system to be the same as the outline
 oist <- st_sf(name = "OIST", geometry = st_sfc(st_point(c(127.83015620094221, 26.465355941024466)), crs = crs_target))
 oist_mss <- st_sf(name = "OIST MSS", geometry = st_sfc(st_point(c(127.87022582794472, 26.510131894538446)), crs = crs_target))
 afuso <- st_sf(name = "Afuso Reef", geometry = st_sfc(st_point(c(127.88984, 26.51454)), crs = crs_target))
-japan <- st_sf(name = "Japan", geometry = st_sfc(st_point(c(127,45)), crs = crs_target))
+japan <- st_sf(name = "Japan", geometry = st_sfc(st_point(c(127,42)), crs = crs_target))
 oki <- st_sf(name = "Okinawa", geometry = st_sfc(st_point(c(127.7,26.9)), crs = crs_target))
 
 oki_outline_labels <- ggplot() +
@@ -67,9 +70,10 @@ oki_outline_labels <- ggplot() +
   #geom_sf_text(data = oist, aes(label = name), nudge_x = -0.05, fontface = "bold", size = 5) +
   #geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 8, stroke = 0.5) +
   #geom_sf_text(data = oist_mss, aes(label = name), nudge_x = -0.15, fontface = "bold", size = 8) +
-  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 3, stroke = 0.5) +
-  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.02, nudge_x = -0.05, fontface = "bold", size = 5) +
+  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 4, stroke = 0.5) +
+  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.03, nudge_x = -0.07, fontface = "bold", size = 5) +
   geom_sf_text(data = oki, aes(label = name), fontface = "bold", size = 10) +
+  ggspatial::annotation_scale(location = 'tl') + 
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) + #make sure to set boundary for map after adding labels because coord system will make map big if not
   theme(axis.title.y = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 45, hjust=1)) 
 oki_outline_labels
@@ -83,6 +87,7 @@ jp_outline <- ggplot() + #generate map of just outline
   geom_sf(data = afuso, shape = 0, size = 9, stroke = 1) +
   geom_sf_text(data = japan, aes(label = name), fontface = "bold", size = 5) +
   coord_sf(xlim = c(122, 150), ylim = c(22, 48), expand = F) +
+  ggspatial::annotation_scale(location = 'tl') + 
   theme(axis.title.y = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 45, hjust=1)) 
 jp_outline
 
@@ -289,13 +294,7 @@ E_y2 <- approx(temp, rate_mean, xout = E_x2)$y
 p <- ggplot(df, aes(x = temp, y = rate_mean)) +
   # curve + points
   geom_line(aes(y = rate_mean), linewidth = 1.2) +
-  # Topt: vertical dashed line + parsed label near x-axis
-  geom_vline(xintercept = Topt, linetype = 2) +
-  annotate("text",
-           x = Topt, y = 0, vjust = 0.5, hjust = 2,
-           label = "T['opt']",
-           parse = TRUE, size = 8) +
-  theme_classic(base_size = 22)+
+  
   # Rmax: mark peak, arrow, and label
   annotate("point", x = Topt_eff, y = Rmax_eff, size = 3) +
   annotate("segment",
@@ -305,7 +304,14 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
   annotate("text",
            x = Topt_eff + 2.3, y = Rmax_eff, hjust = 0, vjust = 0,
            label = "R['max']",
-           parse = TRUE, size = 8) +
+           parse = TRUE, size = 8, color = "red") +
+  
+  # Topt: vertical dashed line + parsed label near x-axis
+  geom_vline(xintercept = Topt, linetype = 2) +
+  annotate("text",
+           x = Topt, y = 0, vjust = 0.5, hjust = 1.3,
+           label = "T['opt']",
+           parse = TRUE, size = 8, color = "red") +
   
   # Breadth (FWHM): double-headed arrow at half height + ticks + label
   annotate("segment",
@@ -313,30 +319,33 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
            y = half_height, yend = half_height,
            arrow = arrow(ends = "both", length = unit(6, "pt"))) +
   annotate("text",
-           x = (T_low + T_high)/2, y = half_height + 0.08*Rmax_eff,
+           x = 29, y = 0.85,
            label = "breadth",
-           parse = TRUE, hjust = 1, vjust = 1, size = 8) +
+           parse = TRUE, size = 8, color = "red") +
   
   # E (activation energy) schematic on rising limb + label
   annotate("segment",
-           x = E_x1, xend = E_x2,
-           y = E_y1, yend = E_y2,
+           x = 23.8, xend = 27.3,
+           y = 0.5, yend = 1.4,
            linewidth = 1.1, arrow = arrow(length = unit(6, "pt"))) +
   annotate("text",
-           x = E_x1 - 0.2, y = (E_y1 + E_y2)/2,
-           label = "italic('E')",
-           parse = TRUE, hjust = -0.5, vjust = 0.5, size = 8) +
-  annotate("text", x = CTmin, y = 0.2, vjust = 1.6, hjust = -0.05,
-           label = "CT['min']", parse = TRUE, size = 8, color = "slategray4") +
-  annotate("text", x = CTmax, y = 0.2, vjust = 1.6, hjust = -0.01,
-           label = "CT['max']", parse = TRUE, size = 8, color = "slategray4") +
+           x = 24, y = 1,
+           label = "e",
+           parse = TRUE, hjust = -0.5, vjust = 0.5, size = 8, color = "red") +
+  # annotate("text", x = CTmin, y = 0.2, vjust = 1.6, hjust = -0.05,
+  #          label = "CT['min']", parse = TRUE, size = 8, color = "slategray4") +
+  # annotate("text", x = CTmax, y = 0.2, vjust = 1.6, hjust = -0.01,
+  #          label = "CT['max']", parse = TRUE, size = 8, color = "slategray4") +
   labs(x = expression("Temperature ("*degree*C*")"),
-       y = expression("Physiological Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
+       y = expression("Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
   coord_cartesian(ylim = c(0, Rmax*1.15)) +
   theme_classic(base_size = 22)+
   xlim(20,36)
 
 p
+
+ggsave(here("Output","Okinawa_Map","tpc_schematic.pdf"), p, h = 8, w = 10)
+saveRDS(p, here("Output/Okinawa_Map/tpc_schematic.rds"))
 
 #simple plot
 schematic <- ggplot(df, aes(x = temp, y = rate_mean)) +
