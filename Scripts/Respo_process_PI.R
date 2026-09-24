@@ -37,6 +37,9 @@ library(viridis)
 library(car)
 library(future)
 library(furrr)
+library(nls.multstart)
+library(ggpubr)
+library(investr)
 
 ############# now it's time to code ############
 ################################################
@@ -295,8 +298,6 @@ ggsave(here("Output","PI","basic_PI_plot.pdf"), basic_PI_plot)
 ##### PLOTTING CURVES #####
 ##### Nonlinear Least Squares regression of a non-rectangular hyperbola (Marshall & Biscoe, 1980)
 #using nls multstart
-library(nls.multstart)
-library(ggpubr)
 
 #set up species colors
 sp_cols <- c(
@@ -355,7 +356,21 @@ for (i in unique(RespoR_Normalized$full_species)) {
     supp_errors = 'Y'
   )
   
+  #create 95% CI
+  light_seq <- seq(min(data$Light_value), max(data$Light_value), length.out = 200)
+  
+  ci_pred <- predFit(curve.nlslrc, 
+                     newdata = data.frame(Light_value = light_seq), 
+                     interval = "confidence", 
+                     level = 0.95)
+  
+  ci_df <- data.frame(Light_value = light_seq,
+                      fit = ci_pred[, "fit"],
+                      lwr = ci_pred[, "lwr"],
+                      upr = ci_pred[, "upr"])
+  
   coefs <- coef(curve.nlslrc)
+  
   coef_print <- coefs %>%
     t() %>%
     as.data.frame() %>%
@@ -375,11 +390,14 @@ for (i in unique(RespoR_Normalized$full_species)) {
     ggplot(aes(x = Light_value, y = umol.cm2.hr, color = sp_cols[i], group = frag_ID))+
     geom_point(shape = 21, color = sp_cols[i],)+
     #geom_line()+
+    geom_ribbon(data = ci_df, aes(x = Light_value, ymin = lwr, ymax = upr), 
+                inherit.aes = FALSE, fill = sp_cols[i], alpha = 0.2) +
     theme_classic(base_size = 15) +
     geom_vline(xintercept = ik_val, color = sp_cols[i], lty = 2, linewidth = 1) +
     annotate("text", x = ik_val + 100, y = 0, label = paste0("Ik = ", round(ik_val))) +
     #you can change ik plus however much you need to get the spacing correct
     stat_function(fun = fitted_fun, linewidth = 1, color = sp_cols[i]) +
+    #add in 95% CI to line
     labs(x = expression("Irradiance ("*mu*"mol photons "*m^-2*s^-1*")"),
          y = expression(Rate*" ("*mu*"mol "*O[2]*" "*cm^-2*h^-1*")"),
          title = i)+

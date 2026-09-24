@@ -27,6 +27,8 @@ library(performance)
 library(emmeans)
 library(ggplot2)
 library(ggpubr)
+library(multcomp)
+library(modelsummary)
 ```
 
 Assign species colors for all plots
@@ -146,17 +148,23 @@ Emmeans comparisons - ash free dry weight
 ```{r}
 emm_obj <- emmeans::emmeans(AFDW.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#a, a, a, a, ab, ab, b, b
+
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+emm_tbl_afdw <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean)) %>% mutate(parameter = "AFDW")
+
+emm_cld <- multcomp::cld(emm_obj, Letters = letters)
+emm_cld$.group
+#" a  " " a  " " a  " " a  " " ab " " ab " " abc" " abc" "  bc" "   c"
+
+emm_plot_afdw <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols, ) + 
   labs(x = "Emmean", y = "Species")
-emm_plot
+emm_plot_afdw
 
 #ggsave(here("Output", "Physiology","afdw_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
@@ -168,12 +176,18 @@ Reorder based on mean values and then plot dry weight
 #| fig.height: 8
 means <- avg_AFDW %>% group_by(full_species) %>% summarize(m = mean(afdw_mg_cm2, na.rm = TRUE), .groups = "drop")
 
+# model	r.squared	adj.r.squared	sigma	statistic	p.value
+# AFDW	0.434641665	0.378105831	9.761190133	7.687896995	2.66850305867659e-08
+#F = 7.69
+#p < 0.001
+
 avg_AFDW_ordered <- avg_AFDW %>% left_join(afdw_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean_afdw))  # ascending by mean
 
 afdw_plot <- ggplot() +
   geom_jitter(data = avg_AFDW_ordered, aes(x = full_species, y = afdw_mg_cm2, color = full_species), width = 0.15, alpha = 0.8) +
   stat_summary(data = avg_AFDW_ordered, aes(x = full_species, y = afdw_mg_cm2), geom = "text", fun = max, vjust = -0.5, size = 8,
                label = c("a", "a", "a", "a", "ab", "ab", "abc", "abc", "bc", "c"))+
+  #" a  " " a  " " a  " " a  " " ab " " ab " " abc" " abc" "  bc" "   c"
   geom_errorbar(data = afdw_summary, aes(x = full_species, ymin = mean_afdw - se_afdw, ymax = mean_afdw + se_afdw), width = 0.2, linewidth = 0.6) +
   geom_point(data = afdw_summary, aes(x = full_species, y = mean_afdw), size = 2) +
   theme_bw(base_size = 22) +
@@ -181,6 +195,7 @@ afdw_plot <- ggplot() +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   ylim(10,75)+
+  #annotate("text", x = 2, y = 70, label = "F = 7.69 \n p < 0.001") +
   labs(x = "Species", color = "Species",
        y = expression("Tissue biomass" ~ (mg ~ cm^{-2})))
 afdw_plot
@@ -195,7 +210,7 @@ Initial processing - only needed once
 ```{r}
 #read in data
 #data is corrected for blank rates and surface area and blanks are removed
-#uncomment this section if you need to redo prep for chla dataframe
+# #uncomment this section if you need to redo prep for chla dataframe
 # chla_plate1 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate1_summary.csv"))
 # chla_plate2 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate2_summary.csv"))
 # chla_plate3 <- read.csv(here("Data", "ChlaSpec", "oki_chla_plate3_summary.csv"))
@@ -227,12 +242,12 @@ Read in data
 chla_avg <- read.csv(here("Data", "Physiology", "Chla_avg.csv"))
 
 #just did this once to calculate and remove outliers, can always re-calculate above
-# chla_avg <- chla_avg %>% 
-#   #filter(full_species %in% sp_keep) %>% 
+# chla_avg <- chla_avg %>%
+#   #filter(full_species %in% sp_keep) %>%
 #   filter(frag_ID != "E04", frag_ID != "E05") %>% #remove outlier frag
 #   mutate(chla_ug_total = (chla_mean*50)) %>% #multiply by slurry volume to get total chla
 #   mutate(chla_pg_sym = (chla_ug_total/sym_total)*1000000) #divide by total symbionts and multiply by 1000000 to get pg
-#write_csv(chla_avg, here("Data", "Physiology", "Chla_avg.csv"))
+# write_csv(chla_avg, here("Data", "Physiology", "Chla_avg.csv"))
 ```
 
 #### Chla/cm2
@@ -252,7 +267,7 @@ chla_summary <- chla_avg %>%
 See if there's a difference between species for chla
 
 ```{r}
-chla.mod.spp <- lm(chla_ug_cm2_mean~full_species, data = chla_avg)
+chla.mod.spp <- lm(log(chla_ug_cm2_mean)~full_species, data = chla_avg)
 Anova(chla.mod.spp)
 summary(chla.mod.spp)
 check_model(chla.mod.spp)
@@ -264,27 +279,35 @@ Generate emmeans comparisons and plot
 emm_obj <- emmeans::emmeans(chla.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
 #"a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"
-#Acropora hyacinthus - Porites cylindrica             -6.8720 1.86 88  -3.686  0.0137
-#Acropora hyacinthus - Porites rus                    -7.4207 1.86 88  -3.980  0.0053
-#Echinopora lamellosa - Porites cylindrica            -6.4047 1.86 88  -3.435  0.0293
-#Echinopora lamellosa - Porites rus                   -6.9533 1.86 88  -3.729  0.0119
-#Montipora aequituberculata - Porites cylindrica      -6.9516 1.86 88  -3.728  0.0120
-#Montipora aequituberculata - Porites rus             -7.5002 1.86 88  -4.023  0.0045
-#Pachyseris rugosa - Porites cylindrica               -5.7105 1.86 88  -3.063  0.0813
-#Pachyseris rugosa - Porites rus                      -6.2592 1.86 88  -3.357  0.0367
-#Pocillopora eydouxi - Porites cylindrica             -9.1954 1.98 88  -4.650  0.0005
-#Pocillopora eydouxi - Porites rus                    -9.7441 1.98 88  -4.927  0.0002
+# contrast                                            estimate    SE df t.ratio p.value
+# Acropora hyacinthus - Porites cylindrica            -0.61072 0.179 88  -3.407  0.0318
+# Acropora hyacinthus - Porites rus                   -0.64750 0.179 88  -3.612  0.0172
+# Echinopora lamellosa - Porites rus                  -0.58300 0.179 88  -3.252  0.0492
+# Montipora aequituberculata - Porites cylindrica     -0.62066 0.179 88  -3.462  0.0270
+# Montipora aequituberculata - Porites rus            -0.65744 0.179 88  -3.668  0.0145
+# Montipora vietnamensis - Pocillopora eydouxi         0.71466 0.190 88   3.759  0.0109
+# Pachyseris rugosa - Porites cylindrica              -0.58581 0.179 88  -3.268  0.0471
+# Pachyseris rugosa - Porites rus                     -0.62260 0.179 88  -3.473  0.0262
+# Pocillopora eydouxi - Porites cylindrica            -1.03391 0.190 88  -5.438 <0.0001
+# Pocillopora eydouxi - Porites rus                   -1.07069 0.190 88  -5.631 <0.0001
+# Pocillopora eydouxi - Turbinaria frondens           -0.72708 0.190 88  -3.824  0.0088
 
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+emm_tbl_chla <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean)) %>% mutate(parameter = "chla")
+
+emm_cld <- multcomp::cld(emm_obj, Letters = letters)
+emm_cld$.group
+#" a   " " ab  " " ab  " " ab  " " abc " " abcd" "  bcd" "  bcd" "   cd" "    d"
+
+emm_plot_chla <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols, ) + 
   labs(x = "Emmean", y = "Species")
-emm_plot
+emm_plot_chla
 
 #ggsave(here("Output", "Physiology","chla_cm2_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
@@ -297,6 +320,8 @@ Order and plot data by species
 #reorder based on mean values
 means <- chla_avg %>% group_by(species) %>% summarize(m = mean(chla_ug_cm2_mean, na.rm = TRUE), .groups = "drop")
 
+#chla	0.342801935	0.275588496	4.16919699	5.100199346	1.51271350358222e-05
+
 chla_avg_ordered <- chla_avg %>% 
   left_join(chla_summary, by = "full_species") %>% 
   mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
@@ -306,12 +331,13 @@ chla_plot <- ggplot() +
   geom_errorbar(data = chla_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_summary, aes(x = full_species, y = mean), size = 2) +
   stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_ug_cm2_mean), geom = "text", fun = max, vjust = -0.5, size = 8,
-               label = c("a", "a", "a", "a", "ab", "abc", "abc", "abc", "bc", "c"))+
+               label = c("a","ab","ab","ab","abc","abcd","bcd","bcd","cd","d"))+
+  #annotate("text", x = 2, y = 28, label = "F = 5.10 \n p < 0.001") + 
   theme_bw(base_size = 22)+
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  labs(x = "Species", color = "Species", y = expression("Chlorophyll a content" ~ (mu*g ~ cm^{-2}))) +
+  labs(x = "Species", color = "Species", y = expression("Chlorophyll a" ~ (mu*g ~ cm^{-2}))) +
   ylim(0,31)
 chla_plot
 
@@ -345,24 +371,37 @@ Emmeans comparison and plot
 ```{r}
 emm_obj <- emmeans::emmeans(chla.sym.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#Acropora hyacinthus - Porites rus                   -2.53747 0.497 88  -5.109 <0.0001
-#Echinopora lamellosa - Porites rus                  -2.20511 0.497 88  -4.439  0.0010
-#Favites complanata - Porites rus                    -2.25391 0.497 88  -4.538  0.0007
-#Montipora aequituberculata - Porites rus            -2.74696 0.497 88  -5.530 <0.0001
-#Pocillopora eydouxi - Porites rus                   -1.99834 0.527 88  -3.793  0.0097
-#Porites cylindrica - Porites rus                    -2.11202 0.497 88  -4.252  0.0020
-#Porites rus - Turbinaria frondens                    2.75064 0.497 88   5.538 <0.0001
-#"a", "a", "a", "a", "a", "a", "a", "ab", "ab", "b"
+
+# contrast                                            estimate    SE df t.ratio p.value
+# Acropora hyacinthus - Montipora vietnamensis         -2.0010 0.568 88  -3.521  0.0227
+# Acropora hyacinthus - Pachyseris rugosa              -2.0989 0.568 88  -3.693  0.0134
+# Acropora hyacinthus - Porites rus                    -2.9715 0.568 88  -5.228 <0.0001
+# Echinopora lamellosa - Porites rus                   -2.5426 0.568 88  -4.473  0.0009
+# Favites complanata - Porites rus                     -2.5831 0.568 88  -4.545  0.0007
+# Montipora aequituberculata - Montipora vietnamensis  -2.1487 0.568 88  -3.780  0.0101
+# Montipora aequituberculata - Pachyseris rugosa       -2.2467 0.568 88  -3.953  0.0058
+# Montipora aequituberculata - Porites rus             -3.1193 0.568 88  -5.488 <0.0001
+# Montipora vietnamensis - Turbinaria frondens          2.0212 0.568 88   3.556  0.0204
+# Pachyseris rugosa - Turbinaria frondens               2.1191 0.568 88   3.728  0.0120
+# Pocillopora eydouxi - Porites rus                    -2.2600 0.603 88  -3.749  0.0112
+# Porites rus - Turbinaria frondens                     2.9917 0.568 88   5.264 <0.0001
+
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+emm_tbl_chla_sym <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean)) %>% mutate(parameter = "chla_sym")
+
+emm_cld <- multcomp::cld(emm_obj, Letters = letters)
+emm_cld$.group
+#" a  " " a  " " a  " " ab " " ab " " ab " " abc" "  bc" "  bc" "   c"
+
+emm_plot_chla_sym <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols) + 
   labs(x = "Emmean", y = "Species")
-emm_plot
+emm_plot_chla_sym
 
 #ggsave(here("Output", "Physiology","chla_sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
@@ -375,6 +414,8 @@ Reorder and plot by species
 #reorder based on mean values
 means <- chla_avg %>% group_by(species) %>% summarize(m = mean(chla_pg_sym, na.rm = TRUE), .groups = "drop")
 
+#chla_sym	0.421742015	0.362601994	1.270897961	7.131245585	1.07196835523691e-07
+
 chla_avg_ordered <- chla_avg %>% 
   left_join(chla_sym_summary, by = "full_species") %>% 
   mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
@@ -383,13 +424,14 @@ chla_sym_plot <- ggplot() +
   geom_jitter(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym, color = full_species), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = chla_sym_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6)+
   geom_point(data = chla_sym_summary, aes(x = full_species, y = mean), size = 2) +
-  stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "a", "a", "a", "a", "a", "a", "ab", "ab", "b"))+
+  stat_summary(data = chla_avg_ordered, aes(x = full_species, y = chla_pg_sym), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "a", "a", "ab", "ab", "ab", "abc", "bc", "bc", "c"))+
+  #annotate("text", x = 2, y = 10, label = "F = 7.13 \n p < 0.001") + 
   theme_bw(base_size = 22)+
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
-  ylim(1.5,9.5)+
-  labs(x = "Species", color = "Species", y = expression("Chlorophyll a content" ~ (pg ~ symbiont^{-2})))
+  ylim(1.5,10.5)+
+  labs(x = "Species", color = "Species", y = expression("Chlorophyll a" ~ (pg ~ symbiont^{-2})))
 chla_sym_plot
 
 ggsave(here("Output", "Physiology", "chla_sym_species_jitter.pdf"), chla_sym_plot, h = 5, w = 10)
@@ -414,7 +456,7 @@ Needed initially to calculate avg per frag sym density
 # phys_meta <- read.csv(here("Data", "Physiology", "Physio_meta_all.csv"))
 # 
 # #read in sym photo id sheet and sym counts
-# counts <- read.csv(here("Data", "Physiology", "sym_counts_all.csv"))
+# counts <- read.csv(here("Data", "Physiology", "sym_counts_all_sept9.csv"))
 # photos <- read.csv(here("Data", "Physiology", "sym_photos_all.csv"))
 # 
 # #combine
@@ -436,11 +478,12 @@ Needed initially to calculate avg per frag sym density
 #   mutate(count_var = count_se/count_avg) %>%
 #   filter(rep == 6) #keep only one row of data for each
 # 
-# #error >0.153 = E04, H08, F07, D03
+# #error >0.15 = H01, A04, E04, F07, H08
 # #all error less than 0.2, just keeping all!
-# #D03 - all look fine, leave
-# #E04 - one count of 7, all others 12-27,
-# #F07 - two counts in the 80s - remove, all others ~30
+# #H01 - two counts ~200, others ~250
+# #A04 - one count 133, others ~80-100
+# #E04 - one count 5, others ~15-20
+# #F07 - two counts ~80, all others ~30
 # #H08 - two counts in the 300s while all others in the 100s
 # 
 # #now calculate actual symbiont density
@@ -487,25 +530,28 @@ Emmeans comparison and plot
 ```{r}
 emm_obj <- emmeans::emmeans(sym.mod.spp, ~ full_species)
 emm_pairs <- pairs(emm_obj)
-#Acropora hyacinthus - Porites cylindrica            -1261950 360000 90  -3.507  0.0235
-#Echinopora lamellosa - Porites cylindrica           -1237677 360000 90  -3.439  0.0287
-#Montipora vietnamensis - Porites cylindrica         -1178332 360000 90  -3.274  0.0460
-#Pachyseris rugosa - Porites cylindrica              -1331170 360000 90  -3.699  0.0130
-#Pocillopora eydouxi - Porites cylindrica            -1980545 360000 90  -5.504 <0.0001
-#Pocillopora eydouxi - Porites rus                   -1307910 360000 90  -3.634  0.0159
-#Pocillopora eydouxi - Turbinaria frondens           -1465335 360000 90  -4.072  0.0038
 
-#a, ab, ab, ab, abc, abc, abc, bc, bc, c
+# contrast                                            estimate     SE df t.ratio p.value
+# Pocillopora eydouxi - Porites cylindrica            -1490509 340000 90  -4.381  0.0013
+# Pocillopora eydouxi - Porites rus                   -1186422 340000 90  -3.487  0.0250
+# Pocillopora eydouxi - Turbinaria frondens           -1341240 340000 90  -3.942  0.0059
+
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+emm_tbl_sym <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean)) %>% mutate(parameter = "sym")
+
+emm_cld <- multcomp::cld(emm_obj, Letters = letters)
+emm_cld$.group
+#" a " " ab" " ab" " ab" " ab" " ab" " ab" "  b" "  b" "  b"
+
+emm_plot_sym <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols) + 
   labs(x = "Emmean", y = "Species")
-emm_plot
+emm_plot_sym
 
 #ggsave(here("Output", "Physiology","sym_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
@@ -518,14 +564,17 @@ Reorder and plot by species
 #reorder based on mean values
 means <- avg_sym %>% group_by(species) %>% summarize(m = mean(sym_cm2, na.rm = TRUE), .groups = "drop")
 
+#sym	0.246640149	0.171304164	760812.629	3.273869044	0.001725464
+
 avg_sym_ordered <- avg_sym %>% left_join(sym_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
 
 sym_plot <- ggplot() +
   geom_jitter(data = avg_sym_ordered, aes(x = full_species, y = sym_cm2, color = full_species), width = 0.15, alpha = 0.8) +
   geom_errorbar(data = sym_summary, aes(x = full_species, ymin = mean - se, ymax = mean + se), width = 0.2, linewidth = 0.6) +
   geom_point(data = sym_summary, aes(x = full_species, y = mean), size = 2) +
-  stat_summary(data = avg_sym_ordered, aes(x = full_species, y = sym_cm2), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "ab", "ab", "ab", "abc", "abc", "abc", "bc", "bc", "c"))+
-  #a, ab, ab, ab, abc, abc, abc, bc, bc, c
+  stat_summary(data = avg_sym_ordered, aes(x = full_species, y = sym_cm2), geom = "text", fun = max, vjust = -0.5, size = 8, label = c("a", "ab", "ab", "ab", "ab", "ab", "ab", "b", "b", "b"))+
+  #a, ab, ab, ab, ab, ab, ab, b, b, b
+  #annotate("text", x = 2, y = 5600000, label = "F = 3.27 \n p = 0.002") + 
   theme_bw(base_size = 22) +
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   #theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust=1, face = "italic")) +
@@ -582,14 +631,20 @@ emm_pairs <- pairs(emm_obj)
 #a, ab, ab, ab, abc, abc, bc, bc, bc, c  
 emm_tbl <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean))
 
-emm_plot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
+emm_tbl_prot <- as_tibble(summary(emm_obj, infer = TRUE)) %>% mutate(full_species = fct_reorder(full_species, emmean)) %>% mutate(parameter = "prot")
+
+emm_cld <- multcomp::cld(emm_obj, Letters = letters)
+emm_cld$.group
+#" a  " " ab " " ab " " ab " " abc" " abc" "  bc" "  bc" "  bc" "   c"
+
+emm_plot_prot <- ggplot(emm_tbl, aes(x = emmean, y = full_species, color = full_species)) +
   geom_point() +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
   theme_bw(base_size = 22) +
   theme(legend.position = "none", axis.text.y = element_text(face = "italic"))+
   scale_color_manual(values = sp_cols, ) + 
   labs(x = "Emmean", y = "Species")
-emm_plot
+emm_plot_prot
 
 #ggsave(here("Output","Physiology","prot_emmeans.pdf"), device = "pdf", height = 8, width = 8, emm_plot)
 ```
@@ -602,6 +657,8 @@ Reorder and plot species comparisons
 #reorder based on mean values
 means <- prot %>% group_by(species) %>% summarize(m = mean(prot_ug_cm2, na.rm = TRUE), .groups = "drop")
 
+#prot	0.344369665	0.274949982	575.3508031	4.960692009	2.33231183350155e-05
+
 prot_ordered <- prot %>% left_join(prot_summary, by = "full_species") %>% mutate(full_species = fct_reorder(full_species, mean))  # ascending by mean
 
 prot_plot <- ggplot() +
@@ -611,27 +668,161 @@ prot_plot <- ggplot() +
   theme_bw(base_size = 22) +
   stat_summary(data = prot_ordered, aes(x = full_species, y = prot_ug_cm2), geom = "text", fun = max, vjust = -0.5, size = 8,
     label = c("a", "ab", "ab", "ab", "abc", "abc", "bc", "bc", "bc", "c"))+
-  #a, ab, ab, ab, abc, abc, bc, bc, bc, c 
+  #" a  " " ab " " ab " " ab " " abc" " abc" "  bc" "  bc" "  bc" "   c"
+  #annotate("text", x = 2, y = 3800, label = "F = 4.96 \n p < 0.001") + 
   theme(legend.position = "right", axis.text.x = element_blank(), axis.title.x = element_blank()) +
   scale_color_manual(values = sp_cols, labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   ylim(0,4100)+
   labs(x = "Species", color = "Species",
-       y = expression("Protein Content" ~ (mu*g ~ cm^{-2})))
+       y = expression("Protein" ~ (mu*g ~ cm^{-2})))
 prot_plot
 
 ggsave(here("Output", "Physiology", "prot_species_jitter.pdf"), prot_plot, h = 5, w = 10)
 
 ```
 
-## All plots together
+Ordination plots
+
+```{r}
+#ordination of physio data
+#load physio data and generate dataframe with id as rownames
+all_physio <- read_csv(here("Data", "Physiology", "all_physio_data.csv"))
+all_physio_data <- all_physio %>% column_to_rownames("frag_ID") %>% drop_na() %>% 
+  dplyr::select(-dw_mg_cm2,-dw_log,-afdw_log,-chla_ug_cm2_mean,-chla_sym_log,-sym_log,-prot_log) 
+all_physio_data_log <- all_physio %>% dplyr::select(frag_ID,afdw_log,chla_log,chla_sym_log,sym_log,prot_log) %>% 
+  column_to_rownames("frag_ID") %>% drop_na()
+#make them matrices
+all_physio_mat <- as.matrix(all_physio_data)
+all_physio_log_mat <- as.matrix(all_physio_data_log)
+#quick glance at data to look for strong patterns
+#pairs(x = all_physio_mat, gap = 0, cex.labels = 0.5) #look similar even between metrics
+#scale across variable types
+all_physio_mat <- scale(all_physio_mat)
+all_physio_log_mat <- scale(all_physio_log_mat)
+#generate pca data
+pca_all_physio <- prcomp(all_physio_mat)
+pca_all_physio_log <- prcomp(all_physio_log_mat)
+#collapse PCA data
+pc_axes_physio <- as.data.frame(pca_all_physio$x)
+pc_axes_physio_log <- as.data.frame(pca_all_physio_log$x)
+#add frag_ID back
+pc_axes_physio$frag_ID <- rownames(pc_axes_physio) 
+pc_axes_physio_log$frag_ID <- rownames(pc_axes_physio_log) 
+#put it back with metadata
+pca_physio <- pc_axes_physio %>% left_join(phys_meta, by = "frag_ID")
+pca_physio_log <- pc_axes_physio_log %>% left_join(phys_meta, by = "frag_ID")
+
+#add env fit arrows
+physio_fit <- envfit(pca_all_physio$x[, c("PC1", "PC2")], all_physio_data, permutations = 999, na.rm = TRUE)
+physio_log_fit <- envfit(pca_all_physio_log$x[, c("PC1", "PC2")], all_physio_data_log, permutations = 999, na.rm = TRUE)
+
+physio_scores <- as.data.frame(scores(physio_fit, display = "vectors")) %>% mutate(variable = rownames(.))
+physio_log_scores <- as.data.frame(scores(physio_log_fit, display = "vectors")) %>% mutate(variable = rownames(.))
+
+pca_physio_spp_arrows <- ggplot(pca_physio, aes(x = PC1, y = PC2, color = full_species, fill = full_species)) +
+  geom_point(size = 3, alpha = 0.1) +
+  #scale_color_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  #scale_fill_manual(values = morph_colors, name = "Morphology", labels = c("Branching/Tabular", "Massive/Submassive", "Encrusting/Plating")) +
+  scale_color_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  scale_fill_manual(values = sp_cols, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
+  stat_ellipse(geom = "polygon", alpha = 0.1, linewidth = 0.2)+
+  stat_ellipse(level = 0.0001, geom = "point", shape = 21) +
+  #stat_ellipse(level = 0.95, alpha = 0.1, linewidth = 0.1)+
+  #stat_ellipse(aes(fill = group), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
+  geom_segment(data = physio_scores,
+               aes(x = 0, y = 0, xend = PC1*4, yend = PC2*4),
+               arrow = arrow(length = unit(0.25, "cm")),
+               color = "black", inherit.aes = FALSE) +
+  #labs(title = "Physiology") +
+  # geom_text(data = physio_scores,
+  #           aes(x = PC1 * 3.2, y = PC2 * 3.2, label = variable),
+  #           color = "black", size = 5, inherit.aes = FALSE) +
+  theme_classic(base_size = 22)
+
+pca_physio_spp_arrows
+
+#ggsave(here("Output", "Physiology", "physio_params_spp_arrows_nolabels.pdf"), pca_physio_spp_arrows, h = 8, w = 12)
+```
+
+```{r}
+#stats for beta dispersion and diversity
+
+#generate distance matrix
+physio_dist <- vegdist(pca_all_physio$x, method = "euclidean")
+
+#beta dispersion comparisons
+bet.phys <- betadisper(physio_dist,pca_physio$species)
+anova(bet.phys) 
+#species: p=0.01291 *
+
+#plot(bet.phys)
+#permutest(bet.phys, pairwise = TRUE, permutations = 999)
+
+physio_perm <- adonis2(physio_dist ~ species, data = pca_physio, permutations = 999)
+physio_perm
+#species: R2 = 0.40833, F= 6.2878,p=0.001 ***
+
+pw_comps_sp <- pairwise.adonis2(physio_dist ~ species, data=pca_physio, permutations = 999)
+
+#table of pairwise comparison output
+pw_sp_list <- pw_comps_sp[names(pw_comps_sp) != "parent_call"]
+pw_sp_table <- do.call(rbind, lapply(names(pw_sp_list), function(nm) {
+  df <- as.data.frame(pw_sp_list[[nm]])
+  df$Term <- rownames(df)
+  df$comparison <- nm
+  df[, c("comparison", "Term", "Df", "SumOfSqs", "R2", "F", "Pr(>F)")]
+}))
+
+write.csv(pw_sp_table, here("Output/Physiology/PERMANOVA_ord_pairwise_comparison_physio.csv"))
+```
+
+## All plots & tables together
 
 Put all physio plots together
 
 ```{r}
-#| fig.width: 15
-#| fig.height: 15
-physio_plots <- ggarrange(chla_plot, chla_sym_plot, sym_plot, afdw_plot, prot_plot, nrow = 3, ncol = 2, legend = "right", common.legend = TRUE)
+physio_plots_all <- ggarrange(chla_plot, chla_sym_plot, sym_plot, afdw_plot, prot_plot, pca_physio_spp_arrows, nrow = 2, ncol = 3, legend = "right", common.legend = TRUE, labels = c("A", "B", "C", "D", "E", "F"), font.label = list(size = 30, color = "black"))
 
-plot(physio_plots)
-ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 15, w = 15)
+physio_plots <- ggarrange(chla_plot, sym_plot, afdw_plot, prot_plot, nrow = 2, ncol = 2, legend = "right", common.legend = TRUE, labels = c("A", "B", "C", "D", "E"), font.label = list(size = 30, color = "black"))
+
+ggsave(here("Output","Physiology","physio_plots_all.pdf"), physio_plots_all, h = 10, w = 20)
+ggsave(here("Output","Physiology","physio_plots.pdf"), physio_plots, h = 10, w = 15)
 ```
+
+Put all model output & emmeans tables together
+
+```{r}
+library(broom)
+library(purrr)
+library(dplyr)
+
+models <- list(
+  "AFDW" = AFDW.mod.spp, 
+  "chla" = chla.mod.spp, 
+  "chla_sym" = chla.sym.spp, 
+  "sym" = sym.mod.spp, 
+  "prot" = prot.mod.spp)
+
+coef_table   <- map_dfr(models, tidy,   .id = "model")   # per-term estimates
+glance_table <- map_dfr(models, glance, .id = "model")   # per-model R2, F, p
+
+coef_table
+glance_table
+
+write.csv(coef_table, here("Output/Physiology/coef_table_all_models_physio.csv"))
+write.csv(glance_table, here("Output/Physiology/stats_table_all_models_physio.csv"))
+
+#concatenate emmeans for each model
+all_emm_table <- as.data.frame(rbind(emm_tbl_afdw, emm_tbl_chla, emm_tbl_chla_sym, emm_tbl_sym, emm_tbl_prot))
+
+write.csv(all_emm_table, here("Output/Physiology/emmeans_table_all_models_physio.csv"))
+# write.csv(sym, here("Data", "Physiology", "Average_Sym_Density.csv"), row.names = FALSE)
+```
+
+```{r}
+
+```
+
+#Data summary
+
+#identifies all correlations between different variables datasummary_correlation(mtcars) \#<https://modelsummary.com/vignettes/datasummary.html> MUST LOOK INTO THIS MORE!!!

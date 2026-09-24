@@ -9,70 +9,156 @@ library(tidyverse)
 library(ggplot2)
 library(sf)
 library(lubridate)
-library(dplyr)
+library(rmapshaper)
+library(patchwork)
+library(png)
+library(grid)
+library(ggpubr)
 
 #map using shape file from this link:
 #https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_3.html
 
 #data saved in Data/Okinawa_Map folder for hi-res data
+#only need to make shape files of outlines once - takes a long time
+# hires <- st_read(here("Data", "Okinawa_Map", "N03-19_47_190101.shp"), quiet = TRUE) #hires map of okinawa prefectures
+# jp <- st_read(here("Data", "Okinawa_Map", "N03-19_190101.shp"), quiet = TRUE) #hires map of japan
+# 
+# pref_outline <- hires %>%
+#   st_make_valid() %>%
+#   st_union() %>% #just take biggest shape for each island so cuts out prefecture smaller internal outlines
+#   st_as_sf() %>% #make it a shapefile again
+#   ms_simplify(keep = 0.05, keep_shapes = TRUE)
+# 
+# jp_outline <- jp %>%
+#   st_make_valid() %>%
+#   st_union() %>% #just take biggest shape for each island so cuts out prefecture smaller internal outlines
+#   st_as_sf() %>% #make it a shapefile again
+#   ms_simplify(keep = 0.01, keep_shapes = TRUE)
+# 
+# st_write(pref_outline, here("Data/Okinawa_Map/Okinawa_outline.shp"), delete_layer = TRUE)
+# st_write(jp_outline, here("Data/Okinawa_Map/Japan_outline.shp"), delete_layer = TRUE)
 
-hires <- st_read(here("Data", "Okinawa_Map", "N03-19_47_190101.shp"), quiet = TRUE) #hires map of okinawa prefectures
-
-pref_outline <- hires %>% 
-  st_union() %>% #just take biggest shape for each island so cuts out prefecture smaller internal outlines
-  st_as_sf() #make it a shapefile again
+#read shape files in of just outlines
+pref_outline <- st_read(here("Data", "Okinawa_Map", "Okinawa_outline.shp"), quiet = TRUE) #hires map of okinawa prefectures
+jp <- st_read(here("Data", "Okinawa_Map", "Japan_outline.shp"), quiet = TRUE) #hires map of japan
 
 oki_outline <- ggplot() + #generate map of just outline
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) +
   #labs(title = "Okinawa Island, Japan") +
-  theme_minimal(base_size = 22)
+  theme_classic(base_size = 22)
 oki_outline
 
-ggsave(here("Output", "Okinawa_map", "oki_outline.pdf"), oki_outline, h = 8, w = 8)
+#ggsave(here("Output", "Okinawa_map", "oki_outline.pdf"), oki_outline, h = 8, w = 8)
 
 crs_target <- st_crs(pref_outline) #assign coordinate system to be the same as the outline
+crs_target <- st_crs(jp) #assign coordinate system to be the same as the outline
 oist <- st_sf(name = "OIST", geometry = st_sfc(st_point(c(127.83015620094221, 26.465355941024466)), crs = crs_target))
 oist_mss <- st_sf(name = "OIST MSS", geometry = st_sfc(st_point(c(127.87022582794472, 26.510131894538446)), crs = crs_target))
 afuso <- st_sf(name = "Afuso Reef", geometry = st_sfc(st_point(c(127.88984, 26.51454)), crs = crs_target))
+japan <- st_sf(name = "Japan", geometry = st_sfc(st_point(c(127,45)), crs = crs_target))
+oki <- st_sf(name = "Okinawa", geometry = st_sfc(st_point(c(127.7,26.9)), crs = crs_target))
 
 oki_outline_labels <- ggplot() +
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   #labs(title = "Okinawa Island, Japan") +
-  theme_minimal(base_size = 22) +
+  theme_classic(base_size = 15) +
   #geom_sf(data = oist, shape = 21, fill = "firebrick3", size = 4, stroke = 0.5) + #add labels on map
   #geom_sf_text(data = oist, aes(label = name), nudge_x = -0.05, fontface = "bold", size = 5) +
-  geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 8, stroke = 0.5) +
-  geom_sf_text(data = oist_mss, aes(label = name), nudge_x = -0.15, fontface = "bold", size = 8) +
-  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 8, stroke = 0.5) +
-  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.04, fontface = "bold", size = 8) +
+  #geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 8, stroke = 0.5) +
+  #geom_sf_text(data = oist_mss, aes(label = name), nudge_x = -0.15, fontface = "bold", size = 8) +
+  geom_sf(data = afuso, shape = 21, fill = "cornflowerblue", size = 3, stroke = 0.5) +
+  geom_sf_text(data = afuso, aes(label = name), nudge_y = 0.02, nudge_x = -0.05, fontface = "bold", size = 5) +
+  geom_sf_text(data = oki, aes(label = name), fontface = "bold", size = 10) +
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) + #make sure to set boundary for map after adding labels because coord system will make map big if not
-  theme(axis.title.y = element_blank(), axis.title.x = element_blank()) 
+  theme(axis.title.y = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 45, hjust=1)) 
 oki_outline_labels
 
-ggsave(here("Output", "Okinawa_map", "oki_outline_labels.pdf"), oki_outline_labels, h = 8, w = 8)
+#ggsave(here("Output", "Okinawa_map", "oki_outline_afuso.pdf"), oki_outline_labels, h = 8, w = 8)
+
+jp_outline <- ggplot() + #generate map of just outline
+  geom_sf(data = jp, fill = "honeydew4", color = "black", linewidth = 0.2) +
+  #labs(title = "Okinawa Island, Japan") +
+  theme_classic(base_size = 10) +
+  geom_sf(data = afuso, shape = 0, size = 9, stroke = 1) +
+  geom_sf_text(data = japan, aes(label = name), fontface = "bold", size = 5) +
+  coord_sf(xlim = c(122, 150), ylim = c(22, 48), expand = F) +
+  theme(axis.title.y = element_blank(), axis.title.x = element_blank(), axis.text.x = element_text(angle = 45, hjust=1)) 
+jp_outline
+
+#ggsave(here("Output", "Okinawa_map", "jp_outline.pdf"), jp_outline, h = 8, w = 8)
+
+ok_jp_inset <- oki_outline_labels + inset_element(jp_outline, 0.56, 0.01, 1, 0.46)
+ok_jp_inset
+
+ggsave(here("Output", "Okinawa_map", "oki_jp_map_inset.pdf"), ok_jp_inset, h = 8, w = 8)
 
 ##### Temperature data
 
 #read in temp data from Tilt 2 (at coral collection site)
 temp <- read_csv(here("Data", "TiltMeterData", "Tilt2_Temperature.csv"))
+aqua_temp <- read_csv(here("Data/TiltMeterData/2025_NOAA_Satellite_Temp.csv"))
+aqua_temp <- aqua_temp %>% 
+  filter(timestamp > as_date("2025-01-01"),
+         timestamp < as_date("2025-12-31"))
 
 #temp plot
 temp_plot <- ggplot(temp, aes(y = Temperature, x = DateTime)) +
-  geom_line()+
+  geom_line(color = "cornflowerblue")+
   #geom_hline(yintercept = 28.294, linetype = "dashed") +
   #geom_hline(yintercept = 29.87, linetype = "dashed") +
   labs(x = "Date", y = "Temperature (°C)") +
-  theme_bw(base_size = 22)+
+  theme_bw(base_size = 18)+
   theme(axis.text.x = element_text(angle = 45, hjust=1))+
   ylim(27,30.2)+
-  scale_x_datetime(date_breaks = "1 day", 
+  scale_x_datetime(date_breaks = "2 days", 
                    minor_breaks = NULL,
                    date_labels = "%b %d")
 
 temp_plot
-
 ggsave(here("Output", "Okinawa_map", "temp_plot.pdf"), temp_plot, h = 8, w = 10)
+
+max(temp$Temperature) #29.99
+mean(temp$Temperature) #29.16
+min(temp$Temperature) #27.06
+
+#yearly satellite temp
+noaa_temp_plot <- ggplot(aqua_temp) +
+  geom_line(aes(y = satellite_temperature_noaa, x = timestamp))+
+  #geom_line(aes(y = dhw_noaa, x = timestamp))+
+  #geom_hline(yintercept = 28.294, linetype = "dashed") +
+  #geom_hline(yintercept = 29.87, linetype = "dashed") +
+  labs(x = "Date", y = "Temperature (°C)") +
+  theme_bw(base_size = 18)+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  #ylim(27,30.2)+
+  scale_x_datetime(date_breaks = "1 month", 
+                   minor_breaks = NULL,
+                   date_labels = "%b")
+noaa_temp_plot
+ggsave(here("Output", "Okinawa_map", "noaa_2025_temp_plot.pdf"), noaa_temp_plot, h = 4, w = 12)
+
+max(aqua_temp$satellite_temperature_noaa) #30.28
+mean(aqua_temp$satellite_temperature_noaa) #25.62
+min(aqua_temp$satellite_temperature_noaa) #20.20
+
+
+##Create figure 1 for paper
+
+map_temp <- ggarrange(oki_outline_labels,temp_plot,ncol = 2, nrow = 1, labels = c("A","B"), font.label = list(size = 25, color = "black"))
+
+map_temp_temp <- ggarrange(map_temp, noaa_temp_plot, ncol = 1, nrow = 2, labels = c("A", "C"), font.label = list(size = 25, color = "black"))
+map_temp_temp
+
+ggsave(here("Output", "Okinawa_map", "map_temp_noaatemp.pdf"), map_temp_temp, h = 8, w = 10)
+
+##add species photos to first plot
+all_sp_pics <- readPNG(here("Output", "Physiology","Okinawa2025_AllSpecies.png"))
+all_sp_pics <- rasterGrob(all_sp_pics, interpolate = TRUE)
+
+map_sp <- ok_jp_inset + all_sp_pics + plot_layout(ncol = 2, widths = c(2,1))
+map_sp_temp <- ggarrange(map_sp, noaa_temp_plot, ncol = 1, nrow = 2, labels = c("A", "C"), font.label = list(size = 25, color = "black"))
+map_sp_temp
 
 #add column to denote temperature points above Topt
 #Fcom highest mean Topt for NP = 29.87

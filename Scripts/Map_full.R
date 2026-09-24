@@ -205,14 +205,14 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
   annotate("text",
            x = Topt_eff + 2.3, y = Rmax_eff, hjust = 0, vjust = 0,
            label = "R['max']",
-           parse = TRUE, size = 8) +
+           parse = TRUE, size = 8, color = "red") +
   
   # Topt: vertical dashed line + parsed label near x-axis
   geom_vline(xintercept = Topt, linetype = 2) +
   annotate("text",
-           x = Topt, y = 0, vjust = 0.5, hjust = 2,
+           x = Topt, y = 0, vjust = 0.5, hjust = 1.3,
            label = "T['opt']",
-           parse = TRUE, size = 8) +
+           parse = TRUE, size = 8, color = "red") +
   
   # Breadth (FWHM): double-headed arrow at half height + ticks + label
   annotate("segment",
@@ -220,25 +220,25 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
            y = half_height, yend = half_height,
            arrow = arrow(ends = "both", length = unit(6, "pt"))) +
   annotate("text",
-           x = (T_low + T_high)/2, y = half_height + 0.08*Rmax_eff,
+           x = 29, y = 0.85,
            label = "breadth",
-           parse = TRUE, hjust = 1, vjust = 1, size = 8) +
+           parse = TRUE, size = 8, color = "red") +
   
   # E (activation energy) schematic on rising limb + label
   annotate("segment",
-           x = E_x1, xend = E_x2,
-           y = E_y1, yend = E_y2,
+           x = 23.8, xend = 27.3,
+           y = 0.5, yend = 1.4,
            linewidth = 1.1, arrow = arrow(length = unit(6, "pt"))) +
   annotate("text",
-           x = E_x1 - 0.2, y = (E_y1 + E_y2)/2,
-           label = "italic('E')",
-           parse = TRUE, hjust = -0.5, vjust = 0.5, size = 8) +
-  annotate("text", x = CTmin, y = 0.2, vjust = 1.6, hjust = -0.05,
-           label = "CT['min']", parse = TRUE, size = 8, color = "slategray4") +
-  annotate("text", x = CTmax, y = 0.2, vjust = 1.6, hjust = -0.01,
-           label = "CT['max']", parse = TRUE, size = 8, color = "slategray4") +
+           x = 24, y = 1,
+           label = "e",
+           parse = TRUE, hjust = -0.5, vjust = 0.5, size = 8, color = "red") +
+  # annotate("text", x = CTmin, y = 0.2, vjust = 1.6, hjust = -0.05,
+  #          label = "CT['min']", parse = TRUE, size = 8, color = "slategray4") +
+  # annotate("text", x = CTmax, y = 0.2, vjust = 1.6, hjust = -0.01,
+  #          label = "CT['max']", parse = TRUE, size = 8, color = "slategray4") +
   labs(x = expression("Temperature ("*degree*C*")"),
-       y = expression("Physiological Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
+       y = expression("Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1}))) +
   coord_cartesian(ylim = c(0, Rmax*1.15)) +
   theme_classic(base_size = 22)+
   xlim(20,36)
@@ -246,3 +246,4 @@ p <- ggplot(df, aes(x = temp, y = rate_mean)) +
 p
 
 ggsave(here("Output","Okinawa_Map","tpc_schematic.pdf"), p, h = 8, w = 10)
+saveRDS(p, here("Output/Okinawa_Map/tpc_schematic.rds"))
