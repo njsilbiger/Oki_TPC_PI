@@ -41,6 +41,8 @@ library(furrr)
 library(dplyr)
 library(ggplot2)
 library(ggpubr)
+library(minpack.lm)
+library(car)
 
 ############# now it's time to code ############
 ################################################
@@ -292,8 +294,6 @@ RespoR_PR <- RespoR_Normalized %>%
 
 write_csv(RespoR_PR,here("Data","RespoFiles","TPC","PnR_rates.csv")) # export all the uptake rates
 RespoR_PR <- read_csv(here("Data","RespoFiles","TPC","PnR_rates.csv"))
-sp_keep <- c("Fcom","Prus", "Peyd", "Elam", "Maeq", "Tfro", "Ahya")
-RespoR_PR <- RespoR_PR %>% filter(species %in% sp_keep)
 
 #dev.off() # may need if plot doesn't run?
 PR_plot <- RespoR_PR %>% 
@@ -406,6 +406,16 @@ ggplot(df_no4, aes(temp_c_value, Values, color = outlier_any)) +
 
 #drop outliers
 df_clean <- df_no4 %>% filter(!outlier_any)
+clean_pr_plot <- df_clean %>% 
+  ggplot(aes(x = temp_c_value, y = Values, group=frag_ID, color = species)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~PR*species, scales = "free") +
+  theme_bw() +
+  labs(x = "Temperature °C", y = "umol.cm2.hr")+
+  theme(strip.background = element_rect(fill = "white"),
+        strip.text = element_text(face = "bold"))
+
 write_csv(df_clean, here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
 df_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
 #removes 289 data points (makes sense, one whole run plus quite a few)
@@ -430,7 +440,7 @@ topt_df <- tibble(rmax = as.numeric(),
 #and predicted data
 preds_all <- tibble(
   PR = as.character(),
-  frag_ID = as.character(),
+  species = as.character(),
   temp_c_value = as.numeric(),
   .fitted = numeric()
 )
@@ -442,10 +452,10 @@ for (j in unique(df_clean$PR)){
   PR_df <- df_clean %>%
     filter(PR == pr)
   
-  for(i in unique(PR_df$frag_ID)){
+  for(i in unique(PR_df$species)){
     id = i
     my_df <- PR_df %>%
-      filter(frag_ID == id)
+      filter(species == id)
     
     # get start vals
     start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
@@ -478,7 +488,7 @@ for (j in unique(df_clean$PR)){
       # round for easy viewing
       mutate_all(round, 2) %>% 
       mutate(PR = pr,
-             frag_ID = id)
+             species = id)
     
     topt_df <- topt_df %>%
       rbind(topt_params)
@@ -486,13 +496,131 @@ for (j in unique(df_clean$PR)){
     #generate predictions
     preds_id <- augment(fit, newdata = new_data) %>%
       transmute(PR = pr,
-                frag_ID = id,
+                species = id,
                 temp_c_value = new_data$temp_c_value,
                 .fitted = .fitted)
     
     preds_all <- bind_rows(preds_all, preds_id)
   }
 }
+
+###create predictions at the species level
+
+preds_all_sp <- tibble(
+  PR = as.character(),
+  species = as.character(),
+  temp_c_value = as.numeric(),
+  .fitted = numeric(),
+  conf_lower = numeric(),
+  conf_upper = numeric()
+)
+
+#generate empty dataframes to fill in data for topt
+topt_df_sp <- tibble(rmax = as.numeric(),
+                  topt = as.numeric(),
+                  ctmin = as.numeric(),
+                  ctmax = as.numeric(),
+                  e = as.numeric(),
+                  eh = as.numeric(),
+                  q10 = as.numeric(),
+                  thermal_safety_margin = as.numeric(),
+                  thermal_tolerance = as.numeric(),
+                  breadth = as.numeric(),
+                  skewness = as.numeric(),
+                  species = as.character(),
+                  PR = as.character())
+
+new_data <- tibble(temp_c_value = c(24.5, 26, 27, 28, 29, 30, 31, 32, 34))
+
+for (j in unique(df_clean$PR)){
+  pr = j
+  PR_df <- df_clean %>%
+    filter(PR == pr)
+  
+  for(i in unique(PR_df$species)){
+    id = i
+    my_df <- PR_df %>%
+      filter(species == id)
+    
+    start_vals <- get_start_vals(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    
+    if (anyNA(start_vals) || any(!is.finite(start_vals))) {
+      message(sprintf("Skipping %s %s: could not set start values", id, pr))
+      next
+    }
+    
+    low_lims <- get_lower_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    upper_lims <- get_upper_lims(my_df$temp_c_value, my_df$Values, model_name = 'sharpeschoolhigh_1981')
+    
+    fit <- nls_multstart(Values~sharpeschoolhigh_1981(temp = temp_c_value, r_tref,e,eh,th, tref = 27),
+                         data = my_df,
+                         iter = 500,
+                         start_lower = start_vals - 10,
+                         start_upper = start_vals + 10,
+                         lower = low_lims,
+                         upper = upper_lims,
+                         supp_errors = 'Y')
+    
+    topt_params <- calc_params(fit) %>%
+      mutate_all(round, 2) %>%
+      mutate(PR = pr, species = id)
+    
+    topt_df_sp <- topt_df_sp %>%
+      rbind(topt_params)
+    
+    #refit with nlsLM (needed for car::Boot), use nls_multstart's coefficients as start values so it converges to the same solution
+    fit_nlsLM <- tryCatch({
+      minpack.lm::nlsLM(
+        Values ~ sharpeschoolhigh_1981(temp = temp_c_value, r_tref, e, eh, th, tref = 27),
+        data = my_df,
+        start = coef(fit),
+        lower = low_lims,
+        upper = upper_lims,
+        weights = rep(1, nrow(my_df))
+      )
+    }, error = function(e) NULL)
+    
+    #bootstrap via residual resampling
+    boot_ci <- NULL
+    if (!is.null(fit_nlsLM)) {
+      boot_fit <- tryCatch(
+        car::Boot(fit_nlsLM, method = "residual", R = 200),
+        error = function(e) NULL
+      )
+      
+      if (!is.null(boot_fit)) {
+        boot_preds <- boot_fit$t %>%
+          as.data.frame() %>%
+          drop_na() %>%
+          mutate(iter = 1:n()) %>%
+          group_by_all() %>%
+          do(data.frame(temp_c_value = new_data$temp_c_value)) %>%
+          ungroup() %>%
+          mutate(pred = sharpeschoolhigh_1981(temp_c_value, r_tref, e, eh, th, tref = 27))
+        
+        boot_ci <- boot_preds %>%
+          group_by(temp_c_value) %>%
+          summarise(conf_lower = quantile(pred, 0.025),
+                    conf_upper = quantile(pred, 0.975),
+                    .groups = "drop")
+      }
+    }
+    
+    if (is.null(boot_ci)) {
+      message(sprintf("Bootstrap failed for %s %s: CIs set to NA", id, pr))
+      boot_ci <- tibble(temp_c_value = new_data$temp_c_value,
+                        conf_lower = NA_real_, conf_upper = NA_real_)
+    }
+    
+    #updating predictions with boostrapped values
+    preds_id <- augment(fit, newdata = new_data) %>%
+      transmute(PR = pr, species = id, temp_c_value = new_data$temp_c_value, .fitted = .fitted) %>%
+      left_join(boot_ci, by = "temp_c_value")
+    
+    preds_all_sp <- bind_rows(preds_all_sp, preds_id)
+  }
+}
+
 
 #Code skips over a lot of the respiration values because it can't set start values
 #these will print when you run
@@ -501,14 +629,24 @@ for (j in unique(df_clean$PR)){
 #add species names to predictions and topt dfs and pnr data
 BioData <- read_csv(here("Data","RespoFiles","TPC","Fragment_Measurements_TPC.csv"))
 
-preds_all <- preds_all %>% 
-  dplyr::select(PR, frag_ID, temp_c_value, .fitted) %>% 
+#join frag data
+preds_all <- preds_all %>%
+  dplyr::select(PR, frag_ID, temp_c_value, .fitted) %>%
   left_join(BioData, by = "frag_ID")
-topt_df <- topt_df %>% 
-  dplyr::select(rmax, topt, ctmin, ctmax, e, eh, q10, thermal_safety_margin, thermal_tolerance, breadth, skewness, PR, frag_ID) %>% 
+topt_df <- topt_df %>%
+  dplyr::select(rmax, topt, ctmin, ctmax, e, eh, q10, thermal_safety_margin, thermal_tolerance, breadth, skewness, PR, frag_ID) %>%
   left_join(BioData, by = "frag_ID")
+
+#join sp data
+preds_all_sp <- preds_all_sp %>%
+  left_join(BioData, by = "species")
+topt_df_sp <- topt_df_sp %>%
+  left_join(BioData, by = "species")
 
 #save data files
 #clean = outliers removed
 write_csv(topt_df, here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 write_csv(preds_all, here("Data","RespoFiles","TPC","Preds_data_clean_no4.csv"))
+
+write_csv(topt_df_sp, here("Data","RespoFiles","TPC","Topt_data_clean_no4_species.csv"))
+write_csv(preds_all_sp, here("Data","RespoFiles","TPC","Preds_data_clean_no4_species.csv"))

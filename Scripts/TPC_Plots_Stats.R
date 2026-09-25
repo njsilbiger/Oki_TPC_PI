@@ -37,6 +37,12 @@ preds_gp <- preds_all %>% filter(PR == "GrossPhoto")
 preds_np <- preds_all %>% filter(PR == "NetPhoto")
 preds_resp <- preds_all %>% filter(PR == "Respiration")
 
+preds_all_sp <- read_csv(here("Data","RespoFiles","TPC","Preds_data_clean_no4_species.csv"))
+
+preds_gp_sp <- preds_all_sp %>% filter(PR == "GrossPhoto")
+preds_np_sp <- preds_all_sp %>% filter(PR == "NetPhoto")
+preds_resp_sp <- preds_all_sp %>% filter(PR == "Respiration")
+
 #and topt data
 topt_df <- read_csv(here("Data","RespoFiles","TPC","Topt_data_clean_no4.csv"))
 topt_gp <- topt_df %>% filter(PR == "GrossPhoto")
@@ -106,11 +112,91 @@ resp_pred_plot <- PnR_clean %>% filter(PR == "Respiration") %>%
 resp_pred_plot
 #ggsave(here("Output", "TPC", "Graphs","resp_predicted_plot.pdf"),device = "pdf", height = 8, width = 6, resp_pred_plot)
 
-all_pred_plots <- ggarrange(gp_pred_plot, np_pred_plot, resp_pred_plot, 
+all_pred_plots <- ggarrange(np_pred_plot, gp_pred_plot, resp_pred_plot, 
                             nrow = 3, ncol = 1, labels = c("A", "B", "C"), 
                             font.label = list(size = 20, color = "black"))
 
 ggsave(here("Output","TPC","Graphs","tpc_pred_all_gp_np_r.pdf"), all_pred_plots, h = 12, w = 12)
+
+#TPC prediction plots by species
+
+######plots of predicted TPCs with data#####
+
+#gross photo
+gp_pred_plot_sp <- PnR_clean %>% filter(PR == "GrossPhoto") %>% 
+  ggplot(aes(x = temp_c_value, y = Values, color = full_species)) +
+  geom_point(alpha = 0.7, shape = 21) +
+  geom_line(data = preds_gp_sp,
+            aes(temp_c_value, .fitted, group = full_species),
+            linewidth = 0.6) +
+  geom_ribbon(data = preds_gp_sp, aes(x = temp_c_value, ymin = conf_lower, ymax = conf_upper, 
+                                      group = full_species, fill = full_species), alpha = 0.2, inherit.aes = F) +
+  theme_classic(base_size = 12) +
+  theme(strip.text = element_text(face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols)+
+  scale_fill_manual(values = sp_cols) +
+  #geom_vline(data = topt_gp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_gp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+  #facet_wrap(~ full_species, scales = "free_y") +
+  #ylim(0.48,2.5) +
+  facet_wrap(~ full_species, scales = "free", nrow = 2, ncol = 5) +
+  labs(x = "Temperature (ºC)",
+       y = expression("GP Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1})))
+
+gp_pred_plot_sp
+
+#ggsave(here("Output", "TPC", "Graphs", "gp_predicted_plot.pdf"),device = "pdf", height = 8, width = 8, gp_pred_plot_sp)
+
+#net photo
+np_pred_plot_sp <- PnR_clean %>% filter(PR == "NetPhoto") %>% 
+  ggplot(aes(x = temp_c_value, y = Values, color = full_species)) +
+  geom_point(alpha = 0.7, shape = 21) +
+  geom_line(data = preds_np_sp,
+            aes(temp_c_value, .fitted, group = full_species),
+            linewidth = 0.6) +
+  geom_ribbon(data = preds_np_sp, aes(x = temp_c_value, ymin = conf_lower, ymax = conf_upper, 
+                                      group = full_species, fill = full_species), alpha = 0.2,inherit.aes = F) +
+  theme_classic(base_size = 12) +
+  theme(strip.text = element_text(face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols)+
+  scale_fill_manual(values = sp_cols) +
+  #geom_vline(data = topt_np,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_np,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+  facet_wrap(~ full_species, scales = "free", nrow = 2, ncol = 5) +
+  labs(x = "Temperature (ºC)",
+       y = expression("NP Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1})))
+
+np_pred_plot_sp
+
+#gsave(here("Output", "TPC", "Graphs","np_predicted_plot.pdf"),device = "pdf", height = 8, width = 8, np_pred_plot_sp)
+
+#respiration 
+resp_pred_plot_sp <- PnR_clean %>% filter(PR == "Respiration") %>% 
+  ggplot(aes(x = temp_c_value, y = Values, color = full_species)) +
+  geom_point(alpha = 0.7, shape = 21) +
+  geom_line(data = preds_resp_sp,
+            aes(temp_c_value, .fitted, group = ),
+            linewidth = 0.6) +
+  geom_ribbon(data = preds_resp_sp, aes(x = temp_c_value, ymin = conf_lower, ymax = conf_upper, 
+                                        group = full_species, fill = full_species), alpha = 0.2, inherit.aes = F) +
+  theme_classic(base_size = 12) +
+  theme(strip.text = element_text(face = "italic"), legend.position = "none")+
+  scale_color_manual(values = sp_cols)+
+  scale_fill_manual(values = sp_cols) +
+  #geom_vline(data = topt_resp,aes(xintercept = topt),linewidth = 0.3, color = "red") +
+  #geom_hline(data = topt_resp,aes(yintercept = rmax),linewidth = 0.3, color = "darkgreen") +
+  facet_wrap(~ full_species, scales = "free", nrow = 2, ncol = 5) +
+  labs(x = "Temperature (ºC)",
+       y = expression("R Rate" ~ (mu*mol ~ cm^{-2} ~ h^{-1})))
+
+resp_pred_plot_sp
+
+all_pred_plot_sp <- ggarrange(np_pred_plot_sp, gp_pred_plot_sp, resp_pred_plot_sp, 
+                            nrow = 3, ncol = 1, labels = c("A", "B", "C"), 
+                            font.label = list(size = 20, color = "black"))
+
+ggsave(here("Output","TPC","Graphs","tpc_pred_all_gp_np_r_sp.pdf"), all_pred_plot_sp, h = 12, w = 12)
+
 
 
 #all rates stacked plots
