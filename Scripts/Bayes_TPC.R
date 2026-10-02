@@ -183,7 +183,14 @@ species_meta <- BioData |> group_by(frag_ID) |> distinct(frag_ID, .keep_all = TR
 params_bayes_wide <- params_bayes_wide |> left_join(species_meta, by = "frag_ID")
 
 #save data
-saveRDS(draws_bayes_df, here("Data","RespoFiles","TPC","bayes_draws_no4.rds")) #using RDS bc it's huge and better for the MCMC output
+#thin draws so that the file is small enough for github (checked fits against larger dataset, still looks great)
+draws_thin <- draws_bayes_df |>
+  group_by(PR, frag_ID) |>
+  slice(seq(1, n(), by = 5)) |>
+  ungroup()
+#save
+saveRDS(draws_thin, here("Data","RespoFiles","TPC","bayes_draws_thin_no4.rds")) #using RDS bc it's huge and better for the MCMC output
+
 #can also save as csv as needed
 write_csv(params_bayes_wide, here("Data","RespoFiles","TPC","bayes_params_no4.csv"))
 
@@ -198,7 +205,8 @@ write_csv(params_bayes_wide, here("Data","RespoFiles","TPC","bayes_params_no4.cs
 PnR_clean <- read_csv(here("Data","RespoFiles","TPC","PnR_clean_no4.csv"))
 PnR_clean <- PnR_clean |> left_join(species_meta, by = "frag_ID")
 
-draws_bayes_df <- readRDS(here("Data","RespoFiles","TPC","bayes_draws_no4.rds"))
+#draws_bayes_df <- readRDS(here("Data","RespoFiles","TPC","bayes_draws_no4.rds")) #too large
+draws_thin <- readRDS(here("Data","RespoFiles","TPC","bayes_draws_thin_no4.rds"))
 params_bayes_wide <- read_csv(here("Data","RespoFiles","TPC","bayes_params_no4.csv"))
 
 #little metadata action to join
@@ -232,9 +240,9 @@ summ_draws <- function(x) {
 
 plot_temps <- seq(min(PnR_clean$temp_c_value), max(PnR_clean$temp_c_value), by = 0.1)
 
-curves_bayes <- draws_bayes_df |>
+curves_bayes <- draws_thin |>
   group_by(PR, frag_ID) |>
-  slice(seq(1, n(), by = 10)) |> # thin draws to speed this up
+  #slice(seq(1, n(), by = 10)) |> # already thinned above - just use this
   group_modify(~ map_dfr(plot_temps, function(t)
     summ_draws(eval_tpc(.x, t)) |> mutate(temp_c_value = t))) |>
   ungroup() |>
