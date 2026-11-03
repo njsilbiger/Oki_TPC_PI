@@ -49,6 +49,7 @@ oki_outline <- ggplot() + #generate map of just outline
   coord_sf(xlim = c(127.5, 128.5), ylim = c(26, 27), expand = FALSE) +
   ggspatial::annotation_scale(location = 'tl') + 
   #labs(title = "Okinawa Island, Japan") +
+  annotation_north_arrow(which_north = "true") +
   theme_classic(base_size = 22)
 oki_outline
 
@@ -66,6 +67,7 @@ oki_outline_labels <- ggplot() +
   geom_sf(data = pref_outline, fill = "honeydew4", color = "black", linewidth = 0.2) +
   #labs(title = "Okinawa Island, Japan") +
   theme_classic(base_size = 15) +
+  annotation_north_arrow(which_north = "true") +
   #geom_sf(data = oist, shape = 21, fill = "firebrick3", size = 4, stroke = 0.5) + #add labels on map
   #geom_sf_text(data = oist, aes(label = name), nudge_x = -0.05, fontface = "bold", size = 5) +
   #geom_sf(data = oist_mss, shape = 21, fill = "firebrick3", size = 8, stroke = 0.5) +
@@ -127,13 +129,19 @@ max(temp$Temperature) #29.99
 mean(temp$Temperature) #29.16
 min(temp$Temperature) #27.06
 
+exp_start <- 
+exp_end <- 
+
 #yearly satellite temp
 noaa_temp_plot <- ggplot(aqua_temp) +
   geom_line(aes(y = satellite_temperature_noaa, x = timestamp))+
   #geom_line(aes(y = dhw_noaa, x = timestamp))+
   #geom_hline(yintercept = 28.294, linetype = "dashed") +
   #geom_hline(yintercept = 29.87, linetype = "dashed") +
-  labs(x = "Date", y = "Temperature (°C)") +
+  labs(x = " ", y = "Temperature (°C)") +
+  #july 29-aug 8
+  annotate("rect",xmin = as.Date("2025-07-29"), xmax = as.Date("2025-08-8"), ymin = -Inf, ymax = Inf, fill = "steelblue", alpha = 0.5) +
+  #geom_vline(xintercept = "2025-07-29") + 
   theme_bw(base_size = 18)+
   theme(axis.text.x = element_text(angle = 45, hjust=1))+
   #ylim(27,30.2)+
