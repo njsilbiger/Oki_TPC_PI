@@ -18,9 +18,10 @@ library(ggpubr)
 #bayesTPC: Bayesian inference for thermal performance curves in R
 #https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70004
 #https://github.com/johnwilliamsmithjr/bayesTPC
+get_models()
 
 # #look at info for shsch model
-# get_default_model_specification("pawar_shsch")
+get_default_model_specification("pawar_shsch")
 # # bayesTPC Model Specification of Type: pawar_shsch
 # # Model Formula:
 # #   m[i] <- ( (e_h > e) * r_tref * exp((e/(8.62e-05)) * ((1/(T_ref + 273.15)) - (1/(Temp + 273.15))))/(1 + (e/(e_h - e)) * exp((e_h/(8.62e-05)) * (1/(T_opt + 273.15) - 1/(Temp + 273.15)))) )
@@ -34,6 +35,8 @@ library(ggpubr)
 # # sigma.sq ~ dexp(1)
 # # Model Constants:
 # #   T_ref = 20
+
+
 
 #read in data
 df_clean <- read_csv(here("Data", "RespoFiles", "TPC", "PnR_clean_no4.csv"))
@@ -83,7 +86,7 @@ draws_bayes  <- list() #full posterior draws, for between-species comparisons
 
 #run for loop!!!!
 #across different PR and species
-#nicely keeps you updated with progress with outputs
+#nicely keeps you updated with progress with outputs wooh
 #took about 10mins with 20,000 iterations across 3 parameters and 10 frag_ID
 for (pr in unique(df_clean$PR)) {
   for (sp in unique(df_clean$frag_ID[df_clean$PR == pr])) {
@@ -612,7 +615,7 @@ ggsave(here("Output/TPC/Graphs/topt_comparison_bayes_nls.pdf"), height = 8, widt
 # #removes 289 data points (makes sense, one whole run plus quite a few)
 # 
 # #look at priors for shsch model
-# get_default_model_specification("pawar_shsch")
+get_default_model_specification("pawar_shsch")
 # # bayesTPC Model Specification of Type: pawar_shsch
 # # Model Formula:
 # #   m[i] <- ( (e_h > e) * r_tref * exp((e/(8.62e-05)) * ((1/(T_ref + 273.15)) - (1/(Temp + 273.15))))/(1 + (e/(e_h - e)) * exp((e_h/(8.62e-05)) * (1/(T_opt + 273.15) - 1/(Temp + 273.15)))) )

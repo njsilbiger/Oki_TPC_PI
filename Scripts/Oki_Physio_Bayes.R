@@ -19,7 +19,7 @@ library(tidybayes)
 library(vegan)
 library(pairwiseAdonis)
 
-# Initial data processing
+#### Initial data processing ####
 
 # Initial tissue biomass calculations
 
@@ -176,6 +176,7 @@ library(pairwiseAdonis)
 # all_physio <- physio_list %>% reduce(left_join)
 # write_csv(all_physio, here("Data", "Physiology", "all_physio_data.csv"))
 #all_physio <- read_csv(here("Data", "Physiology", "all_physio_data.csv"))
+
 
 #### Read in data ####
 
@@ -344,7 +345,7 @@ pp_species <- function(fit, m) {
                  group = "full_species", ndraws = 50) +
     ggtitle("Density by species")
   p <- p1 / p2 + plot_layout(heights = c(1, 2))
-  ggsave(here("Output/Physio_Bayes", paste0(m, "_ppcheck.pdf")), p, width = 12, height = 10)
+  ggsave(here("Output/Physio_Bayes", paste0(m, "_ppcheck.png")), p, width = 12, height = 10)
   p
 }
 
@@ -404,7 +405,7 @@ plot_species <- function(m) {
     stat_halfeye(data = ep,
                  aes(x = full_species, y = est, fill = full_species),
                  position = position_nudge(x = 0.25), width = 0.5,
-                 .width = c(0.66, 0.95), point_interval = median_qi,
+                 .width = c(0.50, 0.95), point_interval = median_qi,
                  slab_alpha = 0.5, color = "black", point_size = 1.8,
                  show.legend = FALSE) +
     scale_fill_manual(values = species_colors, guide = "none") +
@@ -428,7 +429,7 @@ species_plots <- map(set_names(metrics_final), plot_species)
 
 # Save each plot
 iwalk(species_plots, \(p, m)
-      ggsave(here("Output/Physio_Bayes", paste0(m, "_species_bayes.pdf")), p,
+      ggsave(here("Output/Physio_Bayes", paste0(m, "_species_bayes.png")), p,
              width = 8, height = 4.5))
 
 #### Ordination plot of data ####
@@ -464,15 +465,15 @@ pca_physio_spp_arrows <- ggplot(pca_physio, aes(x = PC1, y = PC2, color = full_s
   scale_fill_manual(values = species_colors, name = "Species", labels = function(x) parse(text = paste0("italic('", gsub("'", "\\\\'", x), "')")))+
   #stat_ellipse(geom = "polygon", alpha = 0.1, linewidth = 0.2)+
   stat_ellipse(level = 0.0001, geom = "point", shape = 21) +
-  stat_ellipse(level = 0.95, alpha = 0, linewidth = 0)+
+  #stat_ellipse(level = 0.95, alpha = 0, linewidth = 0)+
   #stat_ellipse(aes(fill = group), level = 0.95, alpha = 0.5, color = "black", linewidth = 0.8) +
   geom_segment(data = physio_scores,
-               aes(x = 0, y = 0, xend = PC1*4, yend = PC2*4),
+               aes(x = 0, y = 0, xend = PC1*1, yend = PC2*1),
                arrow = arrow(length = unit(0.25, "cm")),
                color = "black", inherit.aes = FALSE) +
   #labs(title = "Physiology") +
   geom_text(data = physio_scores,
-            aes(x = PC1 * 4.2, y = PC2 * 4.2, label = variable),
+            aes(x = PC1 * 1.2, y = PC2 * 1.2, label = variable),
             color = "black", size = 5, inherit.aes = FALSE) +
   theme_classic(base_size = 22)
 
@@ -518,4 +519,4 @@ physio_plots_bayes <- ggarrange(species_plots$chla_log, species_plots$chla_sym_l
                                 font.label = list(size = 20, color = "black"))
 physio_plots_bayes
 
-ggsave(here("Output/Physio_Bayes","physio_plots_bayes.pdf"), physio_plots_bayes, h = 8, w = 16)
+ggsave(here("Output/Physio_Bayes","physio_plots_bayes.png"), physio_plots_bayes, h = 8, w = 16)
